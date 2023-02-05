@@ -1,0 +1,34 @@
+{{#* inline "content" }}
+    <h2>Message</h2>
+    {{ this.message }}
+
+    <table>
+        <tr>
+            <th>Type</th>
+            <th>First Timestamp</th>
+            <th>Last Timestamp</th>
+            <th>Count</th>
+            <th>Reason</th>
+            <th>Reporting Component</th>
+            <th>Reporting Instance</th>
+            <th>Source</th>
+        </tr>
+
+        <tr>
+            <td>{{ this.type }}</td>
+            <td>{{ age this.firstTimestamp }}</td>
+            <td>{{ age this.lastTimestamp }}</td>
+            <td>{{ this.count }}</td>
+            <td>{{ this.reason }}</td>
+            <td>{{ this.reportingComponent }}</td>
+            <td>{{ this.reportingInstance }}</td>
+            <td><pre>{{ to_yaml this.source }}</pre></td>
+        </tr>
+    </table>
+
+    <h2>Involved Object</h2>
+    <pre>{{ to_yaml this.involvedObject }}</pre>
+
+{{/ inline }}
+
+{{> base }}

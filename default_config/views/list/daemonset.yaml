@@ -1,0 +1,83 @@
+resource:
+  group: apps
+  version: v1
+  kind: DaemonSet
+imports:
+  - import "daemonset" as ds;
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/daemonset.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !ScriptContent
+      content: "commons::name(resource)"
+
+  - name: cur_scheduled
+    display_name: CurSched
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.currentNumberScheduled ?? "-"
+
+  - name: desired
+    display_name: Desired
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.desiredNumberScheduled ?? "-"
+
+  - name: available
+    display_name: Avail
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.numberAvailable ?? "-"
+
+  - name: misscheduled
+    display_name: Missched
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.numberMisscheduled ?? "-"
+
+  - name: ready
+    display_name: Ready
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.numberReady ?? "-"
+
+  - name: observed_generation
+    display_name: ObsGen
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.observedGeneration ?? "-"
+
+  - name: updatedNumberScheduled
+    display_name: UpdNumSched
+    width: 8
+    evaluator: !ScriptContent
+      content: resource?.status?.updatedNumberScheduled ?? "-"
+
+  - name: ready_del
+    display_name: State
+    width: 8
+    evaluator: !ScriptContent
+      content: ds::state(resource)
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

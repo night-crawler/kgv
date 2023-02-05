@@ -1,0 +1,64 @@
+resource:
+  group: source.toolkit.fluxcd.io
+  version: v1beta2
+  kind: HelmChart
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/flux.helm.chart.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: chart
+    display_name: Chart
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.chart? ?? "-"
+
+  - name: interval
+    display_name: Ivl
+    width: 5
+    evaluator: !ScriptContent
+      content: resource?.spec?.interval ?? "-"
+
+  - name: strategy
+    display_name: Strategy
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.spec?.reconcileStrategy ?? "-"
+
+  - name: version
+    display_name: Version
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.spec?.version ?? "-"
+
+  - name: ready
+    display_name: Ready
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

@@ -1,0 +1,61 @@
+resource:
+  group: ''
+  version: v1
+  kind: Pod
+imports:
+  - import "pod" as pod;
+  - import "commons" as commons;
+pseudo_resources:
+  - name: "container"
+    script_content: "pod::extract_containers(resource)"
+events:
+  - !Submit
+    action: !ShowDetailsTable "container"
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !ScriptContent
+      content: "commons::name(resource)"
+
+  - name: ready
+    display_name: Ready
+    width: 5
+    evaluator: !ScriptContent
+      content: "pod::ready(resource)"
+
+  - name: restarts
+    display_name: "🗘"
+    width: 3
+    evaluator: !ScriptContent
+      content: "pod::restarts(resource)"
+
+  - name: Phase
+    display_name: Phase
+    width: 7
+    evaluator: !ScriptContent
+      content: "pod::phase(resource)"
+
+  - name: ip
+    display_name: IP
+    width: 20
+    evaluator: !ScriptContent
+      content: "pod::ips(resource)"
+
+  - name: node
+    display_name: Node
+    width: 10
+    evaluator: !ScriptContent
+      content: "pod::node_name(resource)"
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

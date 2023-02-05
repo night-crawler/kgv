@@ -1,0 +1,19 @@
+{{#* inline "header" }}
+  {{# with this.status }}
+    <ul>
+      <li><em>Helm Chart</em>: {{ helmChart }}</li>
+      <li><em>Last Applied Revision</em>: {{ lastAppliedRevision }}</li>
+      <li><em>Last Attempted Revision</em>: {{ lastAttemptedRevision }}</li>
+      <li><em>Last Attempted Values Chechsum</em>: {{ lastAttemptedValuesChecksum }}</li>
+      <li><em>Last Release Revision</em>: {{ lastReleaseRevision }}</li>
+      <li><em>Observed Generation</em>: {{ observedGeneration }}</li>
+    </ul>
+  {{/ with }}
+{{/ inline }}
+
+{{#* inline "content" }}
+  <h2>Spec</h2>
+  <pre>{{ to_yaml this.spec }}</pre>
+{{/ inline }}
+
+{{> base }}

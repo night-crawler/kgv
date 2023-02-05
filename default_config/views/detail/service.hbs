@@ -1,0 +1,20 @@
+{{#* inline "header" }}
+    {{# with this.spec }}
+        <ul>
+            <li><em>Type</em>: {{ type }}</li>
+            <li><em>IP Family Policy</em>: {{ ipFamilyPolicy }}</li>
+            <li><em>IP Families</em>: {{ join ipFamilies ", " }}</li>
+            <li><em>Cluster IP</em>: {{ clusterIP }}</li>
+            <li><em>Cluster IPs</em>: {{ join clusterIPs ", " }}</li>
+        </ul>
+    {{/ with }}
+{{/ inline }}
+
+{{#* inline "content" }}
+    <h2>Selector</h2>
+    <pre>{{ to_yaml this.spec.selector }}</pre>
+    <h2>Spec</h2>
+    <pre>{{ to_yaml this.spec }}</pre>
+{{/ inline }}
+
+{{> base }}

@@ -1,0 +1,61 @@
+resource:
+  group: ''
+  version: v1
+  kind: Service
+imports:
+  - import "commons" as commons;
+  - import "service" as svc;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/service.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+    - name: join
+      path: ./helpers/join.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: type
+    display_name: Type
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.spec?.type ?? "-"
+
+  - name: cluster_ip
+    display_name: ClusterIP
+    width: 15
+    evaluator: !ScriptContent
+      content: (resource?.spec?.clusterIPs ?? []).join(",")
+
+  - name: external_ip
+    display_name: ExternalIP
+    width: 30
+    evaluator: !ScriptContent
+      content: svc::external_ips(resource)
+
+  - name: ports
+    display_name: Ports
+    width: 40
+    evaluator: !ScriptContent
+      content: commons::format_ports(resource?.spec?.ports)
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

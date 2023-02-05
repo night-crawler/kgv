@@ -1,0 +1,73 @@
+resource:
+  group: ''
+  version: v1
+  kind: Node
+imports:
+  - import "commons" as commons;
+  - import "node" as node;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/node.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+    - name: join
+      path: ./helpers/join.rhai
+
+columns:
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: provider
+    display_name: Provider
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.providerID ?? "-"
+
+  - name: cpu
+    display_name: CPU
+    width: 10
+    evaluator: !ScriptContent
+      content: node::cpu(resource)
+
+  - name: pods
+    display_name: Pods
+    width: 7
+    evaluator: !ScriptContent
+      content: node::pods(resource)
+
+  - name: images
+    display_name: Img
+    width: 5
+    evaluator: !ScriptContent
+      content: (resource?.status?.images ?? []).len()
+
+  - name: images_gb
+    display_name: ImgGb
+    width: 5
+    evaluator: !ScriptContent
+      content: node::total_image_gb(resource)
+
+  - name: system
+    display_name: System
+    width: 20
+    evaluator: !ScriptContent
+      content: node::system(resource)
+
+  - name: cond
+    display_name: Cond
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

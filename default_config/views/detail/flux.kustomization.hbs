@@ -1,0 +1,19 @@
+{{#* inline "header" }}
+    {{# with this.status }}
+        <ul>
+            <li><em>Observed Generation</em>: {{ observedGeneration }}</li>
+            <li><em>Last Applied Revision</em>: {{ lastAppliedRevision }}</li>
+            <li><em>Last Attempted Revision</em>: {{ lastAttemptedRevision }}</li>
+            {{# if lastHandledReconcileAt }}
+              <li><em>Last Handle Reconciled</em>: {{ age lastHandledReconcileAt }}</li>
+            {{/ if }}
+        </ul>
+    {{/ with }}
+{{/ inline }}
+
+{{#* inline "content" }}
+    <h2>Spec</h2>
+    <pre>{{ to_yaml this.spec }}</pre>
+{{/ inline }}
+
+{{> base }}

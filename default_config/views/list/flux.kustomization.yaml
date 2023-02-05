@@ -1,0 +1,76 @@
+resource:
+  group: kustomize.toolkit.fluxcd.io
+  version: v1beta2
+  kind: Kustomization
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/flux.kustomization.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: force
+    display_name: Force
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::yes_no(resource?.spec?.force)
+
+  - name: prune
+    display_name: Prune
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::yes_no(resource?.spec?.prune)
+
+  - name: provider
+    display_name: Provider
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.spec?.provider ?? "-"
+
+  - name: interval
+    display_name: Interval
+    width: 6
+    evaluator: !ScriptContent
+      content: resource?.spec?.interval ?? "-"
+
+  - name: retry_interval
+    display_name: Retry
+    width: 6
+    evaluator: !ScriptContent
+      content: resource?.spec?.retryInterval ?? "-"
+
+  - name: timeout
+    display_name: Timeout
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.spec?.timeout ?? "-"
+
+  - name: ready
+    display_name: Ready
+    width: 7
+    evaluator: !ScriptContent
+      content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

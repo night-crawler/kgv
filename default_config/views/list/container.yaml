@@ -1,0 +1,72 @@
+resource:
+  group: ''
+  version: v1
+  kind: "Pod/container"
+imports:
+  - import "container" as container;
+columns:
+  - name: name
+    display_name: Name
+    width: 20
+    evaluator: !ScriptContent
+      content: "container::name(resource)"
+
+  - name: image
+    display_name: Image
+    width: 0
+    evaluator: !ScriptContent
+      content: "container::image(resource)"
+
+  - name: init
+    display_name: Init
+    width: 4
+    evaluator: !ScriptContent
+      content: "container::is_init(resource)"
+
+  - name: restarts
+    display_name: 🗘
+    width: 4
+    evaluator: !ScriptContent
+      content: "container::restarts(resource, source)"
+
+  - name: state
+    display_name: State
+    width: 16
+    evaluator: !ScriptContent
+      content: "container::state(resource, source)"
+
+  - name: probes
+    display_name: L:R
+    width: 8
+    evaluator: !ScriptContent
+      content: "container::probes(resource)"
+
+  - name: mem_rl
+    display_name: Mem
+    width: 8
+    evaluator: !ScriptContent
+      content: "container::mem_rl(resource)"
+
+  - name: cpu_rl
+    display_name: CPU
+    width: 8
+    evaluator: !ScriptContent
+      content: "container::cpu_rl(resource)"
+
+  - name: ports
+    display_name: Ports
+    width: 40
+    evaluator: !ScriptContent
+      content: "container::ports(resource)"
+
+  - name: upd
+    display_name: Upd
+    width: 4
+    evaluator: !ScriptContent
+      content: "container::last_action(resource, source)"
+
+  - name: age
+    display_name: Age
+    width: 4
+    evaluator: !Embedded
+      name: Age

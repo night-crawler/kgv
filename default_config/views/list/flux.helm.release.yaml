@@ -1,0 +1,76 @@
+resource:
+  group: helm.toolkit.fluxcd.io
+  version: v2beta1
+  kind: HelmRelease
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/flux.helm.release.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: chart
+    display_name: Chart
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.status?.helmChart ?? "-"
+
+#  - name: sa
+#    display_name: SA
+#    width: 0
+#    evaluator: !ScriptContent
+#      content: resource?.spec?.serviceAccountName ?? "-"
+
+  - name: release
+    display_name: Release
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.releaseName ?? "-"
+
+  - name: interval
+    display_name: Ivl
+    width: 5
+    evaluator: !ScriptContent
+      content: resource?.spec?.interval ?? "-"
+
+  - name: timeout
+    display_name: T/out
+    width: 5
+    evaluator: !ScriptContent
+      content: resource?.spec?.timeout ?? "-"
+
+  - name: last_attempted_revision
+    display_name: LAR
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.status?.lastAttemptedRevision ?? "-"
+
+  - name: ready
+    display_name: Ready
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

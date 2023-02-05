@@ -1,0 +1,19 @@
+{{#* inline "header" }}
+    {{# with this.status }}
+        <ul>
+            <li><em>Replicas</em>: {{ replicas }}</li>
+            <li><em>Available</em>: {{ availableReplicas }}</li>
+            <li><em>Unavailable</em>: {{ unavailableReplicas }}</li>
+            <li><em>Updated</em>: {{ updatedReplicas }}</li>
+        </ul>
+    {{/ with }}
+{{/ inline }}
+
+{{#* inline "content" }}
+    <h2>Selector</h2>
+    <pre>{{ to_yaml this.spec.selector }}</pre>
+    <h2>Spec</h2>
+    <pre>{{ to_yaml this.spec }}</pre>
+{{/ inline }}
+
+{{> base }}

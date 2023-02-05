@@ -1,0 +1,21 @@
+<h2>Status</h2>
+
+<ul>
+  <li><em>Name</em>: {{ this.metadata.name }}</li>
+  {{# if this.status.phase }}
+    <li><em>Phase</em>: {{ this.status.phase }}</li>
+  {{/ if }}
+  <li><em>Age</em>: {{ age this.metadata.creationTimestamp }}</li>
+  <li><em>Resource Version</em>: {{ this.metadata.resourceVersion }}</li>
+  <li><em>UID</em>: {{ this.metadata.uid }}</li>
+</ul>
+
+{{> header }}
+
+{{> partials/kv_map kv_map=this.metadata.labels name="Labels" }}
+{{> partials/kv_map kv_map=this.metadata.annotations name="Annotations" }}
+{{> partials/conditions conditions=this.status.conditions name="Conditions" }}
+
+{{> content }}
+
+{{> footer }}

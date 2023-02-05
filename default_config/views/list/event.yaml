@@ -1,0 +1,65 @@
+resource:
+  group: ''
+  version: v1
+  kind: Event
+imports:
+  - import "event" as ev;
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/event.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: gvk
+    display_name: GVK
+    width: 15
+    evaluator: !ScriptContent
+      content: ev::gvk(resource)
+
+  - name: involved_name
+    display_name: Involved Name
+    width: 0
+    evaluator: !ScriptContent
+      content: ev::involved_name(resource)
+
+  - name: first_ts
+    display_name: First
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::live_timestamp(resource?.firstTimestamp)
+
+  - name: last_ts
+    display_name: Last
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::live_timestamp(resource?.lastTimestamp)
+
+  - name: type
+    display_name: Type
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.type ?? "-"
+
+  - name: reason
+    display_name: Reason
+    width: 20
+    evaluator: !ScriptContent
+      content: resource?.reason ?? "-"
+
+  - name: count
+    display_name: Count
+    width: 5
+    evaluator: !ScriptContent
+      content: resource?.count ?? "-"

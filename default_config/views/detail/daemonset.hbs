@@ -1,0 +1,20 @@
+{{#* inline "header" }}
+    {{# with this.status }}
+        <ul>
+            <li><em>Current Number Scheduled</em>: {{ currentNumberScheduled }}</li>
+            <li><em>Desired Number Scheduled</em>: {{ desiredNumberScheduled }}</li>
+            <li><em>Number Available</em>: {{ numberAvailable }}</li>
+            <li><em>Number Misscheduled</em>: {{ numberMisscheduled }}</li>
+            <li><em>Number Ready</em>: {{ numberReady }}</li>
+            <li><em>Observed Generation</em>: {{ observedGeneration }}</li>
+            <li><em>Updated Number Scheduled</em>: {{ updatedNumberScheduled }}</li>
+        </ul>
+    {{/ with }}
+{{/ inline }}
+
+{{#* inline "content" }}
+    <h2>Spec</h2>
+    <pre>{{ to_yaml this.spec }}</pre>
+{{/ inline }}
+
+{{> base }}

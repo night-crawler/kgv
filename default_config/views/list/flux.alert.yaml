@@ -1,0 +1,52 @@
+resource:
+  group: notification.toolkit.fluxcd.io
+  version: v1beta1
+  kind: Alert
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/flux.alert.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: severity
+    display_name: Severity
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.eventSeverity ?? "-"
+
+  - name: providerRef
+    display_name: Provider Ref
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.providerRef?.name ?? "-"
+
+  - name: ready
+    display_name: Ready
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

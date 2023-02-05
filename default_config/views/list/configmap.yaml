@@ -1,0 +1,41 @@
+resource:
+  group: ''
+  version: v1
+  kind: ConfigMap
+imports:
+  - import "configmap" as cm;
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/configmap.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: len
+    display_name: Len
+    width: 7
+    evaluator: !ScriptContent
+      content: "cm::len(resource)"
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

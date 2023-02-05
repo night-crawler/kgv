@@ -1,0 +1,64 @@
+resource:
+  group: source.toolkit.fluxcd.io
+  version: v1beta2
+  kind: GitRepository
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/flux.git.repo.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: url
+    display_name: URL
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.url ?? "-"
+
+  - name: interval
+    display_name: Interval
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.spec?.interval ?? "-"
+
+  - name: branch
+    display_name: Branch
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.ref?.branch ?? "-"
+
+  - name: tag
+    display_name: Tag
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.ref?.tag ?? "-"
+
+  - name: timeout
+    display_name: Timeout
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.spec?.timeout ?? "-"
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age
