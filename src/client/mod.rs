@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -178,7 +178,8 @@ pub async fn discover_gvk(client: &Client) -> Result<Vec<GroupVersionKind>> {
             if !caps.supports_operation(verbs::LIST) {
                 continue;
             }
-            let gvk = GroupVersionKind::gvk(group.name(), &api_resource.version, &api_resource.kind);
+            let gvk =
+                GroupVersionKind::gvk(group.name(), &api_resource.version, &api_resource.kind);
             result.push(gvk);
         }
     }
