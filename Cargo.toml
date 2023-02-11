@@ -18,6 +18,7 @@ itertools = "0.10"
 cruet = "0.13"
 strum = "0.24"
 strum_macros = "0.24"
+lazy_static = "1.4"
 
 [dependencies.cursive]
 version = "0.20"

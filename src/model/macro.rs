@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! mk_filter_enum {
     (
@@ -18,7 +17,7 @@ macro_rules! mk_filter_enum {
         }
 
         impl $name {
-            pub fn get_columns(&self) -> &[$crate::ui::resource_column::ResourceColumn] {
+            pub fn get_columns(&self) -> &[$crate::model::resource_column::ResourceColumn] {
                 match self {
                     $(
                         Self::$opt_name(_) => &[

@@ -772,6 +772,7 @@ dependencies = [
  "k8s-openapi",
  "kanal",
  "kube",
+ "lazy_static",
  "rand",
  "strum",
  "strum_macros",

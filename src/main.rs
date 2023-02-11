@@ -6,7 +6,7 @@ use anyhow::Result;
 use cursive::direction::Orientation;
 use cursive::reexports::log;
 use cursive::reexports::log::LevelFilter::Info;
-use cursive::reexports::log::{error, warn};
+use cursive::reexports::log::{error, info, warn};
 use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive::{event, menu, CursiveRunnable};
@@ -15,13 +15,15 @@ use futures::StreamExt;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kube::api::GroupVersionKind;
 use kube::Client;
+use crate::model::discover_gvk;
+use crate::model::reflector_registry::ReflectorRegistry;
 
-use crate::client::{discover_gvk, ReflectorRegistry, ResourceView};
-use crate::ui::resource_column::ResourceColumn;
+use crate::model::resource_column::ResourceColumn;
+use crate::model::resource_view::ResourceView;
+use crate::ui::group_gvks;
 use crate::util::k8s::{GvkExt, GvkStaticExt};
-use crate::util::ui::group_gvks;
 
-pub mod client;
+pub mod model;
 pub mod theme;
 pub mod ui;
 pub mod util;
@@ -172,6 +174,7 @@ fn main() -> Result<()> {
                         match registry.lock() {
                             Ok(guard) => {
                                 if let Some(resources) = guard.get_resources(&resource_gvk) {
+                                    info!("Set items");
                                     table.set_items(resources);
                                 } else {
                                     error!("GVK {:?} not found in registry", resource_gvk)
