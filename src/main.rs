@@ -1,55 +1,47 @@
 use std::cmp::Ordering;
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use cursive::direction::Orientation;
 use cursive::reexports::log;
-use cursive::reexports::log::LevelFilter::Debug;
+use cursive::reexports::log::LevelFilter::Info;
+use cursive::reexports::log::{error, warn};
 use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
-use cursive::{event, menu, CursiveRunnable, Cursive};
+use cursive::{event, menu, CursiveRunnable};
 use cursive_table_view::{TableView, TableViewItem};
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
-use k8s_openapi::Resource;
 use kube::api::GroupVersionKind;
 use kube::Client;
 
 use crate::client::{discover_gvk, ReflectorRegistry, ResourceView};
+use crate::ui::resource_column::ResourceColumn;
+use crate::util::k8s::{GvkExt, GvkStaticExt};
 use crate::util::ui::group_gvks;
 
 pub mod client;
 pub mod theme;
+pub mod ui;
 pub mod util;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-enum PodColumn {
-    Namespace,
-    Name,
-    Ready,
-    Restarts,
-    Status,
-    Ip,
-    Node,
-    Age,
-}
-
-impl TableViewItem<PodColumn> for ResourceView {
-    fn to_column(&self, column: PodColumn) -> String {
+impl TableViewItem<ResourceColumn> for ResourceView {
+    fn to_column(&self, column: ResourceColumn) -> String {
         match column {
-            PodColumn::Namespace => self.namespace(),
-            PodColumn::Name => self.name(),
+            ResourceColumn::Namespace => self.namespace(),
+            ResourceColumn::Name => self.name(),
             _ => String::new(),
         }
     }
 
-    fn cmp(&self, other: &Self, column: PodColumn) -> Ordering
+    fn cmp(&self, other: &Self, column: ResourceColumn) -> Ordering
     where
         Self: Sized,
     {
         match column {
-            PodColumn::Name => self.name().cmp(&other.name()),
-            PodColumn::Namespace => self.namespace().cmp(&other.namespace()),
+            ResourceColumn::Name => self.name().cmp(&other.name()),
+            ResourceColumn::Namespace => self.namespace().cmp(&other.namespace()),
             _ => Ordering::Equal,
         }
     }
@@ -76,27 +68,40 @@ fn build_menu(
             group_tree = group_tree.leaf(leaf_name, move |s| {
                 if let Ok(mut g) = c.lock() {
                     *g = gvk.clone();
+                    s.pop_layer();
                 }
-                s.pop_layer();
             });
         }
         menu_bar.add_subtree(group_name, group_tree);
     }
 }
 
-fn build_main_layout() -> LinearLayout {
+fn build_main_layout(current_gvk: &Arc<Mutex<GroupVersionKind>>) -> LinearLayout {
+    let gvk = Arc::clone(current_gvk);
+    let _gvk = match gvk.lock() {
+        Ok(gvk) => gvk.clone(),
+        Err(err) => {
+            error!("Failed to get GVK while building menu: {}", err);
+            Pod::gvk_for_type()
+        }
+    };
+
     let mut main_layout = LinearLayout::new(Orientation::Vertical);
 
     let mut filter_layout = LinearLayout::new(Orientation::Horizontal);
     filter_layout.add_child(Panel::new(EditView::new()).title("Namespaces").full_width());
     filter_layout.add_child(Panel::new(EditView::new()).title("Name").full_width());
 
-    let table: TableView<ResourceView, PodColumn> = TableView::new()
-        .column(PodColumn::Namespace, "Namespace", |c| c)
-        .column(PodColumn::Name, "Name", |c| c)
-        .column(PodColumn::Name, "Rate", |c| c);
+    let table: TableView<ResourceView, ResourceColumn> = TableView::new()
+        .column(
+            ResourceColumn::Namespace,
+            ResourceColumn::Namespace.as_ref(),
+            |c| c,
+        )
+        .column(ResourceColumn::Name, "Name", |c| c)
+        .column(ResourceColumn::Name, "Rate", |c| c);
 
-    let table_panel = Panel::new(table.with_name("pods").full_screen()).title("Pods");
+    let table_panel = Panel::new(table.with_name("table").full_screen()).title("Pods");
 
     main_layout.add_child(filter_layout.full_width());
     main_layout.add_child(DummyView {}.full_width());
@@ -118,24 +123,20 @@ fn main() -> Result<()> {
 
     let client = main_rt.block_on(async { Client::try_default().await })?;
 
-    let gvks = main_rt.block_on(async { discover_gvk(&client).await })?;
+    let discovered_gvks = main_rt.block_on(async { discover_gvk(&client).await })?;
 
     let mut ui = CursiveRunnable::default();
     let mut ui = ui.runner();
 
-    let current_gvk = Arc::new(Mutex::new(GroupVersionKind::gvk(
-        Pod::GROUP,
-        Pod::VERSION,
-        Pod::KIND,
-    )));
+    let current_gvk = Arc::new(Mutex::new(Pod::gvk_for_type()));
 
-    build_menu(ui.menubar(), gvks, &current_gvk);
+    build_menu(ui.menubar(), discovered_gvks, &current_gvk);
     ui.set_autohide_menu(false);
 
     cursive::logger::init();
-    log::set_max_level(Debug);
+    log::set_max_level(Info);
 
-    let main_layout = build_main_layout();
+    let main_layout = build_main_layout(&current_gvk);
     ui.add_fullscreen_layer(main_layout);
 
     let sink = ui.cb_sink().clone();
@@ -149,30 +150,54 @@ fn main() -> Result<()> {
         reg
     });
 
+    let arc_registry = Arc::new(Mutex::new(registry));
+
     exchange_rt.spawn(async move {
         let mut stream = receiver.stream();
-        while let Some(resource_view) = stream.next().await {
-            sink.send(Box::new(|siv| {
-                siv.call_on_name("pods", |table: &mut TableView<ResourceView, PodColumn>| {
-                    let q = resource_view.gvk();
-                    match resource_view {
-                        ResourceView::PodView(pod) => {
-                            let mut items = table.take_items();
-                            items.push(ResourceView::from(pod));
-                            table.set_items(items);
-                        }
-                        ResourceView::NamespaceView(_) => {
-                            println!("!");
-                        }
-                    }
-                })
-                .expect("!!!!!!!asd");
-            }))
-            .expect("????");
-        }
-        panic!("@@@@@@@@@@@@@@@@@@@@@@@@@!!")
-    });
 
+        while let Some(resource_view) = stream.next().await {
+            let resource_gvk = resource_view.gvk();
+            if let Ok(guard) = current_gvk.lock() {
+                if &resource_gvk != guard.deref() {
+                    continue;
+                }
+            }
+
+            let registry = Arc::clone(&arc_registry);
+            let send_result = sink.send(Box::new(move |siv| {
+                let call_result = siv.call_on_name(
+                    "table",
+                    |table: &mut TableView<ResourceView, ResourceColumn>| {
+                        table.take_items();
+                        match registry.lock() {
+                            Ok(guard) => {
+                                if let Some(resources) = guard.get_resources(&resource_gvk) {
+                                    table.set_items(resources);
+                                } else {
+                                    error!("GVK {:?} not found in registry", resource_gvk)
+                                }
+                            }
+                            Err(err) => {
+                                error!("Could not acquire a lock {}", err)
+                            }
+                        }
+                    },
+                );
+                if call_result.is_none() {
+                    warn!("Failed to call a callback for {:?}", resource_gvk);
+                }
+            }));
+
+            if let Err(err) = send_result {
+                error!(
+                    "Failed to send an update event to table for resource {:?}; Error: {}",
+                    resource_view.gvk(),
+                    err
+                );
+            }
+        }
+        warn!("Main exchange loop has ended")
+    });
 
     ui.add_global_callback('~', |s| s.toggle_debug_console());
     ui.add_global_callback(event::Key::Esc, |s| s.select_menubar());

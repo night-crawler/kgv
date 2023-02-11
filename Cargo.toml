@@ -16,6 +16,8 @@ futures = "0.3"
 async-trait = "0.1"
 itertools = "0.10"
 cruet = "0.13"
+strum = "0.24"
+strum_macros = "0.24"
 
 [dependencies.cursive]
 version = "0.20"

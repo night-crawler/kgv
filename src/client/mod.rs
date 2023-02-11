@@ -5,9 +5,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{StreamExt, TryStreamExt};
-use k8s_openapi::api::core::v1::{Namespace, Pod};
+use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Pod};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
-use k8s_openapi::{Metadata, Resource};
+use k8s_openapi::Metadata;
 use kanal::AsyncSender;
 use kube::api::{DynamicObject, GroupVersionKind, ListParams};
 use kube::discovery::{verbs, Scope};
@@ -15,9 +15,19 @@ use kube::runtime::reflector::Store;
 use kube::runtime::{reflector, watcher, WatchStreamExt};
 use kube::{Api, Client, Discovery, ResourceExt};
 
+use crate::util::k8s::GvkStaticExt;
+use crate::{mk_filter_enum, ResourceColumn};
+
+pub mod r#macro;
+
+mk_filter_enum!(ResourceView, [
+    Namespace: [ResourceColumn::Namespace, ResourceColumn::Name],
+    Pod: [ResourceColumn::Namespace, ResourceColumn::Name],
+    ConfigMap: [ResourceColumn::Namespace, ResourceColumn::Name]
+]);
+
 #[async_trait]
-trait SpecViewAdapter {
-    fn gvk(&self) -> GroupVersionKind;
+pub trait SpecViewAdapter {
     fn items(&self) -> Vec<ResourceView>;
 }
 
@@ -33,10 +43,6 @@ where
         + for<'de> k8s_openapi::serde::Deserialize<'de>,
     ResourceView: From<Arc<T>>,
 {
-    fn gvk(&self) -> GroupVersionKind {
-        GroupVersionKind::gvk(T::GROUP, T::VERSION, T::KIND)
-    }
-
     fn items(&self) -> Vec<ResourceView> {
         self.state()
             .iter()
@@ -45,54 +51,28 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum ResourceView {
-    PodView(Arc<Pod>),
-    NamespaceView(Arc<Namespace>),
-}
-
 impl ResourceView {
-    pub fn gvk(&self) -> GroupVersionKind {
-        let (group, version, kind) = match self {
-            ResourceView::PodView(_) => (Pod::GROUP, Pod::VERSION, Pod::KIND),
-            ResourceView::NamespaceView(_) => {
-                (Namespace::GROUP, Namespace::VERSION, Namespace::KIND)
-            }
-        };
-        GroupVersionKind::gvk(group, version, kind)
-    }
-
     pub fn name(&self) -> String {
         match self {
-            ResourceView::PodView(r) => r.name_any(),
-            ResourceView::NamespaceView(r) => r.name_any(),
+            ResourceView::Pod(r) => r.name_any(),
+            ResourceView::Namespace(r) => r.name_any(),
+            ResourceView::ConfigMap(r) => r.name_any(),
         }
     }
 
     pub fn namespace(&self) -> String {
         match self {
-            ResourceView::PodView(r) => r.namespace().unwrap_or_default(),
-            ResourceView::NamespaceView(r) => r.namespace().unwrap_or_default(),
+            ResourceView::Pod(r) => r.namespace().unwrap_or_default(),
+            ResourceView::Namespace(r) => r.namespace().unwrap_or_default(),
+            ResourceView::ConfigMap(r) => r.namespace().unwrap_or_default(),
         }
-    }
-}
-
-impl From<Arc<Pod>> for ResourceView {
-    fn from(resource: Arc<Pod>) -> Self {
-        ResourceView::PodView(resource)
-    }
-}
-
-impl From<Arc<Namespace>> for ResourceView {
-    fn from(resource: Arc<Namespace>) -> Self {
-        ResourceView::NamespaceView(resource)
     }
 }
 
 pub struct ReflectorRegistry {
     sender: AsyncSender<ResourceView>,
     client: Client,
-    readers: HashMap<GroupVersionKind, Box<dyn SpecViewAdapter>>,
+    readers_map: HashMap<GroupVersionKind, Box<dyn SpecViewAdapter + Send + Sync>>,
 }
 
 impl ReflectorRegistry {
@@ -100,7 +80,7 @@ impl ReflectorRegistry {
         Self {
             sender,
             client: client.clone(),
-            readers: HashMap::default(),
+            readers_map: HashMap::default(),
         }
     }
 
@@ -129,7 +109,11 @@ impl ReflectorRegistry {
             }
         });
 
-        self.readers.insert(reader.gvk(), Box::new(reader));
+        self.readers_map.insert(T::gvk_for_type(), Box::new(reader));
+    }
+
+    pub fn get_resources(&self, gvk: &GroupVersionKind) -> Option<Vec<ResourceView>> {
+        self.readers_map.get(gvk).map(|a| a.items())
     }
 }
 

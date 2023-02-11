@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
+
 use cruet::Inflector;
 use kube::api::GroupVersionKind;
-use crate::util::gvk_sort_key;
+use crate::util::k8s::gvk_sort_key;
+
 
 pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionKind>)> {
     let mut misc = vec![];
