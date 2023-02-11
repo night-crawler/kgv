@@ -12,13 +12,6 @@ mk_filter_enum!(ResourceView, [
 ]);
 
 
-impl From<Arc<kube::api::DynamicObject>> for ResourceView {
-    fn from(resource: Arc<kube::api::DynamicObject>) -> Self {
-        let a = resource.as_ref().clone();
-        ResourceView::DynamicObject(Arc::new(crate::model::DynamicObjectWrapper(a)))
-    }
-}
-
 
 impl ResourceView {
     pub fn name(&self) -> String {

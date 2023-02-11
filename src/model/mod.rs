@@ -13,14 +13,13 @@ pub mod traits;
 pub mod impls;
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
-pub struct DynamicObjectWrapper(DynamicObject);
+pub struct DynamicObjectWrapper(DynamicObject, GroupVersionKind);
 
 impl Default for DynamicObjectWrapper {
     fn default() -> Self {
         let gvk = GroupVersionKind::gvk("", "", "");
         let ar = ApiResource::from_gvk(&gvk);
-        Self(DynamicObject::new("", &ar))
+        Self(DynamicObject::new("", &ar), gvk)
     }
 }
 

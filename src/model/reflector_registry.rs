@@ -59,7 +59,7 @@ impl ReflectorRegistry {
 
         self.readers_map.insert(T::gvk_for_type(), Box::new(reader));
 
-        info!("Registered GVK: {:?}", T::gvk_for_type());
+        info!("Registered Resource: {:?}", T::gvk_for_type());
     }
 
     pub async fn register_gvk(&mut self, gvk: GroupVersionKind) -> anyhow::Result<()> {
@@ -74,18 +74,19 @@ impl ReflectorRegistry {
         let rf = reflector(writer, watcher(api, params));
 
         let sender = self.sender.clone();
+        let key = gvk.clone();
         tokio::spawn(async move {
             let mut rfa = rf.applied_objects().boxed();
             while let Ok(Some(resource)) = rfa.try_next().await {
-                let qwe = DynamicObjectWrapper(resource);
-                let bla = ResourceView::DynamicObject(Arc::from(qwe));
-                let _ = sender.send(bla).await;
+                let wrapper = DynamicObjectWrapper(resource, gvk.clone());
+                let view = ResourceView::DynamicObject(Arc::from(wrapper));
+                let _ = sender.send(view).await;
             }
         });
 
-        self.readers_map.insert(gvk.clone(), Box::new(reader));
+        self.readers_map.insert(key.clone(), Box::new(reader));
 
-        info!("Registered GVK: {:?}", gvk);
+        info!("Registered GVK: {:?}", key);
 
         Ok(())
     }
