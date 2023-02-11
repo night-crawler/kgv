@@ -28,6 +28,29 @@ macro_rules! mk_filter_enum {
             }
         }
 
+        impl $name {
+            pub fn build_gvk_to_columns_map() -> std::collections::HashMap<
+                kube::api::GroupVersionKind,
+                Vec<$crate::model::resource_column::ResourceColumn>
+            > {
+                use $crate::model::traits::GvkStaticExt;
+                let mut map = std::collections::HashMap::new();
+
+                $(
+                    let gvk = k8s_openapi::api::core::v1::$opt_name::gvk_for_type();
+                    let result = map.insert(
+                        gvk.clone(),
+                        vec![
+                            $($column),+
+                        ],
+                    );
+                    assert!(result.is_none(), "Duplicate value: {:?}", gvk);
+                )+
+
+                map
+            }
+        }
+
 
         $(
             impl From<Arc<$opt_name>> for $name {
@@ -44,7 +67,7 @@ macro_rules! mk_filter_enum {
         //         $crate::parse::util::prepare_enum_map::<$name>();
         // }
 
-        impl $crate::util::k8s::GvkExt for $name {
+        impl $crate::model::traits::GvkExt for $name {
                 fn gvk(&self) -> kube::api::GroupVersionKind {
                 match self {
                     $(

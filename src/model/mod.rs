@@ -9,6 +9,7 @@ pub mod reflector_registry;
 pub mod resource_column;
 pub mod resource_view;
 pub mod traits;
+pub mod impls;
 
 pub async fn discover(client: &Client) -> Result<Vec<Pod>> {
     let client = client.clone();

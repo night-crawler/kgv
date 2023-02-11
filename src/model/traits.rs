@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::Metadata;
 use kube::runtime::reflector::Store;
+use kube::api::GroupVersionKind;
 
 use crate::model::resource_view::ResourceView;
 
@@ -30,4 +31,13 @@ where
             .map(|resource| Arc::clone(resource).into())
             .collect()
     }
+}
+
+pub trait GvkStaticExt {
+    fn gvk_for_type() -> GroupVersionKind;
+}
+
+
+pub trait GvkExt {
+    fn gvk(&self) -> GroupVersionKind;
 }

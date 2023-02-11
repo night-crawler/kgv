@@ -8,7 +8,7 @@ use crate::{mk_filter_enum, ResourceColumn};
 
 mk_filter_enum!(ResourceView, [
     Namespace: [ResourceColumn::Namespace, ResourceColumn::Name],
-    Pod: [ResourceColumn::Namespace, ResourceColumn::Name],
+    Pod: [ResourceColumn::Namespace, ResourceColumn::Name, ResourceColumn::Status],
     ConfigMap: [ResourceColumn::Namespace, ResourceColumn::Name]
 ]);
 

@@ -11,8 +11,7 @@ use kube::runtime::{reflector, watcher, WatchStreamExt};
 use kube::{Api, Client};
 
 use crate::model::resource_view::ResourceView;
-use crate::model::traits::SpecViewAdapter;
-use crate::util::k8s::GvkStaticExt;
+use crate::model::traits::{GvkStaticExt, SpecViewAdapter};
 
 pub struct ReflectorRegistry {
     sender: AsyncSender<ResourceView>,

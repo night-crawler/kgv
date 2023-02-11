@@ -1,10 +1,11 @@
 use strum_macros::AsRefStr;
+use strum_macros::EnumIter;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, AsRefStr)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, AsRefStr, EnumIter)]
 pub enum ResourceColumn {
     Namespace,
     Name,
-    TYpe,
+    Type,
     Ports,
     ClusterIp,
     ExternalIp,

@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LockResult, Mutex};
 
 use anyhow::Result;
 use cursive::direction::Orientation;
@@ -9,50 +8,30 @@ use cursive::reexports::log::LevelFilter::Info;
 use cursive::reexports::log::{error, info, warn};
 use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
-use cursive::{event, menu, CursiveRunnable};
-use cursive_table_view::{TableView, TableViewItem};
+use cursive::{event, menu, Cursive, CursiveRunnable};
+use cursive_table_view::TableView;
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kube::api::GroupVersionKind;
 use kube::Client;
+
 use crate::model::discover_gvk;
 use crate::model::reflector_registry::ReflectorRegistry;
-
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
-use crate::ui::group_gvks;
-use crate::util::k8s::{GvkExt, GvkStaticExt};
+use crate::model::traits::{GvkExt, GvkStaticExt};
+use crate::ui::traits::MenuNameExt;
+use crate::ui::{group_gvks, GVK_TO_COLUMNS_MAP};
 
 pub mod model;
 pub mod theme;
 pub mod ui;
 pub mod util;
 
-impl TableViewItem<ResourceColumn> for ResourceView {
-    fn to_column(&self, column: ResourceColumn) -> String {
-        match column {
-            ResourceColumn::Namespace => self.namespace(),
-            ResourceColumn::Name => self.name(),
-            _ => String::new(),
-        }
-    }
-
-    fn cmp(&self, other: &Self, column: ResourceColumn) -> Ordering
-    where
-        Self: Sized,
-    {
-        match column {
-            ResourceColumn::Name => self.name().cmp(&other.name()),
-            ResourceColumn::Namespace => self.namespace().cmp(&other.namespace()),
-            _ => Ordering::Equal,
-        }
-    }
-}
-
 fn build_menu(
     menu_bar: &mut Menubar,
     gvks: Vec<GroupVersionKind>,
-    current_gvk: &Arc<Mutex<GroupVersionKind>>,
+    selected_gvk: &Arc<Mutex<GroupVersionKind>>,
 ) {
     menu_bar.add_subtree("File", menu::Tree::new().leaf("Exit", |s| s.quit()));
 
@@ -60,17 +39,17 @@ fn build_menu(
 
     for (group_name, group) in grouped_gvks {
         let mut group_tree = menu::Tree::new();
-        for gvk in group {
+        for resource_gvk in group {
             let leaf_name = if group_name == "Misc" {
-                format!("{}/{}/{}", &gvk.group, &gvk.version, &gvk.kind)
+                resource_gvk.full_menu_name()
             } else {
-                format!("{}/{}", &gvk.version, &gvk.kind)
+                resource_gvk.short_menu_name()
             };
-            let c = Arc::clone(current_gvk);
-            group_tree = group_tree.leaf(leaf_name, move |s| {
-                if let Ok(mut g) = c.lock() {
-                    *g = gvk.clone();
-                    s.pop_layer();
+
+            let selected_gvk_cloned = Arc::clone(selected_gvk);
+            group_tree = group_tree.leaf(leaf_name, move |siv| {
+                if let Ok(mut guard) = selected_gvk_cloned.lock() {
+                    *guard = resource_gvk.clone();
                 }
             });
         }
@@ -78,9 +57,9 @@ fn build_menu(
     }
 }
 
-fn build_main_layout(current_gvk: &Arc<Mutex<GroupVersionKind>>) -> LinearLayout {
-    let gvk = Arc::clone(current_gvk);
-    let _gvk = match gvk.lock() {
+fn build_main_layout(selected_gvk: &Arc<Mutex<GroupVersionKind>>) -> LinearLayout {
+    let selected_gvk = Arc::clone(selected_gvk);
+    let selected_gvk = match selected_gvk.lock() {
         Ok(gvk) => gvk.clone(),
         Err(err) => {
             error!("Failed to get GVK while building menu: {}", err);
@@ -94,14 +73,11 @@ fn build_main_layout(current_gvk: &Arc<Mutex<GroupVersionKind>>) -> LinearLayout
     filter_layout.add_child(Panel::new(EditView::new()).title("Namespaces").full_width());
     filter_layout.add_child(Panel::new(EditView::new()).title("Name").full_width());
 
-    let table: TableView<ResourceView, ResourceColumn> = TableView::new()
-        .column(
-            ResourceColumn::Namespace,
-            ResourceColumn::Namespace.as_ref(),
-            |c| c,
-        )
-        .column(ResourceColumn::Name, "Name", |c| c)
-        .column(ResourceColumn::Name, "Rate", |c| c);
+    let mut table: TableView<ResourceView, ResourceColumn> = TableView::new();
+
+    for column in GVK_TO_COLUMNS_MAP.get(&selected_gvk).into_iter().flatten() {
+        table = table.column(*column, column.as_ref(), |c| c);
+    }
 
     let table_panel = Panel::new(table.with_name("table").full_screen()).title("Pods");
 
@@ -110,6 +86,33 @@ fn build_main_layout(current_gvk: &Arc<Mutex<GroupVersionKind>>) -> LinearLayout
     main_layout.add_child(table_panel);
 
     main_layout
+}
+
+fn render_all_items(
+    siv: &mut Cursive,
+    registry: &Arc<Mutex<ReflectorRegistry>>,
+    resource_gvk: GroupVersionKind,
+) -> Option<()> {
+    let registry = Arc::clone(registry);
+    siv.call_on_name(
+        "table",
+        |table: &mut TableView<ResourceView, ResourceColumn>| {
+            table.take_items();
+            match registry.lock() {
+                Ok(guard) => {
+                    if let Some(resources) = guard.get_resources(&resource_gvk) {
+                        info!("Set items for type {:?}", resource_gvk);
+                        table.set_items(resources);
+                    } else {
+                        error!("GVK {:?} not found in registry", resource_gvk)
+                    }
+                }
+                Err(err) => {
+                    error!("Could not acquire a lock {}", err)
+                }
+            }
+        },
+    )
 }
 
 fn main() -> Result<()> {
@@ -130,7 +133,16 @@ fn main() -> Result<()> {
     let mut ui = CursiveRunnable::default();
     let mut ui = ui.runner();
 
+    let (sender, receiver) = kanal::unbounded_async();
+
     let current_gvk = Arc::new(Mutex::new(Pod::gvk_for_type()));
+    let registry = main_rt.block_on(async {
+        let mut reg = ReflectorRegistry::new(sender, &client);
+        reg.register::<Pod>().await;
+        reg.register::<Namespace>().await;
+        reg
+    });
+    let arc_registry = Arc::new(Mutex::new(registry));
 
     build_menu(ui.menubar(), discovered_gvks, &current_gvk);
     ui.set_autohide_menu(false);
@@ -142,17 +154,6 @@ fn main() -> Result<()> {
     ui.add_fullscreen_layer(main_layout);
 
     let sink = ui.cb_sink().clone();
-
-    let (sender, receiver) = kanal::unbounded_async();
-
-    let registry = main_rt.block_on(async {
-        let mut reg = ReflectorRegistry::new(sender, &client);
-        reg.register::<Pod>().await;
-        reg.register::<Namespace>().await;
-        reg
-    });
-
-    let arc_registry = Arc::new(Mutex::new(registry));
 
     exchange_rt.spawn(async move {
         let mut stream = receiver.stream();
@@ -167,25 +168,27 @@ fn main() -> Result<()> {
 
             let registry = Arc::clone(&arc_registry);
             let send_result = sink.send(Box::new(move |siv| {
-                let call_result = siv.call_on_name(
-                    "table",
-                    |table: &mut TableView<ResourceView, ResourceColumn>| {
-                        table.take_items();
-                        match registry.lock() {
-                            Ok(guard) => {
-                                if let Some(resources) = guard.get_resources(&resource_gvk) {
-                                    info!("Set items");
-                                    table.set_items(resources);
-                                } else {
-                                    error!("GVK {:?} not found in registry", resource_gvk)
-                                }
-                            }
-                            Err(err) => {
-                                error!("Could not acquire a lock {}", err)
-                            }
-                        }
-                    },
-                );
+                let call_result = render_all_items(siv, &registry, resource_gvk.clone());
+
+                // let call_result = siv.call_on_name(
+                //     "table",
+                //     |table: &mut TableView<ResourceView, ResourceColumn>| {
+                //         table.take_items();
+                //         match registry.lock() {
+                //             Ok(guard) => {
+                //                 if let Some(resources) = guard.get_resources(&resource_gvk) {
+                //                     info!("Set items for type {:?}", resource_gvk);
+                //                     table.set_items(resources);
+                //                 } else {
+                //                     error!("GVK {:?} not found in registry", resource_gvk)
+                //                 }
+                //             }
+                //             Err(err) => {
+                //                 error!("Could not acquire a lock {}", err)
+                //             }
+                //         }
+                //     },
+                // );
                 if call_result.is_none() {
                     warn!("Failed to call a callback for {:?}", resource_gvk);
                 }
