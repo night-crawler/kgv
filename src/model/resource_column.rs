@@ -12,7 +12,30 @@ pub enum ResourceColumn {
     Ready,
     Restarts,
     Status,
+    Service,
+    Available,
     Ip,
     Node,
     Age,
+    Data,
+
+    SignerName,
+    Requestor,
+    RequestedDuration,
+    Condition,
+
+    Secret,
+    Drivers,
+
+    Kind,
+    FirstLocation,
+
+    UpToDate,
+    Desired,
+    Current,
+    Role,
+    Subjects,
+    ClusterRole,
+    SubjectKind,
+    
 }

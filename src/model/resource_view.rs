@@ -24,7 +24,7 @@ impl ResourceView {
     pub fn namespace(&self) -> String {
         match self {
             ResourceView::Pod(r) => r.namespace().unwrap_or_default(),
-            ResourceView::Namespace(r) => r.namespace().unwrap_or_default(),
+            ResourceView::Namespace(_) => String::new(),
             ResourceView::ConfigMap(r) => r.namespace().unwrap_or_default(),
         }
     }
