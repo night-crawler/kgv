@@ -1,6 +1,7 @@
+use std::ops::Deref;
 use anyhow::Result;
 use k8s_openapi::api::core::v1::Pod;
-use kube::api::{DynamicObject, GroupVersionKind};
+use kube::api::{ApiResource, DynamicObject, GroupVersionKind};
 use kube::discovery::{verbs, Scope};
 use kube::{Api, Client, Discovery, ResourceExt};
 
@@ -10,6 +11,26 @@ pub mod resource_column;
 pub mod resource_view;
 pub mod traits;
 pub mod impls;
+
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct DynamicObjectWrapper(DynamicObject);
+
+impl Default for DynamicObjectWrapper {
+    fn default() -> Self {
+        let gvk = GroupVersionKind::gvk("", "", "");
+        let ar = ApiResource::from_gvk(&gvk);
+        Self(DynamicObject::new("", &ar))
+    }
+}
+
+impl Deref for DynamicObjectWrapper {
+    type Target = DynamicObject;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub async fn discover(client: &Client) -> Result<Vec<Pod>> {
     let client = client.clone();

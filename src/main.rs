@@ -10,8 +10,8 @@ use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Panel};
 use cursive::{event, menu, Cursive, CursiveRunnable};
 use cursive_table_view::TableView;
-use futures::StreamExt;
-use k8s_openapi::api::core::v1::{Namespace, Pod};
+use futures::{StreamExt, TryFutureExt};
+use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Pod};
 use kanal::AsyncReceiver;
 use kube::api::GroupVersionKind;
 use kube::Client;
@@ -99,6 +99,10 @@ impl App {
             let mut reg = ReflectorRegistry::new(resource_watcher_sender, &client);
             reg.register::<Pod>().await;
             reg.register::<Namespace>().await;
+
+            let a = ConfigMap::gvk_for_type();
+            reg.register_gvk(a).await.unwrap_or_else(|err| panic!("CYKA"));
+
             reg
         });
 
@@ -288,11 +292,12 @@ impl App {
 }
 
 fn main() -> Result<()> {
+    cursive::logger::init();
+    log::set_max_level(Info);
+
     let ui = CursiveRunnable::default();
 
     let mut app = App::new(ui)?;
-    cursive::logger::init();
-    log::set_max_level(Info);
 
     app.discover()?;
     app.build_menu();

@@ -14,6 +14,8 @@ macro_rules! mk_filter_enum {
             $(
                 $opt_name(std::sync::Arc<k8s_openapi::api::core::v1::$opt_name>),
             )+
+
+            DynamicObject(std::sync::Arc<$crate::model::DynamicObjectWrapper>)
         }
 
         impl $name {
@@ -24,6 +26,11 @@ macro_rules! mk_filter_enum {
                             $($column),+
                         ],
                     )+
+
+                    Self::DynamicObject(_) => &[
+                        $crate::model::resource_column::ResourceColumn::Namespace,
+                        $crate::model::resource_column::ResourceColumn::Name
+                    ],
                 }
             }
         }
@@ -60,19 +67,18 @@ macro_rules! mk_filter_enum {
             }
         )+
 
-
-
-        // lazy_static::lazy_static! {
-        //     static ref $map: std::collections::BTreeMap<&'static str, &'static str> =
-        //         $crate::parse::util::prepare_enum_map::<$name>();
-        // }
+        $(
+            impl $crate::model::traits::MarkerTraitForStaticCases for k8s_openapi::api::core::v1::$opt_name {}
+        )+
 
         impl $crate::model::traits::GvkExt for $name {
-                fn gvk(&self) -> kube::api::GroupVersionKind {
+            fn gvk(&self) -> kube::api::GroupVersionKind {
                 match self {
                     $(
                         Self::$opt_name(resource) => resource.gvk(),
                     )+
+
+                    Self::DynamicObject(wrapper) => wrapper.gvk()
                 }
             }
         }

@@ -1,17 +1,20 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
+use cursive::reexports::log::info;
 
 use futures::{StreamExt, TryStreamExt};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::Metadata;
 use kanal::AsyncSender;
-use kube::api::{GroupVersionKind, ListParams};
+use kube::api::{DynamicObject, GroupVersionKind, ListParams};
+use kube::runtime::reflector::store::Writer;
 use kube::runtime::{reflector, watcher, WatchStreamExt};
-use kube::{Api, Client};
+use kube::{discovery, Api, Client};
 
 use crate::model::resource_view::ResourceView;
-use crate::model::traits::{GvkStaticExt, SpecViewAdapter};
+use crate::model::traits::{GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
+use crate::model::DynamicObjectWrapper;
 
 pub struct ReflectorRegistry {
     sender: AsyncSender<ResourceView>,
@@ -36,7 +39,8 @@ impl ReflectorRegistry {
             + Debug
             + Send
             + Sync
-            + for<'de> k8s_openapi::serde::Deserialize<'de>,
+            + for<'de> k8s_openapi::serde::Deserialize<'de>
+            + MarkerTraitForStaticCases,
         ResourceView: From<Arc<T>>,
     {
         let api: Api<T> = Api::all(self.client.clone());
@@ -54,6 +58,36 @@ impl ReflectorRegistry {
         });
 
         self.readers_map.insert(T::gvk_for_type(), Box::new(reader));
+
+        info!("Registered GVK: {:?}", T::gvk_for_type());
+    }
+
+    pub async fn register_gvk(&mut self, gvk: GroupVersionKind) -> anyhow::Result<()> {
+        let (ar, caps) = discovery::pinned_kind(&self.client, &gvk).await?;
+        let api = Api::<DynamicObject>::all_with(self.client.clone(), &ar);
+
+        let params = ListParams::default();
+
+        let writer = Writer::new(ar);
+        let reader = writer.as_reader();
+
+        let rf = reflector(writer, watcher(api, params));
+
+        let sender = self.sender.clone();
+        tokio::spawn(async move {
+            let mut rfa = rf.applied_objects().boxed();
+            while let Ok(Some(resource)) = rfa.try_next().await {
+                let qwe = DynamicObjectWrapper(resource);
+                let bla = ResourceView::DynamicObject(Arc::from(qwe));
+                let _ = sender.send(bla).await;
+            }
+        });
+
+        self.readers_map.insert(gvk.clone(), Box::new(reader));
+
+        info!("Registered GVK: {:?}", gvk);
+
+        Ok(())
     }
 
     pub fn get_resources(&self, gvk: &GroupVersionKind) -> Option<Vec<ResourceView>> {
