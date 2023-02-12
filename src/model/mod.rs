@@ -65,10 +65,8 @@ pub async fn discover(client: &Client) -> Result<Vec<Pod>> {
     Ok(vec![])
 }
 
-pub async fn discover_gvk(client: &Client) -> Result<Vec<GroupVersionKind>> {
-    let client = client.clone();
-
-    let discovery = Discovery::new(client.clone()).run().await?;
+pub async fn discover_gvk(client: Client) -> Result<Vec<GroupVersionKind>> {
+    let discovery = Discovery::new(client).run().await?;
 
     let mut result = vec![];
     for group in discovery.groups() {

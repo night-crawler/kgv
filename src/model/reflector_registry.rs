@@ -63,7 +63,7 @@ impl ReflectorRegistry {
     }
 
     pub async fn register_gvk(&mut self, gvk: GroupVersionKind) -> anyhow::Result<()> {
-        let (ar, caps) = discovery::pinned_kind(&self.client, &gvk).await?;
+        let (ar, _caps) = discovery::pinned_kind(&self.client, &gvk).await?;
         let api = Api::<DynamicObject>::all_with(self.client.clone(), &ar);
 
         let params = ListParams::default();

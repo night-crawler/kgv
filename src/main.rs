@@ -1,16 +1,17 @@
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LockResult, Mutex};
+use std::time::Duration;
 
 use anyhow::Result;
 use cursive::direction::Orientation;
 use cursive::reexports::log;
+use cursive::reexports::log::error;
 use cursive::reexports::log::LevelFilter::Info;
-use cursive::reexports::log::{error, info};
 use cursive::traits::*;
-use cursive::views::{DummyView, EditView, LinearLayout, Panel};
+use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive::{event, menu, Cursive, CursiveRunnable};
 use cursive_table_view::TableView;
-use futures::{StreamExt, TryFutureExt};
+use futures::StreamExt;
 use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Pod};
 use kanal::AsyncReceiver;
 use kube::api::GroupVersionKind;
@@ -30,95 +31,130 @@ pub mod theme;
 pub mod ui;
 pub mod util;
 
+fn build_main_layout(selected_gvk: GroupVersionKind) -> LinearLayout {
+    let mut main_layout = LinearLayout::new(Orientation::Vertical);
+
+    let mut filter_layout = LinearLayout::new(Orientation::Horizontal);
+    filter_layout.add_child(Panel::new(EditView::new()).title("Namespaces").full_width());
+    filter_layout.add_child(Panel::new(EditView::new()).title("Name").full_width());
+
+    let mut table: TableView<ResourceView, ResourceColumn> = TableView::new();
+
+    for column in GVK_TO_COLUMNS_MAP.get(&selected_gvk).into_iter().flatten() {
+        table = table.column(*column, column.as_ref(), |c| c);
+    }
+
+    let table_panel =
+        Panel::new(table.with_name("table").full_screen()).title(selected_gvk.short_menu_name()).with_name("panel");
+
+    main_layout.add_child(filter_layout.full_width());
+    main_layout.add_child(DummyView {}.full_width());
+    main_layout.add_child(table_panel);
+
+    main_layout
+}
+
+pub fn build_menu(
+    discovered_gvks: Vec<GroupVersionKind>,
+    sender: kanal::Sender<FromUiSignal>,
+) -> Menubar {
+    let mut menubar = Menubar::new();
+    menubar.add_subtree("File", menu::Tree::new().leaf("Exit", |s| s.quit()));
+
+    let grouped_gvks = group_gvks(discovered_gvks);
+
+    for (group_name, group) in grouped_gvks {
+        let mut group_tree = menu::Tree::new();
+        for resource_gvk in group {
+            let leaf_name = if group_name == "Misc" {
+                resource_gvk.full_menu_name()
+            } else {
+                resource_gvk.short_menu_name()
+            };
+
+            let ss = sender.clone();
+            group_tree = group_tree.leaf(leaf_name, move |_| {
+                ss.send(FromUiSignal::RequestGvkItems(resource_gvk.clone()))
+                    .unwrap();
+            });
+        }
+        menubar.add_subtree(group_name, group_tree);
+    }
+
+    menubar
+}
+
 fn render_all_items(
     siv: &mut Cursive,
-    registry: &Arc<Mutex<ReflectorRegistry>>,
+    resources: Option<Vec<ResourceView>>,
     resource_gvk: GroupVersionKind,
-    ui_signal_sender: kanal::Sender<UiSignal>,
+    ui_signal_sender: kanal::Sender<FromUiSignal>,
 ) -> Option<()> {
-    let registry = Arc::clone(registry);
     siv.call_on_name(
         "table",
         |table: &mut TableView<ResourceView, ResourceColumn>| {
             table.take_items();
-            match registry.lock() {
-                Ok(guard) => {
-                    if let Some(resources) = guard.get_resources(&resource_gvk) {
-                        info!("Set items for type {:?}", resource_gvk);
-                        table.set_items(resources);
-                    } else {
-                        error!("GVK {:?} not found in registry", resource_gvk);
-                        ui_signal_sender
-                            .send(UiSignal::GvkNotFound(resource_gvk))
-                            .unwrap_or_else(|err| {
-                                panic!("Failed to send GvkNotFound signal: {}", err)
-                            });
-                    }
-                }
-                Err(err) => {
-                    error!("Could not acquire a lock {}", err)
-                }
+            if let Some(resources) = resources {
+                table.set_items(resources);
+                return;
             }
+
+            ui_signal_sender
+                .send(FromUiSignal::RequestRegisterGvk(resource_gvk))
+                .unwrap_or_else(|err| panic!("Failed to send GvkNotFound signal: {}", err));
         },
     )
 }
 
-enum UiSignal {
-    RedrawTable,
-    GvkNotFound(GroupVersionKind),
+#[derive(Debug)]
+pub enum FromUiSignal {
+    RequestRegisterGvk(GroupVersionKind),
+    RequestGvkItems(GroupVersionKind),
 }
 
-struct App {
-    main_runtime: Runtime,
-    exchange_runtime: Runtime,
-    client: Client,
-    ui: CursiveRunnable,
-    selected_gvk: Arc<Mutex<GroupVersionKind>>,
-    discovered_gvks: Vec<GroupVersionKind>,
-    resource_watcher_receiver: AsyncReceiver<ResourceView>,
-    registry: Arc<Mutex<ReflectorRegistry>>,
+#[derive(Debug)]
+pub enum FromClientSignal {
+    ResponseResourceUpdated(ResourceView),
+    ResponseDiscoveredGvks(Vec<GroupVersionKind>),
+    ResponseGvkItems(GroupVersionKind, Option<Vec<ResourceView>>),
+}
 
-    ui_signal_sender: kanal::Sender<UiSignal>,
-    ui_signal_receiver: kanal::Receiver<UiSignal>,
+pub struct App {
+    runtime: Runtime,
+    client: Client,
+    resource_watcher_receiver: AsyncReceiver<ResourceView>,
+    registry: Arc<futures::lock::Mutex<ReflectorRegistry>>,
+
+    from_client_sender: kanal::Sender<FromClientSignal>,
+    from_ui_receiver: kanal::Receiver<FromUiSignal>,
 }
 
 impl App {
-    pub fn new(mut cursive_runnable: CursiveRunnable) -> Result<Self> {
-        let main_runtime = Self::spawn_runtime(1)?;
-        let exchange_runtime = Self::spawn_runtime(1)?;
+    pub fn new(
+        from_client_sender: kanal::Sender<FromClientSignal>,
+        from_ui_receiver: kanal::Receiver<FromUiSignal>,
+    ) -> Result<Self> {
+        let runtime = Self::spawn_runtime(2)?;
 
-        let client = main_runtime.block_on(async { Client::try_default().await })?;
-
-        cursive_runnable.set_autohide_menu(false);
-        cursive_runnable.add_global_callback('~', |s| s.toggle_debug_console());
-        cursive_runnable.add_global_callback(event::Key::Esc, |s| s.select_menubar());
+        let client = runtime.block_on(async { Client::try_default().await })?;
 
         let (resource_watcher_sender, resource_watcher_receiver) = kanal::unbounded_async();
 
-        let registry = main_runtime.block_on(async {
-            let mut reg = ReflectorRegistry::new(resource_watcher_sender, &client);
+        let mut registry = ReflectorRegistry::new(resource_watcher_sender, &client);
+        let reg = &mut registry;
+
+        runtime.block_on(async {
             reg.register::<Pod>().await;
             reg.register::<Namespace>().await;
-
-            let a = ConfigMap::gvk_for_type();
-            reg.register_gvk(a).await.unwrap_or_else(|err| panic!("CYKA"));
-
-            reg
         });
 
-        let (ui_signal_sender, ui_signal_receiver) = kanal::unbounded();
-
         let instance = Self {
-            main_runtime,
-            exchange_runtime,
+            runtime,
             client,
-            ui: cursive_runnable,
-            selected_gvk: Arc::new(Mutex::new(Pod::gvk_for_type())),
-            discovered_gvks: vec![],
             resource_watcher_receiver,
-            registry: Arc::new(Mutex::new(registry)),
-            ui_signal_sender,
-            ui_signal_receiver,
+            registry: Arc::new(futures::lock::Mutex::new(registry)),
+            from_client_sender,
+            from_ui_receiver,
         };
 
         Ok(instance)
@@ -131,163 +167,72 @@ impl App {
             .build()
     }
 
-    pub fn discover(&mut self) -> Result<()> {
-        self.discovered_gvks = self
-            .main_runtime
-            .block_on(async { discover_gvk(&self.client).await })?;
-        Ok(())
-    }
-
-    pub fn build_menu(&mut self) {
-        let menubar = self.ui.menubar();
-        menubar.add_subtree("File", menu::Tree::new().leaf("Exit", |s| s.quit()));
-
-        let grouped_gvks = group_gvks(self.discovered_gvks.clone());
-
-        for (group_name, group) in grouped_gvks {
-            let mut group_tree = menu::Tree::new();
-            for resource_gvk in group {
-                let leaf_name = if group_name == "Misc" {
-                    resource_gvk.full_menu_name()
-                } else {
-                    resource_gvk.short_menu_name()
-                };
-
-                let selected_gvk_cloned = Arc::clone(&self.selected_gvk);
-                let sender = self.ui_signal_sender.clone();
-                group_tree = group_tree.leaf(leaf_name, move |_| {
-                    if let Ok(mut guard) = selected_gvk_cloned.lock() {
-                        *guard = resource_gvk.clone();
+    pub fn spawn_discovery_task(&self) {
+        let sender = self.from_client_sender.clone_async();
+        let client = self.client.clone();
+        self.runtime.spawn(async move {
+            loop {
+                match discover_gvk(client.clone()).await {
+                    Ok(gvks) => {
+                        if let Err(err) = sender
+                            .send(FromClientSignal::ResponseDiscoveredGvks(gvks))
+                            .await
+                        {
+                            error!("Failed to send to the channel: {}", err)
+                        }
                     }
-                    sender.send(UiSignal::RedrawTable).unwrap();
-                });
+                    Err(err) => {
+                        error!("Failed to discover GVKs: {}", err)
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(100)).await;
             }
-            menubar.add_subtree(group_name, group_tree);
-        }
+        });
     }
 
-    pub fn build_main_layout(&mut self) -> LinearLayout {
-        let selected_gvk = match self.selected_gvk.lock() {
-            Ok(gvk) => gvk.clone(),
-            Err(err) => {
-                error!("Failed to get GVK while building menu: {}", err);
-                Pod::gvk_for_type()
-            }
-        };
-
-        let mut main_layout = LinearLayout::new(Orientation::Vertical);
-
-        let mut filter_layout = LinearLayout::new(Orientation::Horizontal);
-        filter_layout.add_child(Panel::new(EditView::new()).title("Namespaces").full_width());
-        filter_layout.add_child(Panel::new(EditView::new()).title("Name").full_width());
-
-        let mut table: TableView<ResourceView, ResourceColumn> = TableView::new();
-
-        for column in GVK_TO_COLUMNS_MAP.get(&selected_gvk).into_iter().flatten() {
-            table = table.column(*column, column.as_ref(), |c| c);
-        }
-
-        let table_panel = Panel::new(table.with_name("table").full_screen()).title("Pods");
-
-        main_layout.add_child(filter_layout.full_width());
-        main_layout.add_child(DummyView {}.full_width());
-        main_layout.add_child(table_panel);
-
-        main_layout
-    }
-
-    pub fn redraw(&mut self) {
-        self.ui.pop_layer();
-        let layout = self.build_main_layout();
-        self.ui.add_fullscreen_layer(layout);
-    }
-
-    fn spawn_exchange_task(&mut self) {
-        let selected_gvk = Arc::clone(&self.selected_gvk);
-        let registry = Arc::clone(&self.registry);
+    fn spawn_watcher_exchange_task(&self) {
         let resource_watch_receiver = self.resource_watcher_receiver.clone();
-        let ui_signal_sender = self.ui_signal_sender.clone();
+        let ui_signal_sender = self.from_client_sender.clone_async();
 
-        let sink = self.ui.cb_sink().clone();
-
-        self.exchange_runtime.spawn(async move {
+        self.runtime.spawn(async move {
             let mut stream = resource_watch_receiver.stream();
 
             while let Some(resource_view) = stream.next().await {
-                let resource_gvk = resource_view.gvk();
-                match selected_gvk.lock() {
-                    Ok(guard) if &resource_gvk != guard.deref() => continue,
-                    Err(err) => {
-                        error!("Failed to acquire a lock for selected_gvk: {}", err);
-                        continue;
-                    }
-                    _ => {}
-                }
-
-                let ss = ui_signal_sender.clone();
-                let registry = Arc::clone(&registry);
-                sink.send(Box::new(move |siv| {
-                    render_all_items(siv, &registry, resource_gvk.clone(), ss).unwrap_or_else(
-                        || panic!("Failed to call a callback for {:?}", resource_gvk),
-                    )
-                }))
-                .unwrap_or_else(|err| {
-                    panic!(
-                        "Failed to send an update event to table for resource {:?}; Error: {}",
-                        resource_view.gvk(),
-                        err
-                    )
-                });
+                ui_signal_sender
+                    .send(FromClientSignal::ResponseResourceUpdated(resource_view))
+                    .await
+                    .unwrap();
             }
             panic!("Main exchange loop has ended")
         });
     }
 
-    pub fn spawn_ui_interaction_response_thread(&mut self) {
-        let selected_gvk = Arc::clone(&self.selected_gvk);
+    fn spawn_from_ui_receiver_task(&mut self) {
+        let receiver = self.from_ui_receiver.clone_async();
+        let sender = self.from_client_sender.clone_async();
         let registry = Arc::clone(&self.registry);
-        let ui_signal_receiver = self.ui_signal_receiver.clone();
-        let ui_signal_sender = self.ui_signal_sender.clone();
 
-        let sink = self.ui.cb_sink().clone();
+        self.runtime.spawn(async move {
+            let mut stream = receiver.stream();
 
-        std::thread::spawn(move || {
-            for signal in ui_signal_receiver {
+            while let Some(signal) = stream.next().await {
+                let mut reg = registry.lock().await;
                 match signal {
-                    UiSignal::RedrawTable => {
-                        let resource_gvk = match selected_gvk.lock() {
-                            Ok(gvk) => gvk.clone(),
-                            Err(err) => {
-                                error!("Failed to acquire a lock for selected_gvk: {}", err);
-                                continue;
-                            }
-                        };
-
-                        let rr = Arc::clone(&registry);
-                        let ss = ui_signal_sender.clone();
-
-                        sink.send(Box::new(move |siv| {
-                            render_all_items(siv, &rr, resource_gvk.clone(), ss).unwrap_or_else(
-                                || panic!("Failed to call a callback for {:?}", resource_gvk),
-                            );
-                        }))
-                        .unwrap_or_else(|err| {
-                            panic!(
-                                "Failed to send an update event to table for resource: {}",
-                                err
-                            )
-                        });
+                    FromUiSignal::RequestRegisterGvk(gvk) => {
+                        if let Err(err) = reg.register_gvk(gvk).await {
+                            error!("Could not register new GVK: {}", err);
+                        }
                     }
-                    UiSignal::GvkNotFound(_) => {
-                        let _ = Arc::clone(&registry);
+                    FromUiSignal::RequestGvkItems(gvk) => {
+                        let resources = reg.get_resources(&gvk);
+                        let signal = FromClientSignal::ResponseGvkItems(gvk, resources);
+                        if let Err(err) = sender.send(signal).await {
+                            error!("Could not handle RequestItemsForGvk: {}", err);
+                        }
                     }
                 }
             }
         });
-    }
-
-    pub fn run(&mut self) {
-        self.ui.run()
     }
 }
 
@@ -295,17 +240,80 @@ fn main() -> Result<()> {
     cursive::logger::init();
     log::set_max_level(Info);
 
-    let ui = CursiveRunnable::default();
+    let (from_client_sender, from_client_receiver) = kanal::unbounded();
+    let (from_ui_sender, from_ui_receiver) = kanal::unbounded();
 
-    let mut app = App::new(ui)?;
+    let mut app = App::new(from_client_sender, from_ui_receiver.clone())?;
 
-    app.discover()?;
-    app.build_menu();
-    app.redraw();
-    app.spawn_exchange_task();
-    app.spawn_ui_interaction_response_thread();
+    app.spawn_watcher_exchange_task();
+    app.spawn_discovery_task();
+    app.spawn_from_ui_receiver_task();
 
-    app.run();
+    let selected_gvk = Arc::new(Mutex::new(Pod::gvk_for_type()));
+
+    let mut ui = CursiveRunnable::default();
+    ui.add_global_callback('~', |s| s.toggle_debug_console());
+    ui.add_global_callback(event::Key::Esc, |s| s.select_menubar());
+
+    let from_ui = from_ui_sender.clone();
+    let sink = ui.cb_sink().clone();
+
+    std::thread::spawn(move || {
+        for signal in from_client_receiver {
+            let sender = from_ui.clone();
+
+            match signal {
+                FromClientSignal::ResponseResourceUpdated(resource) => {
+                    let gvk = resource.gvk();
+                    match selected_gvk.lock() {
+                        Ok(guard) if guard.deref() == &gvk => {
+                            sender.send(FromUiSignal::RequestGvkItems(gvk)).unwrap();
+                        }
+                        Ok(_) => {}
+                        Err(_) => {}
+                    }
+                }
+                FromClientSignal::ResponseDiscoveredGvks(gvks) => {
+                    sink.send(Box::new(move |siv| {
+                        let mut menubar = build_menu(gvks, sender);
+                        menubar.autohide = false;
+                        *siv.menubar() = menubar;
+                    }))
+                    .unwrap();
+                }
+                FromClientSignal::ResponseGvkItems(next_gvk, resources) => {
+                    let gvk = match selected_gvk.lock() {
+                        // updating the current view
+                        Ok(mut guard) if guard.deref() != &next_gvk => {
+                            *guard = next_gvk.clone();
+
+                            let sink_next_gvk = next_gvk.clone();
+                            sink.send(Box::new(move |siv| {
+                                siv.pop_layer();
+                                let main = build_main_layout(sink_next_gvk);
+                                siv.add_fullscreen_layer(main);
+                            }))
+                            .unwrap();
+
+                            next_gvk
+                        }
+                        Ok(_) => next_gvk,
+                        Err(err) => {
+                            error!("Failed to acquire a lock: {}", err);
+                            continue;
+                        }
+                    };
+
+                    sink.send(Box::new(move |siv| {
+                        render_all_items(siv, resources, gvk, sender);
+                    }))
+                    .unwrap()
+                }
+            }
+        }
+    });
+
+    ui.run();
 
     Ok(())
 }

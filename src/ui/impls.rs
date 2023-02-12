@@ -1,6 +1,9 @@
 use std::cmp::Ordering;
+
 use cursive_table_view::TableViewItem;
+use itertools::Itertools;
 use kube::api::GroupVersionKind;
+
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
 use crate::ui::traits::MenuNameExt;
@@ -15,8 +18,8 @@ impl TableViewItem<ResourceColumn> for ResourceView {
     }
 
     fn cmp(&self, other: &Self, column: ResourceColumn) -> Ordering
-        where
-            Self: Sized,
+    where
+        Self: Sized,
     {
         match column {
             ResourceColumn::Name => self.name().cmp(&other.name()),
@@ -28,7 +31,10 @@ impl TableViewItem<ResourceColumn> for ResourceView {
 
 impl MenuNameExt for GroupVersionKind {
     fn full_menu_name(&self) -> String {
-        format!("{}/{}/{}", &self.group, &self.version, &self.kind)
+        [&self.group, &self.version, &self.kind]
+            .iter()
+            .filter(|part| !part.is_empty())
+            .join("/")
     }
 
     fn short_menu_name(&self) -> String {
