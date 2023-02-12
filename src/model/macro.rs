@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! mk_filter_enum {
+macro_rules! mk_resource_enum {
     (
         $name:ident,
         [
@@ -29,7 +29,7 @@ macro_rules! mk_filter_enum {
 
                     Self::DynamicObject(_) => &[
                         $crate::model::resource_column::ResourceColumn::Namespace,
-                        $crate::model::resource_column::ResourceColumn::Name
+                        $crate::model::resource_column::ResourceColumn::Name,
                     ],
                 }
             }
@@ -71,6 +71,30 @@ macro_rules! mk_filter_enum {
             impl $crate::model::traits::MarkerTraitForStaticCases for k8s_openapi::api::core::v1::$opt_name {}
         )+
 
+
+        pub async fn reqister_any_gvk(registry: &mut $crate::model::reflector_registry::ReflectorRegistry, gvk: kube::api::GroupVersionKind) {
+            use k8s_openapi::Resource;
+            match gvk {
+                $(
+
+                    kube::api::GroupVersionKind {
+                        ref group,
+                        ref version,
+                        ref kind,
+                    } if group == k8s_openapi::api::core::v1::$opt_name::GROUP &&
+                        version == k8s_openapi::api::core::v1::$opt_name::VERSION &&
+                        kind == k8s_openapi::api::core::v1::$opt_name::KIND => {
+                        registry.register::<k8s_openapi::api::core::v1::$opt_name>().await;
+                    }
+
+                )+
+
+                gvk => {
+                    registry.register_gvk(gvk).await.unwrap();
+                }
+            }
+        }
+
         impl $crate::model::traits::GvkExt for $name {
             fn gvk(&self) -> kube::api::GroupVersionKind {
                 match self {
@@ -82,37 +106,26 @@ macro_rules! mk_filter_enum {
                 }
             }
         }
-
-        //  impl $crate::util::k8s::GvkExt for $name {
-        //     fn gvk(&self) -> kube::api::GroupVersionKind {
-        //         match self {
-        //             $(
-        //                 Self::$opt_name(resource) => (
-        //                     &[
-        //                         stringify!($opt_name),
-        //                         $($column),+
-        //                     ],
-        //                     stringify!($opt_name)
-        //                 ),
-        //             )+
-        //         }
-        //     }
-        //
-        //     fn split_by_longest_alias(input: &str) -> Option<(&str, &str)> {
-        //         $crate::parse::util::split_by_longest_alias(input, $map.iter().rev())
-        //     }
-        // }
-
-        // impl std::fmt::Display for $name {
-        //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //         match self {
-        //             $(
-        //                 Self::$opt_name => write!(f, "{}", stringify!($opt_name)),
-        //             )+
-        //         }
-        //     }
-        // }
-
     }
 }
 
+#[macro_export]
+macro_rules! extract_status {
+    ($val:expr) => {
+        $val.status
+            .as_ref()
+            .and_then(|status| status.phase.as_ref())
+            .cloned()
+            .unwrap_or_default()
+    };
+}
+
+#[macro_export]
+macro_rules! extract_age {
+    ($val:expr) => {
+        $val
+            .creation_timestamp()
+            .map(|t| $crate::util::ui::ago(Utc::now() - t.0))
+            .unwrap_or_default()
+    };
+}

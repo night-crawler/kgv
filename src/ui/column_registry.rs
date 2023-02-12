@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use cursive::reexports::log::info;
 
 use kube::api::GroupVersionKind;
 
@@ -22,6 +23,7 @@ impl ColumnRegistry {
         if let Some(columns) = self.map.get(gvk) {
             columns.to_vec()
         } else {
+            info!("Columns for GVK {:?} were not found", gvk);
             vec![ResourceColumn::Namespace, ResourceColumn::Name]
         }
     }

@@ -20,6 +20,7 @@ strum = "0.24"
 strum_macros = "0.24"
 lazy_static = "1.4"
 serde_yaml = "0.9"
+chrono = "0.4"
 
 [dependencies.cursive]
 version = "0.20"

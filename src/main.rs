@@ -1,18 +1,17 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
 use cursive::direction::Orientation;
 use cursive::reexports::log;
-use cursive::reexports::log::error;
 use cursive::reexports::log::LevelFilter::Info;
+use cursive::reexports::log::{error, warn};
 use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive::{event, menu, Cursive, CursiveRunnable};
 use cursive_table_view::TableView;
 use futures::StreamExt;
-use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kanal::AsyncReceiver;
 use kube::api::GroupVersionKind;
 use kube::Client;
@@ -21,8 +20,8 @@ use tokio::runtime::Runtime;
 use crate::model::discover_gvk;
 use crate::model::reflector_registry::ReflectorRegistry;
 use crate::model::resource_column::ResourceColumn;
-use crate::model::resource_view::ResourceView;
-use crate::model::traits::{GvkExt, GvkStaticExt};
+use crate::model::resource_view::{reqister_any_gvk, ResourceView};
+use crate::model::traits::GvkExt;
 use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::group_gvks;
 use crate::ui::traits::MenuNameExt;
@@ -42,7 +41,16 @@ fn build_main_layout(selected_gvk: GroupVersionKind, columns: Vec<ResourceColumn
     let mut table: TableView<ResourceView, ResourceColumn> = TableView::new();
 
     for column in columns {
-        table = table.column(column, column.as_ref(), |c| c);
+        table = table.column(column, column.as_ref(), |mut c| {
+            match column {
+                ResourceColumn::Restarts => c = c.width(6),
+                ResourceColumn::Ready => c = c.width(6),
+                ResourceColumn::Age => c = c.width(6),
+                ResourceColumn::Status => c = c.width(6),
+                _ => {}
+            }
+            c
+        });
     }
 
     let table_panel = Panel::new(table.with_name("table").full_screen())
@@ -101,6 +109,7 @@ fn render_all_items(
                 return;
             }
 
+            warn!("Sending a signal to register GVK: {:?}", resource_gvk);
             ui_signal_sender
                 .send(FromUiSignal::RequestRegisterGvk(resource_gvk))
                 .unwrap_or_else(|err| panic!("Failed to send GvkNotFound signal: {}", err));
@@ -142,13 +151,7 @@ impl App {
 
         let (resource_watcher_sender, resource_watcher_receiver) = kanal::unbounded_async();
 
-        let mut registry = ReflectorRegistry::new(resource_watcher_sender, &client);
-        let reg = &mut registry;
-
-        runtime.block_on(async {
-            reg.register::<Pod>().await;
-            reg.register::<Namespace>().await;
-        });
+        let registry = ReflectorRegistry::new(resource_watcher_sender, &client);
 
         let instance = Self {
             runtime,
@@ -221,9 +224,7 @@ impl App {
                 let mut reg = registry.lock().await;
                 match signal {
                     FromUiSignal::RequestRegisterGvk(gvk) => {
-                        if let Err(err) = reg.register_gvk(gvk).await {
-                            error!("Could not register new GVK: {}", err);
-                        }
+                        reqister_any_gvk(reg.deref_mut(), gvk).await;
                     }
                     FromUiSignal::RequestGvkItems(gvk) => {
                         let resources = reg.get_resources(&gvk);
@@ -253,7 +254,7 @@ fn main() -> Result<()> {
     app.spawn_discovery_task();
     app.spawn_from_ui_receiver_task();
 
-    let selected_gvk = Arc::new(Mutex::new(Pod::gvk_for_type()));
+    let selected_gvk = Arc::new(Mutex::new(GroupVersionKind::gvk("", "", "")));
 
     let mut ui = CursiveRunnable::default();
     ui.add_global_callback('~', |s| s.toggle_debug_console());
@@ -287,6 +288,10 @@ fn main() -> Result<()> {
                     .unwrap();
                 }
                 FromClientSignal::ResponseGvkItems(next_gvk, resources) => {
+                    if resources.is_none() {
+                        warn!("Empty resources for GVK: {:?}", next_gvk);
+                    }
+
                     let gvk = match selected_gvk.lock() {
                         // updating the current view
                         Ok(mut guard) if guard.deref() != &next_gvk => {

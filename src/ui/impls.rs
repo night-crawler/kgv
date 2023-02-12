@@ -13,6 +13,13 @@ impl TableViewItem<ResourceColumn> for ResourceView {
         match column {
             ResourceColumn::Namespace => self.namespace(),
             ResourceColumn::Name => self.name(),
+            ResourceColumn::Status => self.status(),
+            ResourceColumn::Ready => self.ready(),
+            ResourceColumn::Ip => self.ip(),
+            ResourceColumn::Restarts => self.restarts(),
+            ResourceColumn::Node => self.node(),
+            ResourceColumn::Age => self.age(),
+            
             _ => String::new(),
         }
     }
@@ -21,11 +28,7 @@ impl TableViewItem<ResourceColumn> for ResourceView {
     where
         Self: Sized,
     {
-        match column {
-            ResourceColumn::Name => self.name().cmp(&other.name()),
-            ResourceColumn::Namespace => self.namespace().cmp(&other.namespace()),
-            _ => Ordering::Equal,
-        }
+        self.to_column(column) .cmp(&other.to_column(column))
     }
 }
 
