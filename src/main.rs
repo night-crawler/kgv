@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use std::sync::{Arc, LockResult, Mutex};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -12,7 +12,7 @@ use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive::{event, menu, Cursive, CursiveRunnable};
 use cursive_table_view::TableView;
 use futures::StreamExt;
-use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Pod};
+use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kanal::AsyncReceiver;
 use kube::api::GroupVersionKind;
 use kube::Client;
@@ -23,15 +23,16 @@ use crate::model::reflector_registry::ReflectorRegistry;
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
 use crate::model::traits::{GvkExt, GvkStaticExt};
+use crate::ui::column_registry::ColumnRegistry;
+use crate::ui::group_gvks;
 use crate::ui::traits::MenuNameExt;
-use crate::ui::{group_gvks, GVK_TO_COLUMNS_MAP};
 
 pub mod model;
 pub mod theme;
 pub mod ui;
 pub mod util;
 
-fn build_main_layout(selected_gvk: GroupVersionKind) -> LinearLayout {
+fn build_main_layout(selected_gvk: GroupVersionKind, columns: Vec<ResourceColumn>) -> LinearLayout {
     let mut main_layout = LinearLayout::new(Orientation::Vertical);
 
     let mut filter_layout = LinearLayout::new(Orientation::Horizontal);
@@ -40,12 +41,13 @@ fn build_main_layout(selected_gvk: GroupVersionKind) -> LinearLayout {
 
     let mut table: TableView<ResourceView, ResourceColumn> = TableView::new();
 
-    for column in GVK_TO_COLUMNS_MAP.get(&selected_gvk).into_iter().flatten() {
-        table = table.column(*column, column.as_ref(), |c| c);
+    for column in columns {
+        table = table.column(column, column.as_ref(), |c| c);
     }
 
-    let table_panel =
-        Panel::new(table.with_name("table").full_screen()).title(selected_gvk.short_menu_name()).with_name("panel");
+    let table_panel = Panel::new(table.with_name("table").full_screen())
+        .title(selected_gvk.short_menu_name())
+        .with_name("panel");
 
     main_layout.add_child(filter_layout.full_width());
     main_layout.add_child(DummyView {}.full_width());
@@ -243,6 +245,8 @@ fn main() -> Result<()> {
     let (from_client_sender, from_client_receiver) = kanal::unbounded();
     let (from_ui_sender, from_ui_receiver) = kanal::unbounded();
 
+    let arc_column_registry = Arc::new(Mutex::new(ColumnRegistry::default()));
+
     let mut app = App::new(from_client_sender, from_ui_receiver.clone())?;
 
     app.spawn_watcher_exchange_task();
@@ -259,6 +263,7 @@ fn main() -> Result<()> {
     let sink = ui.cb_sink().clone();
 
     std::thread::spawn(move || {
+        let column_registry = Arc::clone(&arc_column_registry);
         for signal in from_client_receiver {
             let sender = from_ui.clone();
 
@@ -288,10 +293,12 @@ fn main() -> Result<()> {
                             *guard = next_gvk.clone();
 
                             let sink_next_gvk = next_gvk.clone();
+                            let cr = Arc::clone(&column_registry);
                             sink.send(Box::new(move |siv| {
                                 siv.pop_layer();
-                                let main = build_main_layout(sink_next_gvk);
-                                siv.add_fullscreen_layer(main);
+                                let columns = cr.lock().unwrap().get_columns(&sink_next_gvk);
+                                let main_layout = build_main_layout(sink_next_gvk, columns);
+                                siv.add_fullscreen_layer(main_layout);
                             }))
                             .unwrap();
 

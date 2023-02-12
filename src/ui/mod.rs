@@ -1,21 +1,13 @@
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 
 use cruet::Inflector;
 use kube::api::GroupVersionKind;
-use lazy_static::lazy_static;
 
-use crate::model::resource_column::ResourceColumn;
-use crate::model::resource_view::ResourceView;
 use crate::util::k8s::gvk_sort_key;
 
+pub mod column_registry;
 pub mod impls;
 pub mod traits;
-
-lazy_static! {
-    pub static ref GVK_TO_COLUMNS_MAP: HashMap<GroupVersionKind, Vec<ResourceColumn>> =
-        ResourceView::build_gvk_to_columns_map();
-}
 
 pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionKind>)> {
     let mut misc = vec![];
