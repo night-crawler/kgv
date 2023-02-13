@@ -536,6 +536,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "home"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "747309b4b440c06d57b0b25f2aee03ee9b5e5397d288c60e21fc709bb98a7408"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
 name = "http"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -772,12 +781,14 @@ dependencies = [
  "cursive",
  "cursive_table_view",
  "futures",
+ "home",
  "itertools",
  "k8s-openapi",
  "kanal",
  "kube",
  "lazy_static",
  "rand",
+ "serde",
  "serde_yaml 0.9.17",
  "strum",
  "strum_macros",

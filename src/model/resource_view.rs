@@ -2,7 +2,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use chrono::Utc;
-use itertools::Itertools;
 use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Pod};
 use kube::ResourceExt;
 
@@ -79,17 +78,19 @@ impl ResourceView {
         }
     }
 
-    pub fn ip(&self) -> String {
+    pub fn ips(&self) -> Option<Vec<String>> {
         match self {
             ResourceView::Pod(r) => r
                 .status
                 .as_ref()
                 .and_then(|status| status.pod_ips.as_ref())
-                .into_iter()
-                .flatten()
-                .flat_map(|ip| &ip.ip)
-                .join(", "),
-            _ => String::new(),
+                .map(|pod_ips| {
+                    pod_ips
+                        .iter()
+                        .filter_map(|pod_ip| pod_ip.ip.clone())
+                        .collect::<Vec<_>>()
+                }),
+            _ => None,
         }
     }
 
@@ -117,15 +118,6 @@ impl ResourceView {
                 .cloned()
                 .unwrap_or_default(),
             _ => String::new(),
-        }
-    }
-
-    pub fn age(&self) -> String {
-        match self {
-            ResourceView::Namespace(r) => extract_age!(r),
-            ResourceView::Pod(r) => extract_age!(r),
-            ResourceView::ConfigMap(r) => extract_age!(r),
-            ResourceView::DynamicObject(r) => extract_age!(r),
         }
     }
 }

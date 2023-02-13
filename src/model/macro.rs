@@ -18,6 +18,7 @@ macro_rules! mk_resource_enum {
             DynamicObject(std::sync::Arc<$crate::model::DynamicObjectWrapper>)
         }
 
+        // Default get_columns()
         impl $name {
             pub fn get_columns(&self) -> &[$crate::model::resource_column::ResourceColumn] {
                 match self {
@@ -35,6 +36,7 @@ macro_rules! mk_resource_enum {
             }
         }
 
+        // Build column map
         impl $name {
             pub fn build_gvk_to_columns_map() -> std::collections::HashMap<
                 kube::api::GroupVersionKind,
@@ -58,6 +60,29 @@ macro_rules! mk_resource_enum {
             }
         }
 
+        // uid()
+        impl $name {
+            pub fn uid(&self) -> Option<String> {
+                match self {
+                    $(
+                        Self::$opt_name(r) => r.uid(),
+                    )+
+                    Self::DynamicObject(r) => r.uid(),
+                }
+            }
+        }
+
+        // age()
+        impl $name {
+            pub fn age(&self) -> chrono::Duration {
+                match self {
+                    $(
+                        Self::$opt_name(r) => extract_age!(r),
+                    )+
+                    Self::DynamicObject(r) => extract_age!(r),
+                }
+            }
+        }
 
         $(
             impl From<Arc<$opt_name>> for $name {
@@ -125,7 +150,7 @@ macro_rules! extract_age {
     ($val:expr) => {
         $val
             .creation_timestamp()
-            .map(|t| $crate::util::ui::ago(Utc::now() - t.0))
-            .unwrap_or_default()
+            .map(|t| Utc::now() - t.0)
+            .unwrap_or_else(|| chrono::Duration::seconds(0))
     };
 }

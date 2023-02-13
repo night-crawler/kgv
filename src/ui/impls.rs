@@ -7,6 +7,7 @@ use kube::api::GroupVersionKind;
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
 use crate::ui::traits::MenuNameExt;
+use crate::util::ui::ago;
 
 impl TableViewItem<ResourceColumn> for ResourceView {
     fn to_column(&self, column: ResourceColumn) -> String {
@@ -15,11 +16,11 @@ impl TableViewItem<ResourceColumn> for ResourceView {
             ResourceColumn::Name => self.name(),
             ResourceColumn::Status => self.status(),
             ResourceColumn::Ready => self.ready(),
-            ResourceColumn::Ip => self.ip(),
+            ResourceColumn::Ip => self.ips().map(|ips| ips.join(", ")).unwrap_or_default(),
             ResourceColumn::Restarts => self.restarts(),
             ResourceColumn::Node => self.node(),
-            ResourceColumn::Age => self.age(),
-            
+            ResourceColumn::Age => ago(self.age()),
+
             _ => String::new(),
         }
     }
@@ -28,7 +29,7 @@ impl TableViewItem<ResourceColumn> for ResourceView {
     where
         Self: Sized,
     {
-        self.to_column(column) .cmp(&other.to_column(column))
+        self.to_column(column).cmp(&other.to_column(column))
     }
 }
 

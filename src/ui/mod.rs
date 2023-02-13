@@ -8,6 +8,7 @@ use crate::util::k8s::gvk_sort_key;
 pub mod column_registry;
 pub mod impls;
 pub mod traits;
+pub mod fs_cache;
 
 pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionKind>)> {
     let mut misc = vec![];
@@ -16,8 +17,25 @@ pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionK
     for gvk in gvks {
         let grouper = if gvk.kind == "CustomResourceDefinition" {
             "default"
-        } else if gvk.kind.starts_with("PersistentVolume") {
+        } else if gvk.kind.contains("PersistentVolume") {
             "storage"
+        } else if gvk.group.contains("secret") {
+            "Secret"
+        } else if gvk.group.contains("istio") {
+            "istio"
+        } else if gvk.group.contains("api") {
+            "API"
+        } else if gvk.group.contains("apps") {
+            "Default"
+        } else if gvk.group.contains("flux") {
+            "flux"
+        } else if gvk.group.contains("monitoring")
+            || gvk.group.contains("metric")
+            || gvk.group.contains("telemetry")
+        {
+            "monitoring"
+        } else if gvk.group.contains("acme") || gvk.group.contains("cert") {
+            "Cert"
         } else if gvk.group.is_empty() {
             "default"
         } else if gvk.group.contains("admission") {

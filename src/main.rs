@@ -6,7 +6,7 @@ use anyhow::Result;
 use cursive::direction::Orientation;
 use cursive::reexports::log;
 use cursive::reexports::log::LevelFilter::Info;
-use cursive::reexports::log::{error, warn};
+use cursive::reexports::log::{error, info, warn};
 use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive::{event, menu, Cursive, CursiveRunnable};
@@ -23,6 +23,7 @@ use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::{reqister_any_gvk, ResourceView};
 use crate::model::traits::GvkExt;
 use crate::ui::column_registry::ColumnRegistry;
+use crate::ui::fs_cache::FsCache;
 use crate::ui::group_gvks;
 use crate::ui::traits::MenuNameExt;
 
@@ -43,10 +44,12 @@ fn build_main_layout(selected_gvk: GroupVersionKind, columns: Vec<ResourceColumn
     for column in columns {
         table = table.column(column, column.as_ref(), |mut c| {
             match column {
-                ResourceColumn::Restarts => c = c.width(6),
-                ResourceColumn::Ready => c = c.width(6),
-                ResourceColumn::Age => c = c.width(6),
-                ResourceColumn::Status => c = c.width(6),
+                ResourceColumn::Namespace => c = c.width(20),
+                ResourceColumn::Name => c = c.width_percent(35),
+                ResourceColumn::Restarts => c = c.width(7),
+                ResourceColumn::Ready => c = c.width(7),
+                ResourceColumn::Age => c = c.width(7),
+                ResourceColumn::Status => c = c.width(7),
                 _ => {}
             }
             c
@@ -94,25 +97,15 @@ pub fn build_menu(
     menubar
 }
 
-fn render_all_items(
-    siv: &mut Cursive,
-    resources: Option<Vec<ResourceView>>,
-    resource_gvk: GroupVersionKind,
-    ui_signal_sender: kanal::Sender<FromUiSignal>,
-) -> Option<()> {
+fn render_all_items(siv: &mut Cursive, resources: Option<Vec<ResourceView>>) -> Option<()> {
     siv.call_on_name(
         "table",
         |table: &mut TableView<ResourceView, ResourceColumn>| {
-            table.take_items();
             if let Some(resources) = resources {
+                table.take_items();
+                info!("Rendering full view for {} resources", resources.len());
                 table.set_items(resources);
-                return;
             }
-
-            warn!("Sending a signal to register GVK: {:?}", resource_gvk);
-            ui_signal_sender
-                .send(FromUiSignal::RequestRegisterGvk(resource_gvk))
-                .unwrap_or_else(|err| panic!("Failed to send GvkNotFound signal: {}", err));
         },
     )
 }
@@ -131,6 +124,7 @@ pub enum FromClientSignal {
 }
 
 pub struct App {
+    fs_cache: Arc<futures::lock::Mutex<FsCache>>,
     runtime: Runtime,
     client: Client,
     resource_watcher_receiver: AsyncReceiver<ResourceView>,
@@ -147,13 +141,21 @@ impl App {
     ) -> Result<Self> {
         let runtime = Self::spawn_runtime(2)?;
 
-        let client = runtime.block_on(async { Client::try_default().await })?;
+        let config = runtime.block_on(async { return Self::get_config().await })?;
+        info!("Loaded configuration");
+
+        let fs_cache = FsCache::try_from(config.clone())?;
+        info!("Created FS Cache");
+
+        let client = runtime.block_on(async move { Client::try_from(config) })?;
+        info!("Initialized client");
 
         let (resource_watcher_sender, resource_watcher_receiver) = kanal::unbounded_async();
 
         let registry = ReflectorRegistry::new(resource_watcher_sender, &client);
 
         let instance = Self {
+            fs_cache: Arc::new(futures::lock::Mutex::new(fs_cache)),
             runtime,
             client,
             resource_watcher_receiver,
@@ -163,6 +165,12 @@ impl App {
         };
 
         Ok(instance)
+    }
+
+    async fn get_config() -> Result<kube::Config, kube::Error> {
+        kube::Config::infer()
+            .await
+            .map_err(kube::Error::InferConfig)
     }
 
     fn spawn_runtime(worker_thread: usize) -> std::io::Result<Runtime> {
@@ -175,16 +183,31 @@ impl App {
     pub fn spawn_discovery_task(&self) {
         let sender = self.from_client_sender.clone_async();
         let client = self.client.clone();
+        let fs_cache = Arc::clone(&self.fs_cache);
         self.runtime.spawn(async move {
+            if let Some(stored_gvks) = fs_cache.lock().await.get_gvks() {
+                info!("Loaded {} GVKs from cache", stored_gvks.len());
+                sender
+                    .send(FromClientSignal::ResponseDiscoveredGvks(stored_gvks))
+                    .await
+                    .unwrap();
+            }
+
             loop {
+                info!("Entered GVK discovery loop");
+
                 match discover_gvk(client.clone()).await {
                     Ok(gvks) => {
-                        if let Err(err) = sender
+                        info!("Received {} GVKs", gvks.len());
+                        let mut cache = fs_cache.lock().await;
+                        cache.set_gvks(&gvks);
+                        if let Err(err) = cache.dump() {
+                            error!("Failed to save cache: {}", err);
+                        }
+                        sender
                             .send(FromClientSignal::ResponseDiscoveredGvks(gvks))
                             .await
-                        {
-                            error!("Failed to send to the channel: {}", err)
-                        }
+                            .unwrap();
                     }
                     Err(err) => {
                         error!("Failed to discover GVKs: {}", err)
@@ -239,6 +262,22 @@ impl App {
     }
 }
 
+pub trait TableViewExt {
+    fn merge_resource(&mut self, resource: ResourceView);
+}
+
+impl TableViewExt for TableView<ResourceView, ResourceColumn> {
+    fn merge_resource(&mut self, resource: ResourceView) {
+        for item in self.borrow_items_mut() {
+            if item.uid() == resource.uid() {
+                *item = resource;
+                return;
+            }
+        }
+        self.insert_item(resource);
+    }
+}
+
 fn main() -> Result<()> {
     cursive::logger::init();
     log::set_max_level(Info);
@@ -274,6 +313,15 @@ fn main() -> Result<()> {
                     match selected_gvk.lock() {
                         Ok(guard) if guard.deref() == &gvk => {
                             sender.send(FromUiSignal::RequestGvkItems(gvk)).unwrap();
+                            sink.send(Box::new(move |siv| {
+                                siv.call_on_name(
+                                    "table",
+                                    |table: &mut TableView<ResourceView, ResourceColumn>| {
+                                        table.merge_resource(resource);
+                                    },
+                                );
+                            }))
+                            .unwrap();
                         }
                         Ok(_) => {}
                         Err(_) => {}
@@ -290,9 +338,12 @@ fn main() -> Result<()> {
                 FromClientSignal::ResponseGvkItems(next_gvk, resources) => {
                     if resources.is_none() {
                         warn!("Empty resources for GVK: {:?}", next_gvk);
+                        sender
+                            .send(FromUiSignal::RequestRegisterGvk(next_gvk.clone()))
+                            .unwrap();
                     }
 
-                    let gvk = match selected_gvk.lock() {
+                     match selected_gvk.lock() {
                         // updating the current view
                         Ok(mut guard) if guard.deref() != &next_gvk => {
                             *guard = next_gvk.clone();
@@ -304,22 +355,17 @@ fn main() -> Result<()> {
                                 let columns = cr.lock().unwrap().get_columns(&sink_next_gvk);
                                 let main_layout = build_main_layout(sink_next_gvk, columns);
                                 siv.add_fullscreen_layer(main_layout);
+                                render_all_items(siv, resources);
+
                             }))
                             .unwrap();
-
-                            next_gvk
                         }
-                        Ok(_) => next_gvk,
+                        Ok(_) => {},
                         Err(err) => {
                             error!("Failed to acquire a lock: {}", err);
                             continue;
                         }
                     };
-
-                    sink.send(Box::new(move |siv| {
-                        render_all_items(siv, resources, gvk, sender);
-                    }))
-                    .unwrap()
                 }
             }
         }
