@@ -9,6 +9,8 @@ pub mod column_registry;
 pub mod impls;
 pub mod traits;
 pub mod fs_cache;
+pub mod signals;
+pub mod k8s_backend;
 
 pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionKind>)> {
     let mut misc = vec![];

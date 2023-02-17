@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use cursive::{Cursive, View};
 
 use cursive_table_view::TableViewItem;
 use itertools::Itertools;
@@ -6,7 +7,7 @@ use kube::api::GroupVersionKind;
 
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
-use crate::ui::traits::MenuNameExt;
+use crate::ui::traits::{MenuNameExt, SivExt};
 use crate::util::ui::ago;
 
 impl TableViewItem<ResourceColumn> for ResourceView {
@@ -43,5 +44,27 @@ impl MenuNameExt for GroupVersionKind {
 
     fn short_menu_name(&self) -> String {
         format!("{}/{}", &self.version, &self.kind)
+    }
+}
+
+
+impl SivExt for cursive::reexports::crossbeam_channel::Sender<Box<dyn FnOnce(&mut Cursive) + Send>> {
+    fn call_on_name<V, F, R>(&self, name: &str, callback: F)
+        where
+            V: View,
+            F: Send + FnOnce(&mut V) -> R + 'static,
+    {
+        let name = name.to_string();
+        self.send(Box::new(move |siv| {
+            siv.call_on_name(&name, callback).unwrap();
+        }))
+            .unwrap();
+    }
+
+    fn send_box<F>(&self, callback: F)
+        where
+            F: FnOnce(&mut Cursive) + Send + 'static,
+    {
+        self.send(Box::new(callback)).unwrap();
     }
 }
