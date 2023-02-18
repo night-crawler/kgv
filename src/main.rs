@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
@@ -5,7 +6,7 @@ use cursive::direction::Orientation;
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log;
 use cursive::reexports::log::LevelFilter::Info;
-use cursive::reexports::log::{info, warn};
+use cursive::reexports::log::{error, info, warn};
 use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive::{event, menu, Cursive, CursiveRunnable};
@@ -28,13 +29,13 @@ pub mod util;
 
 pub struct UiStore {
     selected_gvk: GroupVersionKind,
-    namespace_filter_value: String,
-    name_filter_value: String,
+    ns_filter: String,
+    name_filter: String,
     to_ui_sender: kanal::Sender<ToUiSignal>,
     to_backend_sender: kanal::Sender<ToBackendSignal>,
     sink: Sender<Box<dyn FnOnce(&mut Cursive) + Send>>,
     column_registry: ColumnRegistry,
-    resources: Vec<ResourceView>,
+    resources: HashMap<String, ResourceView>,
 }
 
 impl UiStore {
@@ -46,13 +47,13 @@ impl UiStore {
     ) -> Self {
         Self {
             selected_gvk: GroupVersionKind::gvk("", "", ""),
-            name_filter_value: "".to_string(),
-            namespace_filter_value: "".to_string(),
+            name_filter: "".to_string(),
+            ns_filter: "".to_string(),
             to_ui_sender,
             to_backend_sender,
             sink,
             column_registry,
-            resources: vec![],
+            resources: HashMap::new(),
         }
     }
 
@@ -61,18 +62,31 @@ impl UiStore {
     }
 
     fn should_display_resource(&self, resource: &ResourceView) -> bool {
-        resource
-            .namespace()
-            .starts_with(&self.namespace_filter_value)
-            && resource.name().contains(&self.name_filter_value)
+        resource.namespace().starts_with(&self.ns_filter)
+            && resource.name().contains(&self.name_filter)
     }
 
     fn get_filtered_resources(&self) -> Vec<ResourceView> {
         self.resources
-            .iter()
+            .values()
             .filter(|resource| self.should_display_resource(resource))
             .cloned()
             .collect()
+    }
+
+    fn add_resource(&mut self, resource: ResourceView) -> Option<ResourceView> {
+        let key = resource.uid().unwrap_or_else(|| {
+            error!("Received a resource without uid: {:?}", resource);
+            resource.full_unique_name()
+        });
+        self.resources.insert(key, resource)
+    }
+
+    fn replace_resources(&mut self, resources: Vec<ResourceView>) {
+        self.resources.clear();
+        for resource in resources {
+            self.add_resource(resource);
+        }
     }
 }
 
@@ -80,8 +94,8 @@ fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     let (ns_filter, name_filter, columns, sender, selected_gvk) = {
         let store = store.lock().unwrap();
         (
-            store.namespace_filter_value.clone(),
-            store.name_filter_value.clone(),
+            store.ns_filter.clone(),
+            store.name_filter.clone(),
             store.get_columns(),
             store.to_ui_sender.clone(),
             store.selected_gvk.clone(),
@@ -219,7 +233,7 @@ impl UiStoreExt for Arc<Mutex<UiStore>> {
             let mut store = store.lock().unwrap();
 
             if let Some(resources) = resources {
-                store.resources = resources;
+                store.replace_resources(resources);
             } else {
                 warn!("Empty resources for GVK: {:?}", next_gvk);
                 store
@@ -260,10 +274,11 @@ impl UiStoreExt for Arc<Mutex<UiStore>> {
         let gvk = resource.gvk();
 
         let (sender, sink) = {
-            let store = self.lock().unwrap();
+            let mut store = self.lock().unwrap();
             if store.selected_gvk != gvk {
                 return;
             }
+            store.add_resource(resource.clone());
             if !store.should_display_resource(&resource) {
                 return;
             }
@@ -291,12 +306,12 @@ impl UiStoreExt for Arc<Mutex<UiStore>> {
     }
 
     fn handle_apply_namespace_filter(&self, namespace: String) {
-        self.lock().unwrap().namespace_filter_value = namespace;
+        self.lock().unwrap().ns_filter = namespace;
         self.render_table();
     }
 
     fn handle_apply_name_filter(&self, name: String) {
-        self.lock().unwrap().name_filter_value = name;
+        self.lock().unwrap().name_filter = name;
         self.render_table();
     }
 

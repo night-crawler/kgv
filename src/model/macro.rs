@@ -70,6 +70,16 @@ macro_rules! mk_resource_enum {
                     Self::DynamicObject(r) => r.uid(),
                 }
             }
+
+            pub fn full_unique_name(&self) -> String {
+                use $crate::model::traits::GvkExt;
+                let gvk = self.gvk();
+                format!(
+                    "{}/{}/{}::{}/{}",
+                    gvk.group, gvk.version, gvk.kind,
+                    self.namespace(), self.name()
+                )
+            }
         }
 
         // age()
