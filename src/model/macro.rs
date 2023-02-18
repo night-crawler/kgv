@@ -158,8 +158,7 @@ macro_rules! extract_status {
 #[macro_export]
 macro_rules! extract_age {
     ($val:expr) => {
-        $val
-            .creation_timestamp()
+        $val.creation_timestamp()
             .map(|t| Utc::now() - t.0)
             .unwrap_or_else(|| chrono::Duration::seconds(0))
     };

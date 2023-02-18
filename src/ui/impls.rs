@@ -1,13 +1,13 @@
 use std::cmp::Ordering;
-use cursive::{Cursive, View};
 
-use cursive_table_view::TableViewItem;
+use cursive::{Cursive, View};
+use cursive_table_view::{TableView, TableViewItem};
 use itertools::Itertools;
 use kube::api::GroupVersionKind;
 
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
-use crate::ui::traits::{MenuNameExt, SivExt};
+use crate::ui::traits::{MenuNameExt, SivExt, TableViewExt};
 use crate::util::ui::ago;
 
 impl TableViewItem<ResourceColumn> for ResourceView {
@@ -47,24 +47,37 @@ impl MenuNameExt for GroupVersionKind {
     }
 }
 
-
-impl SivExt for cursive::reexports::crossbeam_channel::Sender<Box<dyn FnOnce(&mut Cursive) + Send>> {
+impl SivExt
+    for cursive::reexports::crossbeam_channel::Sender<Box<dyn FnOnce(&mut Cursive) + Send>>
+{
     fn call_on_name<V, F, R>(&self, name: &str, callback: F)
-        where
-            V: View,
-            F: Send + FnOnce(&mut V) -> R + 'static,
+    where
+        V: View,
+        F: Send + FnOnce(&mut V) -> R + 'static,
     {
         let name = name.to_string();
         self.send(Box::new(move |siv| {
             siv.call_on_name(&name, callback).unwrap();
         }))
-            .unwrap();
+        .unwrap();
     }
 
     fn send_box<F>(&self, callback: F)
-        where
-            F: FnOnce(&mut Cursive) + Send + 'static,
+    where
+        F: FnOnce(&mut Cursive) + Send + 'static,
     {
         self.send(Box::new(callback)).unwrap();
+    }
+}
+
+impl TableViewExt for TableView<ResourceView, ResourceColumn> {
+    fn merge_resource(&mut self, resource: ResourceView) {
+        for item in self.borrow_items_mut() {
+            if item.uid() == resource.uid() {
+                *item = resource;
+                return;
+            }
+        }
+        self.insert_item(resource);
     }
 }

@@ -1,6 +1,6 @@
-use cursive::reexports::log::info;
 use std::collections::HashMap;
 
+use cursive::reexports::log::info;
 use kube::api::GroupVersionKind;
 
 use crate::model::resource_column::ResourceColumn;

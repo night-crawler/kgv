@@ -6,11 +6,13 @@ use kube::api::GroupVersionKind;
 use crate::util::k8s::gvk_sort_key;
 
 pub mod column_registry;
-pub mod impls;
-pub mod traits;
+pub mod components;
 pub mod fs_cache;
-pub mod signals;
+pub mod impls;
 pub mod k8s_backend;
+pub mod signals;
+pub mod traits;
+pub mod ui_store;
 
 pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionKind>)> {
     let mut misc = vec![];

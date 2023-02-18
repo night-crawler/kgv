@@ -37,5 +37,4 @@ pub enum ResourceColumn {
     Subjects,
     ClusterRole,
     SubjectKind,
-    
 }

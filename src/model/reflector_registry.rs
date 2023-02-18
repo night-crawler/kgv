@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use cursive::reexports::log::info;
 
+use cursive::reexports::log::info;
 use futures::{StreamExt, TryStreamExt};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::Metadata;

@@ -1,11 +1,12 @@
+use std::fs;
+use std::fs::{File, OpenOptions};
+use std::path::PathBuf;
+
 use chrono::Utc;
 use cursive::reexports::log::error;
 use home::home_dir;
 use kube::api::GroupVersionKind;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::fs::{File, OpenOptions};
-use std::path::PathBuf;
 
 #[derive(Deserialize, Serialize)]
 pub struct Cache {
@@ -30,7 +31,7 @@ impl FsCache {
                     created_at: Utc::now(),
                     updated_at: Utc::now(),
                     name: name.to_string(),
-                    gvks: None
+                    gvks: None,
                 }
             }
         };

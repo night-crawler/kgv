@@ -11,7 +11,7 @@ use crate::model::discover_gvk;
 use crate::model::reflector_registry::ReflectorRegistry;
 use crate::model::resource_view::{reqister_any_gvk, ResourceView};
 use crate::ui::fs_cache::FsCache;
-use crate::ui::signals::{ToUiSignal, ToBackendSignal};
+use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 
 pub struct K8sBackend {
     fs_cache: Arc<futures::lock::Mutex<FsCache>>,
@@ -144,6 +144,7 @@ impl K8sBackend {
                         let signal = ToUiSignal::ResponseGvkItems(gvk, resources);
                         sender.send(signal).await.unwrap();
                     }
+                    ToBackendSignal::RequestDetails(_) => {}
                 }
             }
         });

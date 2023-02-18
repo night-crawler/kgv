@@ -1,16 +1,17 @@
 use std::ops::Deref;
+
 use anyhow::Result;
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::{ApiResource, DynamicObject, GroupVersionKind};
 use kube::discovery::{verbs, Scope};
 use kube::{Api, Client, Discovery, ResourceExt};
 
+pub mod impls;
 pub mod r#macro;
 pub mod reflector_registry;
 pub mod resource_column;
 pub mod resource_view;
 pub mod traits;
-pub mod impls;
 
 #[derive(Debug, Clone)]
 pub struct DynamicObjectWrapper(DynamicObject, GroupVersionKind);
