@@ -6,6 +6,7 @@ use cursive::reexports::log::{error, info, warn};
 use cursive::Cursive;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
+use kube::ResourceExt;
 
 use crate::model::ext::gvk::GvkNameExt;
 use crate::model::ext::pod::PodExt;
@@ -19,7 +20,7 @@ use crate::ui::components::{build_main_layout, build_menu, build_pod_detail_layo
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::traits::{SivExt, TableViewExt};
-use crate::util::panics::ResultExt;
+use crate::util::panics::{OptionExt, ResultExt};
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
@@ -34,6 +35,7 @@ pub struct UiStore {
 
     pub resources: HashMap<String, ResourceView>,
     pub selected_resource: Option<ResourceView>,
+    pub selected_pod_container: Option<PodContainerView>,
 
     pub interactive_command: Option<InteractiveCommand>,
 }
@@ -55,6 +57,7 @@ impl UiStore {
             column_registry,
             resources: HashMap::new(),
             selected_resource: None,
+            selected_pod_container: None,
 
             interactive_command: None,
         }
@@ -120,8 +123,14 @@ pub trait UiStoreDispatcherExt {
     fn dispatch_show_details(&self, resource: ResourceView);
     fn dispatch_show_gvk(&self, gvk: GroupVersionKind);
 
+    fn dispatch_ctrl_e(&self);
+    fn dispatch_execute_current(&self);
+
     fn replace_table_items(&self);
     fn replace_pod_detail_table_items(&self);
+
+    fn set_selected_container_by_index(&self, index: usize);
+    fn set_selected_resource_by_index(&self, index: usize);
 }
 
 impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
@@ -201,8 +210,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
     fn dispatch_show_details(&self, resource: ResourceView) {
         let sink = {
-            let mut store = self.lock().unwrap_or_log();
-            store.selected_resource = Some(resource.clone());
+            let store = self.lock().unwrap_or_log();
             store.sink.clone()
         };
         let store = Arc::clone(self);
@@ -236,6 +244,53 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         });
     }
 
+    fn dispatch_ctrl_e(&self) {
+        let has_pod = matches!(
+            self.lock().unwrap_or_log().selected_resource.as_ref(),
+            Some(ResourceView::Pod(_))
+        );
+        if has_pod {
+            self.dispatch_execute_current();
+        }
+        info!("Ctrl + e pressed outside of context");
+    }
+
+    fn dispatch_execute_current(&self) {
+        let mut store = self.lock().unwrap_or_log();
+
+        let container_name = store
+            .selected_pod_container
+            .as_ref()
+            .map(|container| container.container.name.clone());
+
+        if let Some(ResourceView::Pod(pod)) = store.selected_resource.as_ref() {
+            let container_name = if let Some(container_name) = container_name {
+                container_name
+            } else if let Some(container_name) = pod.get_expected_exec_container_name() {
+                container_name
+            } else if let Some(container_name) = pod.get_first_container_name() {
+                container_name
+            } else {
+                warn!("Could not find a container for pod: {}", pod.name_any());
+                return;
+            };
+
+            store.interactive_command =
+                InteractiveCommand::Exec(pod.as_ref().clone(), container_name).into();
+        } else {
+            error!(
+                "Requested an exec into a pod, but selected resource is not a pod: {:?}",
+                store.selected_resource
+            );
+            return;
+        }
+
+        let sink = store.sink.clone();
+        drop(store);
+
+        sink.send_box(|siv| siv.quit());
+    }
+
     fn replace_table_items(&self) {
         let (sink, resources) = {
             let store = self.lock().unwrap_or_log();
@@ -260,5 +315,37 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 table.set_items(containers)
             },
         );
+    }
+
+    fn set_selected_container_by_index(&self, index: usize) {
+        let sink = self.lock().unwrap_or_log().sink.clone();
+        let store = Arc::clone(self);
+        sink.send_box(move |siv| {
+            siv.call_on_name(
+                "containers",
+                |table: &mut TableView<PodContainerView, PodContainerColumn>| {
+                    let mut store = store.lock().unwrap_or_log();
+                    store.selected_pod_container = table.borrow_item(index).cloned();
+                },
+            )
+            .unwrap_or_log();
+        });
+    }
+
+    fn set_selected_resource_by_index(&self, index: usize) {
+        let sink = self.lock().unwrap_or_log().sink.clone();
+        let store = Arc::clone(self);
+
+        sink.send_box(move |siv| {
+            siv.call_on_name(
+                "table",
+                |table: &mut TableView<ResourceView, ResourceColumn>| {
+                    if let Some(resource) = table.borrow_item(index) {
+                        let mut store = store.lock().unwrap_or_log();
+                        store.selected_resource = resource.clone().into();
+                    }
+                },
+            );
+        });
     }
 }

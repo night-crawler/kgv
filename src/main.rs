@@ -1,22 +1,20 @@
-use std::process::Command;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
-use crate::backend::k8s_backend::K8sBackend;
 use anyhow::Result;
-use cursive::reexports::crossbeam_channel::internal::SelectHandle;
-use cursive::reexports::log;
-use cursive::reexports::log::warn;
+use cursive::reexports::log::{error, info};
 use cursive::{event, Cursive, CursiveRunnable};
 use cursive_flexi_logger_view::toggle_flexi_logger_debug_console;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 
+use crate::backend::k8s_backend::K8sBackend;
 use crate::model::traits::GvkStaticExt;
 use crate::theme::get_theme;
 use crate::ui::column_registry::ColumnRegistry;
+use crate::ui::dispatch::dispatch_events;
+use crate::ui::logging::setup_logging;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
-use crate::util::panics::{OptionExt, ResultExt};
+use crate::ui::ui_store::UiStore;
+use crate::util::panics::ResultExt;
 
 pub mod backend;
 pub mod model;
@@ -24,63 +22,22 @@ pub mod theme;
 pub mod ui;
 pub mod util;
 
-fn setup_logging(siv: &Cursive) {
-    let home = home::home_dir().unwrap_or_log().join(".kgv").join("logs");
-    flexi_logger::Logger::try_with_env_or_str("info")
-        .expect("Could not create Logger from environment :(")
-        .log_to_file_and_writer(
-            flexi_logger::FileSpec::default()
-                .directory(home)
-                .suppress_timestamp(),
-            cursive_flexi_logger_view::cursive_flexi_logger(siv),
-        )
-        .format(flexi_logger::colored_with_thread)
-        .start()
-        .expect("failed to initialize logger!");
-}
-
-fn dispatch_events(store: Arc<Mutex<UiStore>>, from_backend_receiver: kanal::Receiver<ToUiSignal>) {
-    std::thread::Builder::new()
-        .name("dispatcher".to_string())
-        .spawn(move || {
-            for signal in from_backend_receiver {
-                while !store.lock().unwrap_or_log().sink.is_ready() {
-                    warn!("UI is not ready");
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-
-                match signal {
-                    ToUiSignal::ResponseResourceUpdated(resource) => {
-                        store.dispatch_response_resource_updated(resource);
-                    }
-                    ToUiSignal::ResponseDiscoveredGvks(gvks) => {
-                        store.dispatch_response_discovered_gvks(gvks);
-                    }
-                    ToUiSignal::ResponseGvkItems(next_gvk, resources) => {
-                        store.dispatch_response_gvk_items(next_gvk, resources);
-                    }
-                    ToUiSignal::ApplyNamespaceFilter(ns) => {
-                        store.dispatch_apply_namespace_filter(ns);
-                    }
-                    ToUiSignal::ApplyNameFilter(name) => {
-                        store.dispatch_apply_name_filter(name);
-                    }
-                    ToUiSignal::ShowDetails(resource) => {
-                        store.dispatch_show_details(resource);
-                    }
-                    ToUiSignal::ShowGvk(gvk) => {
-                        store.dispatch_show_gvk(gvk);
-                    }
-                }
-            }
-        })
-        .unwrap_or_log();
-}
-
 fn backend_init() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
     let backend = cursive::backends::termion::Backend::init()?;
     let buffered_backend = cursive_buffered_backend::BufferedBackend::new(backend);
     Ok(Box::new(buffered_backend))
+}
+
+fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSignal>) {
+    ui.add_global_callback('~', toggle_flexi_logger_debug_console); // Bind '~' key to show/hide debug console view
+
+    ui.add_global_callback(event::Key::F10, |siv| siv.select_menubar());
+    ui.add_global_callback(event::Key::Esc, |siv| {
+        siv.pop_layer();
+    });
+    ui.add_global_callback(event::Event::CtrlChar('e'), move |_| {
+        ui_to_ui_sender.send(ToUiSignal::CtrlEPressed).unwrap();
+    });
 }
 
 fn main() -> Result<()> {
@@ -99,12 +56,7 @@ fn main() -> Result<()> {
     backend.spawn_discovery_task();
     backend.spawn_from_ui_receiver_task();
 
-    ui.add_global_callback('~', toggle_flexi_logger_debug_console); // Bind '~' key to show/hide debug console view
-
-    ui.add_global_callback(event::Key::F10, |siv| siv.select_menubar());
-    ui.add_global_callback(event::Key::Esc, |siv| {
-        siv.pop_layer();
-    });
+    register_hotkeys(&mut ui, ui_to_ui_sender.clone());
 
     to_backend_sender
         .send(ToBackendSignal::RequestRegisterGvk(Pod::gvk_for_type()))
@@ -135,13 +87,18 @@ fn main() -> Result<()> {
 
         let mut store = store.lock().unwrap_or_log();
         if let Some(command) = store.interactive_command.take() {
-            log::info!("Handling command: {:?}", command);
-            Command::new("mcedit")
-                .args(&["--nosubshell", "/tmp/sample"])
-                .spawn()
-                .unwrap_or_log()
-                .wait()
-                .unwrap_or_log();
+            match command.run() {
+                Ok(status) => {
+                    if !status.success() {
+                        error!("Failed to exec: {}", status);
+                    } else {
+                        info!("Executed: {}", status);
+                    }
+                }
+                Err(err) => {
+                    error!("Error executing command: {}", err);
+                }
+            }
         } else {
             break;
         }

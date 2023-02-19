@@ -7,7 +7,6 @@ use cursive::traits::*;
 use cursive::utils::markup::StyledString;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive_table_view::TableView;
-use k8s_openapi::api::core::v1::Pod;
 use kube::api::GroupVersionKind;
 use strum::IntoEnumIterator;
 
@@ -17,11 +16,10 @@ use crate::model::pod::pod_container_view::PodContainerView;
 use crate::model::resource::resource_column::ResourceColumn;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::GvkExt;
-use crate::ui::group_gvks;
-use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::ui_store::UiStore;
+use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::util::panics::ResultExt;
+use crate::util::ui::group_gvks;
 
 pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     let mut main_layout = LinearLayout::vertical();
@@ -42,13 +40,23 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
         }
     };
 
-    let mut table: TableView<PodContainerView, PodContainerColumn> =
-        TableView::new().on_submit(move |siv, _row, _index| {
-            let mut store = store.lock().unwrap_or_log();
-            store.interactive_command =
-                Some(InteractiveCommand::Exec(Pod::default(), "".to_string()));
-            siv.quit();
+    let mut table: TableView<PodContainerView, PodContainerColumn> = TableView::new();
+    {
+        let store = store.clone();
+        table.set_on_submit(move |_siv, _row, index| {
+            store.set_selected_container_by_index(index);
+            let to_ui_sender = store.lock().unwrap_or_log().to_ui_sender.clone();
+            to_ui_sender
+                .send(ToUiSignal::ExecuteCurrent)
+                .unwrap_or_log();
         });
+    }
+
+    {
+        table.set_on_select(move |_siv, _row, index| {
+            store.set_selected_container_by_index(index);
+        });
+    }
 
     for column in PodContainerColumn::iter() {
         table = table.column(column, column.to_string(), |c| match column {
@@ -116,11 +124,15 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     );
     filter_layout.add_child(Panel::new(name_edit_view).title("Name").full_width());
 
-    let mut table: TableView<ResourceView, ResourceColumn> =
-        TableView::new().on_submit(move |siv, _, index| {
+    let mut table: TableView<ResourceView, ResourceColumn> = TableView::new();
+
+    {
+        let store = store.clone();
+        table.set_on_submit(move |siv, _, index| {
             siv.call_on_name(
                 "table",
                 |table: &mut TableView<ResourceView, ResourceColumn>| {
+                    store.set_selected_resource_by_index(index);
                     if let Some(resource) = table.borrow_item(index) {
                         to_backend_sender
                             .send(ToBackendSignal::RequestDetails(resource.clone()))
@@ -132,6 +144,16 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
                 },
             );
         });
+    }
+
+    table.set_on_select(move |siv, _, index| {
+        siv.call_on_name(
+            "table",
+            |_table: &mut TableView<ResourceView, ResourceColumn>| {
+                store.set_selected_resource_by_index(index);
+            },
+        );
+    });
 
     for column in columns {
         table = table.column(column, column.as_ref(), |c| match column {

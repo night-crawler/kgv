@@ -20,4 +20,7 @@ pub enum ToUiSignal {
 
     ShowGvk(GroupVersionKind),
     ShowDetails(ResourceView),
+
+    CtrlEPressed,
+    ExecuteCurrent,
 }

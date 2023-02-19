@@ -5,6 +5,8 @@ use k8s_openapi::api::core::v1::{ContainerStatus, Pod};
 
 pub trait PodExt {
     fn get_pod_containers(&self) -> Option<Vec<PodContainerView>>;
+    fn get_expected_exec_container_name(&self) -> Option<String>;
+    fn get_first_container_name(&self) -> Option<String>;
 }
 
 impl PodExt for Pod {
@@ -39,5 +41,22 @@ impl PodExt for Pod {
         }
 
         result.into()
+    }
+
+    fn get_expected_exec_container_name(&self) -> Option<String> {
+        for container in self.get_pod_containers().into_iter().flatten() {
+            if container.container.name.to_lowercase().contains("istio") {
+                continue;
+            }
+            return Some(container.container.name);
+        }
+        None
+    }
+
+    fn get_first_container_name(&self) -> Option<String> {
+        for container in self.get_pod_containers().into_iter().flatten() {
+            return Some(container.container.name);
+        }
+        None
     }
 }
