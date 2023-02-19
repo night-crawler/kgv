@@ -1,6 +1,5 @@
+use crate::model::resource::resource_view::ResourceView;
 use kube::api::GroupVersionKind;
-
-use crate::model::resource_view::ResourceView;
 
 #[derive(Debug)]
 pub enum ToBackendSignal {

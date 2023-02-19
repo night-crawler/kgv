@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
+use crate::model::resource::resource_column::ResourceColumn;
+use crate::model::resource::resource_view::ResourceView;
 use cursive::reexports::log::info;
 use kube::api::GroupVersionKind;
-
-use crate::model::resource_column::ResourceColumn;
-use crate::model::resource_view::ResourceView;
 
 pub struct ColumnRegistry {
     map: HashMap<GroupVersionKind, Vec<ResourceColumn>>,

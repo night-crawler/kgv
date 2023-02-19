@@ -13,7 +13,6 @@ pub mod fs_cache;
 pub mod impls;
 pub mod interactive_command;
 pub mod k8s_backend;
-pub mod pod;
 pub mod signals;
 pub mod traits;
 pub mod ui_store;

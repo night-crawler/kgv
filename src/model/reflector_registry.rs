@@ -12,7 +12,7 @@ use kube::runtime::reflector::store::Writer;
 use kube::runtime::{reflector, watcher, WatchStreamExt};
 use kube::{discovery, Api, Client};
 
-use crate::model::resource_view::ResourceView;
+use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::{GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
 use crate::model::DynamicObjectWrapper;
 use crate::ui::traits::MenuNameExt;

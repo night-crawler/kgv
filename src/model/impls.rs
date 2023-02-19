@@ -6,7 +6,7 @@ use k8s_openapi::Metadata;
 use kube::api::{DynamicObject, GroupVersionKind};
 use kube::runtime::reflector::Store;
 
-use crate::model::resource_view::ResourceView;
+use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::{GvkExt, GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
 use crate::model::DynamicObjectWrapper;
 

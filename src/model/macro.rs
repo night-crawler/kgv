@@ -20,7 +20,7 @@ macro_rules! mk_resource_enum {
 
         // Default get_columns()
         impl $name {
-            pub fn get_columns(&self) -> &[$crate::model::resource_column::ResourceColumn] {
+            pub fn get_columns(&self) -> &[$crate::model::resource::resource_column::ResourceColumn] {
                 match self {
                     $(
                         Self::$opt_name(_) => &[
@@ -29,8 +29,8 @@ macro_rules! mk_resource_enum {
                     )+
 
                     Self::DynamicObject(_) => &[
-                        $crate::model::resource_column::ResourceColumn::Namespace,
-                        $crate::model::resource_column::ResourceColumn::Name,
+                        $crate::model::resource::resource_column::ResourceColumn::Namespace,
+                        $crate::model::resource::resource_column::ResourceColumn::Name,
                     ],
                 }
             }
@@ -40,7 +40,7 @@ macro_rules! mk_resource_enum {
         impl $name {
             pub fn build_gvk_to_columns_map() -> std::collections::HashMap<
                 kube::api::GroupVersionKind,
-                Vec<$crate::model::resource_column::ResourceColumn>
+                Vec<$crate::model::resource::resource_column::ResourceColumn>
             > {
                 use $crate::model::traits::GvkStaticExt;
                 let mut map = std::collections::HashMap::new();

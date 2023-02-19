@@ -1,16 +1,14 @@
 use std::cmp::Ordering;
 
+use crate::model::resource::resource_column::ResourceColumn;
+use crate::model::resource::resource_view::ResourceView;
 use cursive::reexports::log::error;
 use cursive::{Cursive, View};
 use cursive_table_view::{TableView, TableViewItem};
 use itertools::Itertools;
-use k8s_openapi::api::core::v1::Container;
-use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::api::GroupVersionKind;
 
-use crate::model::resource_column::ResourceColumn;
-use crate::model::resource_view::ResourceView;
-use crate::ui::traits::{ContainerExt, MenuNameExt, SivExt, TableViewExt};
+use crate::ui::traits::{MenuNameExt, SivExt, TableViewExt};
 use crate::util::panics::ResultExt;
 use crate::util::ui::ago;
 
@@ -85,35 +83,5 @@ impl TableViewExt<ResourceView> for TableView<ResourceView, ResourceColumn> {
             }
         }
         self.insert_item(resource);
-    }
-}
-
-impl ContainerExt for Container {
-    fn memory_limit(&self) -> Option<&Quantity> {
-        self.resources.as_ref()?.limits.as_ref()?.get("memory")
-    }
-
-    fn memory_request(&self) -> Option<&Quantity> {
-        self.resources.as_ref()?.requests.as_ref()?.get("memory")
-    }
-
-    fn memory_rl(&self) -> String {
-        let request = self.memory_request().map(|q| q.0.as_str()).unwrap_or("-");
-        let limit = self.memory_limit().map(|q| q.0.as_str()).unwrap_or("-");
-        format!("{request}:{limit}")
-    }
-
-    fn cpu_limit(&self) -> Option<&Quantity> {
-        self.resources.as_ref()?.limits.as_ref()?.get("cpu")
-    }
-
-    fn cpu_request(&self) -> Option<&Quantity> {
-        self.resources.as_ref()?.requests.as_ref()?.get("cpu")
-    }
-
-    fn cpu_rl(&self) -> String {
-        let request = self.cpu_request().map(|q| q.0.as_str()).unwrap_or("-");
-        let limit = self.cpu_limit().map(|q| q.0.as_str()).unwrap_or("-");
-        format!("{request}:{limit}")
     }
 }

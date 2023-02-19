@@ -10,7 +10,7 @@ use tokio::runtime::Runtime;
 
 use crate::model::discover_gvk;
 use crate::model::reflector_registry::ReflectorRegistry;
-use crate::model::resource_view::{reqister_any_gvk, ResourceView};
+use crate::model::resource::resource_view::{reqister_any_gvk, ResourceView};
 use crate::ui::fs_cache::FsCache;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::util::panics::ResultExt;
@@ -115,7 +115,7 @@ impl K8sBackend {
         });
     }
 
-    pub(crate) fn spawn_watcher_exchange_task(&self) {
+    pub fn spawn_watcher_exchange_task(&self) {
         let resource_watch_receiver = self.resource_watcher_receiver.clone();
         let ui_signal_sender = self.from_client_sender.clone_async();
 

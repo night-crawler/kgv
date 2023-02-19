@@ -10,7 +10,6 @@ use cursive::{event, Cursive, CursiveRunnable};
 use cursive_flexi_logger_view::toggle_flexi_logger_debug_console;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 
-use crate::model::resource_column::ResourceColumn;
 use crate::model::traits::GvkStaticExt;
 use crate::theme::get_theme;
 use crate::ui::column_registry::ColumnRegistry;

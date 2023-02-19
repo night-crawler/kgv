@@ -1,6 +1,5 @@
+use crate::model::resource::resource_view::ResourceView;
 use kube::api::GroupVersionKind;
-
-use crate::model::resource_view::ResourceView;
 
 pub trait SpecViewAdapter {
     fn items(&self) -> Vec<ResourceView>;

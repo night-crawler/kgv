@@ -1,24 +1,24 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::model::pod::pod_container_column::PodContainerColumn;
+use crate::model::pod::pod_container_view::PodContainerView;
+use crate::model::resource::resource_column::ResourceColumn;
+use crate::model::resource::resource_view::ResourceView;
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::{error, info, warn};
 use cursive::Cursive;
 use cursive_table_view::TableView;
-use itertools::Itertools;
 use kube::api::GroupVersionKind;
 
-use crate::model::resource_column::ResourceColumn;
-use crate::model::resource_view::ResourceView;
 use crate::model::traits::GvkExt;
 use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::components::{build_main_layout, build_menu, build_pod_detail_layout};
 use crate::ui::interactive_command::InteractiveCommand;
-use crate::ui::pod::pod_container_column::PodContainerColumn;
-use crate::ui::pod::pod_container_view::PodContainerView;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::traits::MenuNameExt;
 use crate::ui::traits::{SivExt, TableViewExt};
+use crate::util::ext::pod::PodExt;
 use crate::util::panics::ResultExt;
 
 pub struct UiStore {
@@ -92,15 +92,7 @@ impl UiStore {
 
     pub fn get_pod_containers(&self) -> Vec<PodContainerView> {
         if let Some(ResourceView::Pod(pod)) = self.selected_resource.as_ref() {
-            return if let Some(spec) = &pod.spec {
-                spec.containers
-                    .iter()
-                    .cloned()
-                    .map(PodContainerView::new)
-                    .collect_vec()
-            } else {
-                vec![]
-            };
+            return pod.get_pod_containers().unwrap_or_default();
         }
 
         panic!(

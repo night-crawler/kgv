@@ -1,21 +1,23 @@
 use std::sync::{Arc, Mutex};
 
+use crate::model::pod::pod_container_column::PodContainerColumn;
+use crate::model::pod::pod_container_view::PodContainerView;
+use crate::model::resource::resource_column::ResourceColumn;
+use crate::model::resource::resource_view::ResourceView;
 use cursive::direction::Orientation;
 use cursive::menu;
+use cursive::theme::BaseColor;
 use cursive::traits::*;
+use cursive::utils::markup::StyledString;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive_table_view::TableView;
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::GroupVersionKind;
 use strum::IntoEnumIterator;
 
-use crate::model::resource_column::ResourceColumn;
-use crate::model::resource_view::ResourceView;
 use crate::model::traits::GvkExt;
 use crate::ui::group_gvks;
 use crate::ui::interactive_command::InteractiveCommand;
-use crate::ui::pod::pod_container_column::PodContainerColumn;
-use crate::ui::pod::pod_container_view::PodContainerView;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::traits::MenuNameExt;
 use crate::ui::ui_store::UiStore;
@@ -24,17 +26,19 @@ use crate::util::panics::ResultExt;
 pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     let mut main_layout = LinearLayout::vertical();
 
-    let name = {
+    let panel_title = {
         let store = store.lock().unwrap_or_log();
         if let Some(resource) = store.selected_resource.as_ref() {
-            format!(
-                "[{}] {} {}",
-                resource.gvk().full_menu_name(),
-                resource.namespace(),
-                resource.name()
-            )
+            let mut styled =
+                StyledString::styled(resource.gvk().full_menu_name(), BaseColor::Blue.light());
+
+            styled.append(StyledString::styled(
+                format!(" [{}/{}]", resource.namespace(), resource.name()),
+                BaseColor::Green.light(),
+            ));
+            styled
         } else {
-            "".to_string()
+            StyledString::new()
         }
     };
 
@@ -47,10 +51,21 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
         });
 
     for column in PodContainerColumn::iter() {
-        table = table.column(column, column.as_ref(), |c| c);
+        table = table.column(column, column.to_string(), |c| match column {
+            PodContainerColumn::Name => c.width(10),
+            PodContainerColumn::Ready => c.width(4),
+            PodContainerColumn::State => c.width(5),
+            PodContainerColumn::Init => c.width(4),
+            PodContainerColumn::Restarts => c.width(4),
+            PodContainerColumn::Probes => c.width(4),
+            PodContainerColumn::Cpu => c.width(8),
+            PodContainerColumn::Mem => c.width(8),
+            PodContainerColumn::Age => c.width(3),
+            _ => c,
+        });
     }
 
-    let panel = Panel::new(table.with_name("containers").full_screen()).title(name);
+    let panel = Panel::new(table.with_name("containers").full_screen()).title(panel_title);
     main_layout.add_child(panel);
 
     main_layout
@@ -119,17 +134,14 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
         });
 
     for column in columns {
-        table = table.column(column, column.as_ref(), |mut c| {
-            match column {
-                ResourceColumn::Namespace => c = c.width(20),
-                ResourceColumn::Name => c = c.width_percent(35),
-                ResourceColumn::Restarts => c = c.width(7),
-                ResourceColumn::Ready => c = c.width(7),
-                ResourceColumn::Age => c = c.width(7),
-                ResourceColumn::Status => c = c.width(7),
-                _ => {}
-            }
-            c
+        table = table.column(column, column.as_ref(), |c| match column {
+            ResourceColumn::Namespace => c.width(20),
+            ResourceColumn::Name => c.width_percent(35),
+            ResourceColumn::Restarts => c.width(7),
+            ResourceColumn::Ready => c.width(7),
+            ResourceColumn::Age => c.width(7),
+            ResourceColumn::Status => c.width(7),
+            _ => c,
         });
     }
 

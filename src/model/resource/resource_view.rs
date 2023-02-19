@@ -5,7 +5,8 @@ use chrono::Utc;
 use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Pod};
 use kube::ResourceExt;
 
-use crate::{extract_age, extract_status, mk_resource_enum, ResourceColumn};
+use crate::model::resource::resource_column::ResourceColumn;
+use crate::{extract_age, extract_status, mk_resource_enum};
 
 mk_resource_enum!(ResourceView, [
     Namespace: [

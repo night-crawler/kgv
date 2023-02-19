@@ -8,9 +8,9 @@ use kube::{Api, Client, Discovery, ResourceExt};
 
 pub mod impls;
 pub mod r#macro;
+pub mod pod;
 pub mod reflector_registry;
-pub mod resource_column;
-pub mod resource_view;
+pub mod resource;
 pub mod traits;
 
 #[derive(Debug, Clone)]
