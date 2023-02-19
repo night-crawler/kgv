@@ -1,4 +1,5 @@
 use std::ops::DerefMut;
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
 use cursive::reexports::log::{error, info};
@@ -12,6 +13,7 @@ use crate::model::reflector_registry::ReflectorRegistry;
 use crate::model::resource_view::{reqister_any_gvk, ResourceView};
 use crate::ui::fs_cache::FsCache;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::util::panics::ResultExt;
 
 pub struct K8sBackend {
     fs_cache: Arc<futures::lock::Mutex<FsCache>>,
@@ -66,6 +68,11 @@ impl K8sBackend {
     fn spawn_runtime(worker_thread: usize) -> std::io::Result<Runtime> {
         tokio::runtime::Builder::new_multi_thread()
             .worker_threads(worker_thread)
+            .thread_name_fn(|| {
+                static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
+                let id = ATOMIC_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                format!("k8s-{}", id)
+            })
             .enable_all()
             .build()
     }
@@ -80,7 +87,7 @@ impl K8sBackend {
                 sender
                     .send(ToUiSignal::ResponseDiscoveredGvks(stored_gvks))
                     .await
-                    .unwrap();
+                    .unwrap_or_log();
             }
 
             loop {
@@ -97,7 +104,7 @@ impl K8sBackend {
                         sender
                             .send(ToUiSignal::ResponseDiscoveredGvks(gvks))
                             .await
-                            .unwrap();
+                            .unwrap_or_log();
                     }
                     Err(err) => {
                         error!("Failed to discover GVKs: {}", err)
@@ -119,7 +126,7 @@ impl K8sBackend {
                 ui_signal_sender
                     .send(ToUiSignal::ResponseResourceUpdated(resource_view))
                     .await
-                    .unwrap();
+                    .unwrap_or_log();
             }
             panic!("Main exchange loop has ended")
         });
@@ -142,7 +149,7 @@ impl K8sBackend {
                     ToBackendSignal::RequestGvkItems(gvk) => {
                         let resources = reg.get_resources(&gvk);
                         let signal = ToUiSignal::ResponseGvkItems(gvk, resources);
-                        sender.send(signal).await.unwrap();
+                        sender.send(signal).await.unwrap_or_log();
                     }
                     ToBackendSignal::RequestDetails(_) => {}
                 }

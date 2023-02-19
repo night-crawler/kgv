@@ -109,6 +109,7 @@ macro_rules! mk_resource_enum {
 
         pub async fn reqister_any_gvk(registry: &mut $crate::model::reflector_registry::ReflectorRegistry, gvk: kube::api::GroupVersionKind) {
             use k8s_openapi::Resource;
+            use $crate::util::panics::ResultExt;
             match gvk {
                 $(
 
@@ -125,7 +126,7 @@ macro_rules! mk_resource_enum {
                 )+
 
                 gvk => {
-                    registry.register_gvk(gvk).await.unwrap();
+                    registry.register_gvk(gvk).await.unwrap_or_log();
                 }
             }
         }

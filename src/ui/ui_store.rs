@@ -3,18 +3,23 @@ use std::sync::{Arc, Mutex};
 
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::{error, info, warn};
-use cursive::traits::*;
 use cursive::Cursive;
 use cursive_table_view::TableView;
+use itertools::Itertools;
 use kube::api::GroupVersionKind;
 
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
 use crate::model::traits::GvkExt;
 use crate::ui::column_registry::ColumnRegistry;
-use crate::ui::components::{build_main_layout, build_menu};
+use crate::ui::components::{build_main_layout, build_menu, build_pod_detail_layout};
+use crate::ui::interactive_command::InteractiveCommand;
+use crate::ui::pod::pod_container_column::PodContainerColumn;
+use crate::ui::pod::pod_container_view::PodContainerView;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::ui::traits::MenuNameExt;
 use crate::ui::traits::{SivExt, TableViewExt};
+use crate::util::panics::ResultExt;
 
 pub struct UiStore {
     pub selected_gvk: GroupVersionKind,
@@ -24,7 +29,11 @@ pub struct UiStore {
     pub to_backend_sender: kanal::Sender<ToBackendSignal>,
     pub sink: Sender<Box<dyn FnOnce(&mut Cursive) + Send>>,
     pub column_registry: ColumnRegistry,
+
     pub resources: HashMap<String, ResourceView>,
+    pub selected_resource: Option<ResourceView>,
+
+    pub interactive_command: Option<InteractiveCommand>,
 }
 
 impl UiStore {
@@ -43,6 +52,9 @@ impl UiStore {
             sink,
             column_registry,
             resources: HashMap::new(),
+            selected_resource: None,
+
+            interactive_command: None,
         }
     }
 
@@ -77,80 +89,84 @@ impl UiStore {
             self.add_resource(resource);
         }
     }
+
+    pub fn get_pod_containers(&self) -> Vec<PodContainerView> {
+        if let Some(ResourceView::Pod(pod)) = self.selected_resource.as_ref() {
+            return if let Some(spec) = &pod.spec {
+                spec.containers
+                    .iter()
+                    .cloned()
+                    .map(PodContainerView::new)
+                    .collect_vec()
+            } else {
+                vec![]
+            };
+        }
+
+        panic!(
+            "Getting pod containers on a resource that is not a pod: {:?}",
+            self.selected_resource
+        );
+    }
 }
 
-pub trait UiStoreExt {
-    fn handle_response_gvk_items(
+pub trait UiStoreDispatcherExt {
+    fn dispatch_response_gvk_items(
         &self,
         next_gvk: GroupVersionKind,
         resources: Option<Vec<ResourceView>>,
     );
 
-    fn handle_response_resource_updated(&self, resource: ResourceView);
-    fn handle_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>);
+    fn dispatch_response_resource_updated(&self, resource: ResourceView);
+    fn dispatch_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>);
 
-    fn handle_apply_namespace_filter(&self, namespace: String);
-    fn handle_apply_name_filter(&self, name: String);
+    fn dispatch_apply_namespace_filter(&self, namespace: String);
+    fn dispatch_apply_name_filter(&self, name: String);
 
-    fn handle_show_details(&self, resource: ResourceView);
+    fn dispatch_show_details(&self, resource: ResourceView);
+    fn dispatch_show_gvk(&self, gvk: GroupVersionKind);
 
-    fn render_table(&self);
+    fn replace_table_items(&self);
+    fn replace_pod_detail_table_items(&self);
 }
 
-impl UiStoreExt for Arc<Mutex<UiStore>> {
-    fn handle_response_gvk_items(
+impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
+    fn dispatch_response_gvk_items(
         &self,
         next_gvk: GroupVersionKind,
         resources: Option<Vec<ResourceView>>,
     ) {
-        let store = Arc::clone(self);
-
         let sink = {
-            let mut store = store.lock().unwrap();
-
+            let mut store = self.lock().unwrap_or_log();
             if let Some(resources) = resources {
                 store.replace_resources(resources);
             } else {
-                warn!("Empty resources for GVK: {:?}", next_gvk);
+                warn!("Empty resources for GVK: {}", next_gvk.full_menu_name());
                 store
                     .to_backend_sender
-                    .send(ToBackendSignal::RequestRegisterGvk(next_gvk.clone()))
-                    .unwrap();
+                    .send(ToBackendSignal::RequestRegisterGvk(next_gvk))
+                    .unwrap_or_log();
                 store.resources.clear();
             }
-
-            if store.selected_gvk == next_gvk {
-                return;
-            }
-            store.selected_gvk = next_gvk;
-
             store.sink.clone()
         };
 
-        {
-            let store = Arc::clone(&store);
-            sink.send_box(move |siv| {
-                siv.pop_layer();
-                let main_layout = build_main_layout(store);
-                siv.add_fullscreen_layer(main_layout);
-            });
-        }
-
+        let store = Arc::clone(self);
         sink.call_on_name(
             "table",
             move |table: &mut TableView<ResourceView, ResourceColumn>| {
-                let resources = store.lock().unwrap().get_filtered_resources();
+                let resources = store.lock().unwrap_or_log().get_filtered_resources();
                 info!("Rendering full view for {} resources", resources.len());
                 table.set_items(resources);
             },
         );
     }
 
-    fn handle_response_resource_updated(&self, resource: ResourceView) {
+    fn dispatch_response_resource_updated(&self, resource: ResourceView) {
         let gvk = resource.gvk();
 
-        let (sender, sink) = {
-            let mut store = self.lock().unwrap();
+        let sink = {
+            let mut store = self.lock().unwrap_or_log();
             if store.selected_gvk != gvk {
                 return;
             }
@@ -158,22 +174,20 @@ impl UiStoreExt for Arc<Mutex<UiStore>> {
             if !store.should_display_resource(&resource) {
                 return;
             }
-            (store.to_backend_sender.clone(), store.sink.clone())
+            store.sink.clone()
         };
-
-        sender.send(ToBackendSignal::RequestGvkItems(gvk)).unwrap();
 
         sink.call_on_name(
             "table",
             |table: &mut TableView<ResourceView, ResourceColumn>| {
-                table.merge_resource(resource);
+                table.add_or_update_resource(resource);
             },
         );
     }
 
-    fn handle_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>) {
+    fn dispatch_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>) {
         let store = Arc::clone(self);
-        let sink = store.lock().unwrap().sink.clone();
+        let sink = store.lock().unwrap_or_log().sink.clone();
         sink.send_box(move |siv| {
             let mut menubar = build_menu(gvks, store);
             menubar.autohide = false;
@@ -181,57 +195,76 @@ impl UiStoreExt for Arc<Mutex<UiStore>> {
         });
     }
 
-    fn handle_apply_namespace_filter(&self, namespace: String) {
-        self.lock().unwrap().ns_filter = namespace;
-        self.render_table();
+    fn dispatch_apply_namespace_filter(&self, namespace: String) {
+        self.lock().unwrap_or_log().ns_filter = namespace;
+        self.replace_table_items();
     }
 
-    fn handle_apply_name_filter(&self, name: String) {
-        self.lock().unwrap().name_filter = name;
-        self.render_table();
+    fn dispatch_apply_name_filter(&self, name: String) {
+        self.lock().unwrap_or_log().name_filter = name;
+        self.replace_table_items();
     }
 
-    fn handle_show_details(&self, resource: ResourceView) {
-        let store = self.lock().unwrap();
-        let sink = store.sink.clone();
-        drop(store);
+    fn dispatch_show_details(&self, resource: ResourceView) {
+        let sink = {
+            let mut store = self.lock().unwrap_or_log();
+            store.selected_resource = Some(resource.clone());
+            store.sink.clone()
+        };
+        let store = Arc::clone(self);
 
-        sink.send(Box::new(move |siv| {
-            let html = r####"
-            <table>
-  <tr>
-    <th>Company</th>
-    <th>Contact</th>
-    <th>Country</th>
-  </tr>
-  <tr>
-    <td>Alfreds Futterkiste</td>
-    <td>Maria Anders</td>
-    <td>Germany</td>
-  </tr>
-  <tr>
-    <td>Centro comercial Moctezuma</td>
-    <td>Francisco Chang</td>
-    <td>Mexico</td>
-  </tr>
-</table>
-            "####;
-            let view = cursive_markup::MarkupView::html(html).max_width(120);
-
-            siv.add_fullscreen_layer(view.scrollable().full_screen());
-        }))
-        .unwrap();
+        match resource {
+            ResourceView::Pod(_) => {
+                sink.send_box(move |siv| {
+                    let layout = build_pod_detail_layout(store);
+                    siv.add_fullscreen_layer(layout);
+                });
+                self.replace_pod_detail_table_items();
+            }
+            _ => {
+                error!("Not supported")
+            }
+        }
     }
 
-    fn render_table(&self) {
+    fn dispatch_show_gvk(&self, gvk: GroupVersionKind) {
+        let sink = {
+            let mut store = self.lock().unwrap_or_log();
+            store.selected_gvk = gvk;
+            store.sink.clone()
+        };
+
+        let store = Arc::clone(self);
+        sink.send_box(move |siv| {
+            siv.pop_layer();
+            let main_layout = build_main_layout(store);
+            siv.add_fullscreen_layer(main_layout);
+        });
+    }
+
+    fn replace_table_items(&self) {
         let (sink, resources) = {
-            let store = self.lock().unwrap();
+            let store = self.lock().unwrap_or_log();
             (store.sink.clone(), store.get_filtered_resources())
         };
 
         sink.call_on_name(
             "table",
             move |table: &mut TableView<ResourceView, ResourceColumn>| table.set_items(resources),
+        );
+    }
+
+    fn replace_pod_detail_table_items(&self) {
+        let (sink, containers) = {
+            let store = self.lock().unwrap_or_log();
+            (store.sink.clone(), store.get_pod_containers())
+        };
+
+        sink.call_on_name(
+            "containers",
+            move |table: &mut TableView<PodContainerView, PodContainerColumn>| {
+                table.set_items(containers)
+            },
         );
     }
 }

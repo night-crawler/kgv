@@ -1,6 +1,5 @@
 use cursive::{Cursive, View};
-
-use crate::model::resource_view::ResourceView;
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 
 pub trait MenuNameExt {
     fn full_menu_name(&self) -> String;
@@ -18,6 +17,16 @@ pub trait SivExt {
         F: FnOnce(&mut Cursive) + Send + 'static;
 }
 
-pub trait TableViewExt {
-    fn merge_resource(&mut self, resource: ResourceView);
+pub trait TableViewExt<T> {
+    fn add_or_update_resource(&mut self, resource: T);
+}
+
+pub trait ContainerExt {
+    fn memory_limit(&self) -> Option<&Quantity>;
+    fn memory_request(&self) -> Option<&Quantity>;
+    fn memory_rl(&self) -> String;
+
+    fn cpu_limit(&self) -> Option<&Quantity>;
+    fn cpu_request(&self) -> Option<&Quantity>;
+    fn cpu_rl(&self) -> String;
 }

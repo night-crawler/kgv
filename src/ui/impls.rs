@@ -1,13 +1,17 @@
 use std::cmp::Ordering;
 
+use cursive::reexports::log::error;
 use cursive::{Cursive, View};
 use cursive_table_view::{TableView, TableViewItem};
 use itertools::Itertools;
+use k8s_openapi::api::core::v1::Container;
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::api::GroupVersionKind;
 
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
-use crate::ui::traits::{MenuNameExt, SivExt, TableViewExt};
+use crate::ui::traits::{ContainerExt, MenuNameExt, SivExt, TableViewExt};
+use crate::util::panics::ResultExt;
 use crate::util::ui::ago;
 
 impl TableViewItem<ResourceColumn> for ResourceView {
@@ -57,21 +61,23 @@ impl SivExt
     {
         let name = name.to_string();
         self.send(Box::new(move |siv| {
-            siv.call_on_name(&name, callback).unwrap();
+            if siv.call_on_name(&name, callback).is_none() {
+                error!("Could not find name: {}", name);
+            }
         }))
-        .unwrap();
+        .unwrap_or_log();
     }
 
     fn send_box<F>(&self, callback: F)
     where
         F: FnOnce(&mut Cursive) + Send + 'static,
     {
-        self.send(Box::new(callback)).unwrap();
+        self.send(Box::new(callback)).unwrap_or_log();
     }
 }
 
-impl TableViewExt for TableView<ResourceView, ResourceColumn> {
-    fn merge_resource(&mut self, resource: ResourceView) {
+impl TableViewExt<ResourceView> for TableView<ResourceView, ResourceColumn> {
+    fn add_or_update_resource(&mut self, resource: ResourceView) {
         for item in self.borrow_items_mut() {
             if item.uid() == resource.uid() {
                 *item = resource;
@@ -79,5 +85,35 @@ impl TableViewExt for TableView<ResourceView, ResourceColumn> {
             }
         }
         self.insert_item(resource);
+    }
+}
+
+impl ContainerExt for Container {
+    fn memory_limit(&self) -> Option<&Quantity> {
+        self.resources.as_ref()?.limits.as_ref()?.get("memory")
+    }
+
+    fn memory_request(&self) -> Option<&Quantity> {
+        self.resources.as_ref()?.requests.as_ref()?.get("memory")
+    }
+
+    fn memory_rl(&self) -> String {
+        let request = self.memory_request().map(|q| q.0.as_str()).unwrap_or("-");
+        let limit = self.memory_limit().map(|q| q.0.as_str()).unwrap_or("-");
+        format!("{request}:{limit}")
+    }
+
+    fn cpu_limit(&self) -> Option<&Quantity> {
+        self.resources.as_ref()?.limits.as_ref()?.get("cpu")
+    }
+
+    fn cpu_request(&self) -> Option<&Quantity> {
+        self.resources.as_ref()?.requests.as_ref()?.get("cpu")
+    }
+
+    fn cpu_rl(&self) -> String {
+        let request = self.cpu_request().map(|q| q.0.as_str()).unwrap_or("-");
+        let limit = self.cpu_limit().map(|q| q.0.as_str()).unwrap_or("-");
+        format!("{request}:{limit}")
     }
 }

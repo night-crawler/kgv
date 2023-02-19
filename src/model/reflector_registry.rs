@@ -15,6 +15,7 @@ use kube::{discovery, Api, Client};
 use crate::model::resource_view::ResourceView;
 use crate::model::traits::{GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
 use crate::model::DynamicObjectWrapper;
+use crate::ui::traits::MenuNameExt;
 
 pub struct ReflectorRegistry {
     sender: AsyncSender<ResourceView>,
@@ -59,7 +60,10 @@ impl ReflectorRegistry {
 
         self.readers_map.insert(T::gvk_for_type(), Box::new(reader));
 
-        info!("Registered Resource: {:?}", T::gvk_for_type());
+        info!(
+            "Registered Resource: {}",
+            T::gvk_for_type().full_menu_name()
+        );
     }
 
     pub async fn register_gvk(&mut self, gvk: GroupVersionKind) -> anyhow::Result<()> {
@@ -86,7 +90,7 @@ impl ReflectorRegistry {
 
         self.readers_map.insert(key.clone(), Box::new(reader));
 
-        info!("Registered GVK: {:?}", key);
+        info!("Registered GVK: {}", key.full_menu_name());
 
         Ok(())
     }

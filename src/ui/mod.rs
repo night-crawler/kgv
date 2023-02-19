@@ -4,12 +4,16 @@ use cruet::Inflector;
 use kube::api::GroupVersionKind;
 
 use crate::util::k8s::gvk_sort_key;
+use crate::util::panics::OptionExt;
 
+pub mod code_view;
 pub mod column_registry;
 pub mod components;
 pub mod fs_cache;
 pub mod impls;
+pub mod interactive_command;
 pub mod k8s_backend;
+pub mod pod;
 pub mod signals;
 pub mod traits;
 pub mod ui_store;
@@ -47,7 +51,7 @@ pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionK
         } else if gvk.group.contains("flow") {
             "flow"
         } else {
-            gvk.group.split('.').next().unwrap()
+            gvk.group.split('.').next().unwrap_or_log()
         }
         .to_title_case();
         map.entry(grouper).or_insert_with(Vec::new).push(gvk);

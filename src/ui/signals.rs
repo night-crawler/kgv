@@ -19,5 +19,6 @@ pub enum ToUiSignal {
     ApplyNamespaceFilter(String),
     ApplyNameFilter(String),
 
+    ShowGvk(GroupVersionKind),
     ShowDetails(ResourceView),
 }

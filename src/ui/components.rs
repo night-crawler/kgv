@@ -5,18 +5,60 @@ use cursive::menu;
 use cursive::traits::*;
 use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
 use cursive_table_view::TableView;
+use k8s_openapi::api::core::v1::Pod;
 use kube::api::GroupVersionKind;
+use strum::IntoEnumIterator;
 
 use crate::model::resource_column::ResourceColumn;
 use crate::model::resource_view::ResourceView;
+use crate::model::traits::GvkExt;
 use crate::ui::group_gvks;
+use crate::ui::interactive_command::InteractiveCommand;
+use crate::ui::pod::pod_container_column::PodContainerColumn;
+use crate::ui::pod::pod_container_view::PodContainerView;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::traits::MenuNameExt;
 use crate::ui::ui_store::UiStore;
+use crate::util::panics::ResultExt;
+
+pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
+    let mut main_layout = LinearLayout::vertical();
+
+    let name = {
+        let store = store.lock().unwrap_or_log();
+        if let Some(resource) = store.selected_resource.as_ref() {
+            format!(
+                "[{}] {} {}",
+                resource.gvk().full_menu_name(),
+                resource.namespace(),
+                resource.name()
+            )
+        } else {
+            "".to_string()
+        }
+    };
+
+    let mut table: TableView<PodContainerView, PodContainerColumn> =
+        TableView::new().on_submit(move |siv, _row, _index| {
+            let mut store = store.lock().unwrap_or_log();
+            store.interactive_command =
+                Some(InteractiveCommand::Exec(Pod::default(), "".to_string()));
+            siv.quit();
+        });
+
+    for column in PodContainerColumn::iter() {
+        table = table.column(column, column.as_ref(), |c| c);
+    }
+
+    let panel = Panel::new(table.with_name("containers").full_screen()).title(name);
+    main_layout.add_child(panel);
+
+    main_layout
+}
 
 pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     let (ns_filter, name_filter, columns, to_ui_sender, to_backend_sender, selected_gvk) = {
-        let store = store.lock().unwrap();
+        let store = store.lock().unwrap_or_log();
         (
             store.ns_filter.clone(),
             store.name_filter.clone(),
@@ -37,7 +79,7 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
             .on_submit(move |_, text| {
                 sender
                     .send(ToUiSignal::ApplyNamespaceFilter(text.into()))
-                    .unwrap();
+                    .unwrap_or_log();
             })
     };
 
@@ -48,7 +90,7 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
             .on_submit(move |_, text| {
                 to_ui_sender
                     .send(ToUiSignal::ApplyNameFilter(text.into()))
-                    .unwrap();
+                    .unwrap_or_log();
             })
     };
 
@@ -67,10 +109,10 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
                     if let Some(resource) = table.borrow_item(index) {
                         to_backend_sender
                             .send(ToBackendSignal::RequestDetails(resource.clone()))
-                            .unwrap();
+                            .unwrap_or_log();
                         to_ui_sender
                             .send(ToUiSignal::ShowDetails(resource.clone()))
-                            .unwrap();
+                            .unwrap_or_log();
                     }
                 },
             );
@@ -103,7 +145,10 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
 }
 
 pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiStore>>) -> Menubar {
-    let sender = store.lock().unwrap().to_backend_sender.clone();
+    let (to_backend_sender, to_ui_sender) = {
+        let store = store.lock().unwrap_or_log();
+        (store.to_backend_sender.clone(), store.to_ui_sender.clone())
+    };
 
     let mut menubar = Menubar::new();
     menubar.add_subtree("File", menu::Tree::new().leaf("Exit", |s| s.quit()));
@@ -119,11 +164,15 @@ pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiSto
                 resource_gvk.short_menu_name()
             };
 
-            let sender = sender.clone();
+            let to_backend_sender = to_backend_sender.clone();
+            let to_ui_sender = to_ui_sender.clone();
             group_tree = group_tree.leaf(leaf_name, move |_| {
-                sender
+                to_ui_sender
+                    .send(ToUiSignal::ShowGvk(resource_gvk.clone()))
+                    .unwrap_or_log();
+                to_backend_sender
                     .send(ToBackendSignal::RequestGvkItems(resource_gvk.clone()))
-                    .unwrap();
+                    .unwrap_or_log();
             });
         }
         menubar.add_subtree(group_name, group_tree);
