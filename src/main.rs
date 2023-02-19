@@ -2,6 +2,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::backend::k8s_backend::K8sBackend;
 use anyhow::Result;
 use cursive::reexports::crossbeam_channel::internal::SelectHandle;
 use cursive::reexports::log;
@@ -13,11 +14,11 @@ use k8s_openapi::api::core::v1::{Namespace, Pod};
 use crate::model::traits::GvkStaticExt;
 use crate::theme::get_theme;
 use crate::ui::column_registry::ColumnRegistry;
-use crate::ui::k8s_backend::K8sBackend;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::util::panics::{OptionExt, ResultExt};
 
+pub mod backend;
 pub mod model;
 pub mod theme;
 pub mod ui;

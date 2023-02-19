@@ -1,25 +1,27 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::model::pod::pod_container_column::PodContainerColumn;
-use crate::model::pod::pod_container_view::PodContainerView;
-use crate::model::resource::resource_column::ResourceColumn;
-use crate::model::resource::resource_view::ResourceView;
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::{error, info, warn};
 use cursive::Cursive;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 
+use crate::model::ext::gvk::GvkNameExt;
+use crate::model::ext::pod::PodExt;
+use crate::model::pod::pod_container_column::PodContainerColumn;
+use crate::model::pod::pod_container_view::PodContainerView;
+use crate::model::resource::resource_column::ResourceColumn;
+use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::GvkExt;
 use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::components::{build_main_layout, build_menu, build_pod_detail_layout};
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::traits::MenuNameExt;
 use crate::ui::traits::{SivExt, TableViewExt};
-use crate::util::ext::pod::PodExt;
 use crate::util::panics::ResultExt;
+
+pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
 pub struct UiStore {
     pub selected_gvk: GroupVersionKind,
@@ -27,7 +29,7 @@ pub struct UiStore {
     pub name_filter: String,
     pub to_ui_sender: kanal::Sender<ToUiSignal>,
     pub to_backend_sender: kanal::Sender<ToBackendSignal>,
-    pub sink: Sender<Box<dyn FnOnce(&mut Cursive) + Send>>,
+    pub sink: SinkSender,
     pub column_registry: ColumnRegistry,
 
     pub resources: HashMap<String, ResourceView>,
@@ -38,7 +40,7 @@ pub struct UiStore {
 
 impl UiStore {
     pub fn new(
-        sink: Sender<Box<dyn FnOnce(&mut Cursive) + Send>>,
+        sink: SinkSender,
         to_ui_sender: kanal::Sender<ToUiSignal>,
         to_backend_sender: kanal::Sender<ToBackendSignal>,
         column_registry: ColumnRegistry,
@@ -133,7 +135,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             if let Some(resources) = resources {
                 store.replace_resources(resources);
             } else {
-                warn!("Empty resources for GVK: {}", next_gvk.full_menu_name());
+                warn!("Empty resources for GVK: {}", next_gvk.full_name());
                 store
                     .to_backend_sender
                     .send(ToBackendSignal::RequestRegisterGvk(next_gvk))

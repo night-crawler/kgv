@@ -1,9 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use crate::model::pod::pod_container_column::PodContainerColumn;
-use crate::model::pod::pod_container_view::PodContainerView;
-use crate::model::resource::resource_column::ResourceColumn;
-use crate::model::resource::resource_view::ResourceView;
 use cursive::direction::Orientation;
 use cursive::menu;
 use cursive::theme::BaseColor;
@@ -15,11 +11,15 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::api::GroupVersionKind;
 use strum::IntoEnumIterator;
 
+use crate::model::ext::gvk::GvkNameExt;
+use crate::model::pod::pod_container_column::PodContainerColumn;
+use crate::model::pod::pod_container_view::PodContainerView;
+use crate::model::resource::resource_column::ResourceColumn;
+use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::GvkExt;
 use crate::ui::group_gvks;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::traits::MenuNameExt;
 use crate::ui::ui_store::UiStore;
 use crate::util::panics::ResultExt;
 
@@ -30,7 +30,7 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
         let store = store.lock().unwrap_or_log();
         if let Some(resource) = store.selected_resource.as_ref() {
             let mut styled =
-                StyledString::styled(resource.gvk().full_menu_name(), BaseColor::Blue.light());
+                StyledString::styled(resource.gvk().full_name(), BaseColor::Blue.light());
 
             styled.append(StyledString::styled(
                 format!(" [{}/{}]", resource.namespace(), resource.name()),
@@ -146,7 +146,7 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     }
 
     let table_panel = Panel::new(table.with_name("table").full_screen())
-        .title(selected_gvk.short_menu_name())
+        .title(selected_gvk.short_name())
         .with_name("panel");
 
     main_layout.add_child(filter_layout.full_width());
@@ -171,9 +171,9 @@ pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiSto
         let mut group_tree = menu::Tree::new();
         for resource_gvk in group {
             let leaf_name = if group_name == "Misc" {
-                resource_gvk.full_menu_name()
+                resource_gvk.full_name()
             } else {
-                resource_gvk.short_menu_name()
+                resource_gvk.short_name()
             };
 
             let to_backend_sender = to_backend_sender.clone();

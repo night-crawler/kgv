@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use crate::model::dynamic_object::DynamicObjectWrapper;
+use crate::model::ext::gvk::GvkNameExt;
+use crate::model::resource::resource_view::ResourceView;
+use crate::model::traits::{GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
 use cursive::reexports::log::info;
 use futures::{StreamExt, TryStreamExt};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -11,11 +15,6 @@ use kube::api::{DynamicObject, GroupVersionKind, ListParams};
 use kube::runtime::reflector::store::Writer;
 use kube::runtime::{reflector, watcher, WatchStreamExt};
 use kube::{discovery, Api, Client};
-
-use crate::model::resource::resource_view::ResourceView;
-use crate::model::traits::{GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
-use crate::model::DynamicObjectWrapper;
-use crate::ui::traits::MenuNameExt;
 
 pub struct ReflectorRegistry {
     sender: AsyncSender<ResourceView>,
@@ -60,10 +59,7 @@ impl ReflectorRegistry {
 
         self.readers_map.insert(T::gvk_for_type(), Box::new(reader));
 
-        info!(
-            "Registered Resource: {}",
-            T::gvk_for_type().full_menu_name()
-        );
+        info!("Registered Resource: {}", T::gvk_for_type().full_name());
     }
 
     pub async fn register_gvk(&mut self, gvk: GroupVersionKind) -> anyhow::Result<()> {
@@ -90,7 +86,7 @@ impl ReflectorRegistry {
 
         self.readers_map.insert(key.clone(), Box::new(reader));
 
-        info!("Registered GVK: {}", key.full_menu_name());
+        info!("Registered GVK: {}", key.full_name());
 
         Ok(())
     }

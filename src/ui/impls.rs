@@ -1,53 +1,8 @@
-use std::cmp::Ordering;
-
-use crate::model::resource::resource_column::ResourceColumn;
-use crate::model::resource::resource_view::ResourceView;
 use cursive::reexports::log::error;
 use cursive::{Cursive, View};
-use cursive_table_view::{TableView, TableViewItem};
-use itertools::Itertools;
-use kube::api::GroupVersionKind;
 
-use crate::ui::traits::{MenuNameExt, SivExt, TableViewExt};
+use crate::ui::traits::SivExt;
 use crate::util::panics::ResultExt;
-use crate::util::ui::ago;
-
-impl TableViewItem<ResourceColumn> for ResourceView {
-    fn to_column(&self, column: ResourceColumn) -> String {
-        match column {
-            ResourceColumn::Namespace => self.namespace(),
-            ResourceColumn::Name => self.name(),
-            ResourceColumn::Status => self.status(),
-            ResourceColumn::Ready => self.ready(),
-            ResourceColumn::Ip => self.ips().map(|ips| ips.join(", ")).unwrap_or_default(),
-            ResourceColumn::Restarts => self.restarts(),
-            ResourceColumn::Node => self.node(),
-            ResourceColumn::Age => ago(self.age()),
-
-            _ => String::new(),
-        }
-    }
-
-    fn cmp(&self, other: &Self, column: ResourceColumn) -> Ordering
-    where
-        Self: Sized,
-    {
-        self.to_column(column).cmp(&other.to_column(column))
-    }
-}
-
-impl MenuNameExt for GroupVersionKind {
-    fn full_menu_name(&self) -> String {
-        [&self.group, &self.version, &self.kind]
-            .iter()
-            .filter(|part| !part.is_empty())
-            .join("/")
-    }
-
-    fn short_menu_name(&self) -> String {
-        format!("{}/{}", &self.version, &self.kind)
-    }
-}
 
 impl SivExt
     for cursive::reexports::crossbeam_channel::Sender<Box<dyn FnOnce(&mut Cursive) + Send>>
@@ -71,17 +26,5 @@ impl SivExt
         F: FnOnce(&mut Cursive) + Send + 'static,
     {
         self.send(Box::new(callback)).unwrap_or_log();
-    }
-}
-
-impl TableViewExt<ResourceView> for TableView<ResourceView, ResourceColumn> {
-    fn add_or_update_resource(&mut self, resource: ResourceView) {
-        for item in self.borrow_items_mut() {
-            if item.uid() == resource.uid() {
-                *item = resource;
-                return;
-            }
-        }
-        self.insert_item(resource);
     }
 }

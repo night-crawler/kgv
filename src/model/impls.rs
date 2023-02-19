@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use crate::model::dynamic_object::DynamicObjectWrapper;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::Metadata;
 use kube::api::{DynamicObject, GroupVersionKind};
@@ -8,7 +9,6 @@ use kube::runtime::reflector::Store;
 
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::{GvkExt, GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
-use crate::model::DynamicObjectWrapper;
 
 impl<T> GvkStaticExt for T
 where
@@ -37,12 +37,6 @@ where
 {
     fn gvk(&self) -> GroupVersionKind {
         GroupVersionKind::gvk(T::GROUP, T::VERSION, T::KIND)
-    }
-}
-
-impl GvkExt for DynamicObjectWrapper {
-    fn gvk(&self) -> GroupVersionKind {
-        self.1.clone()
     }
 }
 

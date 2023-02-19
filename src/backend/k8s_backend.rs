@@ -8,11 +8,11 @@ use kanal::AsyncReceiver;
 use kube::Client;
 use tokio::runtime::Runtime;
 
-use crate::model::discover_gvk;
-use crate::model::reflector_registry::ReflectorRegistry;
+use crate::backend::fs_cache::FsCache;
+use crate::backend::reflector_registry::ReflectorRegistry;
 use crate::model::resource::resource_view::{reqister_any_gvk, ResourceView};
-use crate::ui::fs_cache::FsCache;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::util::k8s::discover_gvk;
 use crate::util::panics::ResultExt;
 
 pub struct K8sBackend {
