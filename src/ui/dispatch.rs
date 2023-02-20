@@ -43,11 +43,14 @@ pub fn dispatch_events(
                     ToUiSignal::ShowGvk(gvk) => {
                         store.dispatch_show_gvk(gvk);
                     }
-                    ToUiSignal::CtrlEPressed => {
-                        store.dispatch_ctrl_e();
+                    ToUiSignal::CtrlSPressed => {
+                        store.dispatch_ctrl_s();
                     }
                     ToUiSignal::ExecuteCurrent => {
-                        store.dispatch_execute_current();
+                        store.dispatch_shell_current();
+                    }
+                    ToUiSignal::CtrlYPressed => {
+                        store.dispatch_ctrl_y();
                     }
                 }
             }

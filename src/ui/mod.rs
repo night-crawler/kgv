@@ -1,4 +1,4 @@
-pub mod code_view;
+pub mod highlighter;
 pub mod column_registry;
 pub mod components;
 pub mod dispatch;

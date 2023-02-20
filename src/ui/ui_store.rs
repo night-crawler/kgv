@@ -16,7 +16,7 @@ use crate::model::resource::resource_column::ResourceColumn;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::GvkExt;
 use crate::ui::column_registry::ColumnRegistry;
-use crate::ui::components::{build_main_layout, build_menu, build_pod_detail_layout};
+use crate::ui::components::{build_code_view, build_main_layout, build_menu, build_pod_detail_layout};
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::traits::{SivExt, TableViewExt};
@@ -25,6 +25,8 @@ use crate::util::panics::{OptionExt, ResultExt};
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
 pub struct UiStore {
+    pub highlighter: crate::ui::highlighter::Highlighter,
+
     pub selected_gvk: GroupVersionKind,
     pub ns_filter: String,
     pub name_filter: String,
@@ -46,6 +48,7 @@ impl UiStore {
         to_ui_sender: kanal::Sender<ToUiSignal>,
         to_backend_sender: kanal::Sender<ToBackendSignal>,
         column_registry: ColumnRegistry,
+        highlighter: crate::ui::highlighter::Highlighter,
     ) -> Self {
         Self {
             selected_gvk: GroupVersionKind::gvk("", "", ""),
@@ -60,6 +63,7 @@ impl UiStore {
             selected_pod_container: None,
 
             interactive_command: None,
+            highlighter
         }
     }
 
@@ -123,8 +127,9 @@ pub trait UiStoreDispatcherExt {
     fn dispatch_show_details(&self, resource: ResourceView);
     fn dispatch_show_gvk(&self, gvk: GroupVersionKind);
 
-    fn dispatch_ctrl_e(&self);
-    fn dispatch_execute_current(&self);
+    fn dispatch_ctrl_s(&self);
+    fn dispatch_ctrl_y(&self);
+    fn dispatch_shell_current(&self);
 
     fn replace_table_items(&self);
     fn replace_pod_detail_table_items(&self);
@@ -159,7 +164,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             "table",
             move |table: &mut TableView<ResourceView, ResourceColumn>| {
                 let resources = store.lock().unwrap_or_log().get_filtered_resources();
-                info!("Rendering full view for {} resources", resources.len());
+                info!("Rendering full view for {} local resources", resources.len());
                 table.set_items(resources);
             },
         );
@@ -167,6 +172,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
     fn dispatch_response_resource_updated(&self, resource: ResourceView) {
         let gvk = resource.gvk();
+        info!("Received an updated resource {}, {}/{}", gvk.full_name(), resource.namespace(), resource.name());
 
         let sink = {
             let mut store = self.lock().unwrap_or_log();
@@ -244,18 +250,40 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         });
     }
 
-    fn dispatch_ctrl_e(&self) {
+    fn dispatch_ctrl_s(&self) {
         let has_pod = matches!(
             self.lock().unwrap_or_log().selected_resource.as_ref(),
             Some(ResourceView::Pod(_))
         );
         if has_pod {
-            self.dispatch_execute_current();
+            self.dispatch_shell_current();
         }
         info!("Ctrl + e pressed outside of context");
     }
 
-    fn dispatch_execute_current(&self) {
+    fn dispatch_ctrl_y(&self) {
+        let (yaml, sink) = {
+            let store = self.lock().unwrap_or_log();
+            let resource = if let Some(resource) = store.selected_resource.as_ref() {
+                resource.clone()
+            } else {
+                warn!("No resource is selected");
+                return;
+            };
+
+            let yaml = resource.serialize_inner().unwrap_or_log();
+            let yaml = store.highlighter.highlight(&yaml, "yaml").unwrap_or_log();
+
+            (yaml, store.sink.clone())
+        };
+
+        sink.send_box(|siv| {
+            let c = build_code_view(yaml);
+            siv.add_layer(c);
+        })
+    }
+
+    fn dispatch_shell_current(&self) {
         let mut store = self.lock().unwrap_or_log();
 
         let container_name = store

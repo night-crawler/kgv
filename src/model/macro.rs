@@ -94,6 +94,18 @@ macro_rules! mk_resource_enum {
             }
         }
 
+        // serialize inner()
+        impl $name {
+            pub fn serialize_inner(&self) -> Result<String, serde_yaml::Error>  {
+                match self {
+                    $(
+                        Self::$opt_name(r) => serde_yaml::to_string(r.as_ref()),
+                    )+
+                    Self::DynamicObject(r) => serde_yaml::to_string(&r.as_ref().0),
+                }
+            }
+        }
+
         $(
             impl From<Arc<$opt_name>> for $name {
                 fn from(resource: Arc<$opt_name>) -> Self {

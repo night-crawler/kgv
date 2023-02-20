@@ -28,12 +28,13 @@ cursive_buffered_backend = "0.6"
 cursive-markup = "0.3"
 cursive-flexi-logger-view = "^0"
 cursive-syntect = "0.1"
+syntect = "5"
 flexi_logger = "0.22"
 
 [dependencies.cursive]
 version = "0.20"
-#default-features = false
-features = ["termion-backend", "default"]
+default-features = false
+features = ["termion-backend"]
 
 [dependencies.text-style]
 version = "0.3.0"

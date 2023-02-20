@@ -10,6 +10,7 @@ use tokio::runtime::Runtime;
 
 use crate::backend::fs_cache::FsCache;
 use crate::backend::reflector_registry::ReflectorRegistry;
+use crate::model::ext::gvk::GvkNameExt;
 use crate::model::resource::resource_view::{reqister_any_gvk, ResourceView};
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::util::k8s::discover_gvk;
@@ -147,6 +148,7 @@ impl K8sBackend {
                         reqister_any_gvk(reg.deref_mut(), gvk).await;
                     }
                     ToBackendSignal::RequestGvkItems(gvk) => {
+                        info!("Requested resources for GVK: {}", gvk.full_name());
                         let resources = reg.get_resources(&gvk);
                         let signal = ToUiSignal::ResponseGvkItems(gvk, resources);
                         sender.send(signal).await.unwrap_or_log();

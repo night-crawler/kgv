@@ -29,14 +29,19 @@ fn backend_init() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
 }
 
 fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSignal>) {
-    ui.add_global_callback('~', toggle_flexi_logger_debug_console); // Bind '~' key to show/hide debug console view
-
+    ui.add_global_callback('~', toggle_flexi_logger_debug_console);
     ui.add_global_callback(event::Key::F10, |siv| siv.select_menubar());
     ui.add_global_callback(event::Key::Esc, |siv| {
         siv.pop_layer();
     });
-    ui.add_global_callback(event::Event::CtrlChar('e'), move |_| {
-        ui_to_ui_sender.send(ToUiSignal::CtrlEPressed).unwrap();
+    {
+        let ui_to_ui_sender = ui_to_ui_sender.clone();
+        ui.add_global_callback(event::Event::CtrlChar('s'), move |_| {
+            ui_to_ui_sender.send(ToUiSignal::CtrlSPressed).unwrap();
+        });
+    }
+    ui.add_global_callback(event::Event::CtrlChar('y'), move |_| {
+        ui_to_ui_sender.send(ToUiSignal::CtrlYPressed).unwrap();
     });
 }
 
@@ -78,6 +83,7 @@ fn main() -> Result<()> {
         ui_to_ui_sender,
         to_backend_sender,
         ColumnRegistry::default(),
+        ui::highlighter::Highlighter::new("base16-eighties.dark")?
     )));
 
     dispatch_events(store.clone(), from_backend_receiver);

@@ -5,7 +5,7 @@ use cursive::menu;
 use cursive::theme::BaseColor;
 use cursive::traits::*;
 use cursive::utils::markup::StyledString;
-use cursive::views::{DummyView, EditView, LinearLayout, Menubar, Panel};
+use cursive::views::{Dialog, DummyView, EditView, LinearLayout, Menubar, Panel, TextView};
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use strum::IntoEnumIterator;
@@ -20,6 +20,11 @@ use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::util::panics::ResultExt;
 use crate::util::ui::group_gvks;
+
+pub fn build_code_view(styled_string: StyledString) -> Dialog {
+    let tv = TextView::new(styled_string).full_screen().scrollable();
+    Dialog::around(tv)
+}
 
 pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     let mut main_layout = LinearLayout::vertical();
