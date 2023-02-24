@@ -7,6 +7,7 @@ use cursive_flexi_logger_view::toggle_flexi_logger_debug_console;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 
 use crate::backend::k8s_backend::K8sBackend;
+use crate::config::extractor_configuration::load_embedded_config;
 use crate::model::traits::GvkStaticExt;
 use crate::theme::get_theme;
 use crate::ui::column_registry::ColumnRegistry;
@@ -21,8 +22,10 @@ pub mod model;
 pub mod theme;
 pub mod ui;
 pub mod util;
+pub mod eval;
+pub mod config;
 
-fn backend_init() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
+fn init_backend() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
     let backend = cursive::backends::termion::Backend::init()?;
     let buffered_backend = cursive_buffered_backend::BufferedBackend::new(backend);
     Ok(Box::new(buffered_backend))
@@ -55,6 +58,8 @@ fn main() -> Result<()> {
     ui.set_theme(get_theme());
     setup_logging(&ui);
 
+    let extractor_config = load_embedded_config()?;
+
     let mut backend = K8sBackend::new(from_client_sender, from_ui_receiver)?;
 
     backend.spawn_watcher_exchange_task();
@@ -83,13 +88,14 @@ fn main() -> Result<()> {
         ui_to_ui_sender,
         to_backend_sender,
         ColumnRegistry::default(),
-        ui::highlighter::Highlighter::new("base16-eighties.dark")?
+        ui::highlighter::Highlighter::new("base16-eighties.dark")?,
+        extractor_config
     )));
 
     dispatch_events(store.clone(), from_backend_receiver);
 
     loop {
-        ui.try_run_with(backend_init)?;
+        ui.try_run_with(init_backend)?;
 
         let mut store = store.lock().unwrap_or_log();
         if let Some(command) = store.interactive_command.take() {

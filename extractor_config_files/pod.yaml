@@ -1,0 +1,16 @@
+resources:
+  - resource:
+      group: a
+      version: b
+      kind: c
+    columns:
+      - name: name
+        display_name: Name
+        width: 0
+        evaluator: !Embedded
+          name: Name
+      - name: sample2
+        display_name: sample2
+        width: 0
+        evaluator: !ScriptContent
+          content: resource

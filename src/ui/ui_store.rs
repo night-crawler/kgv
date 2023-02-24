@@ -7,6 +7,7 @@ use cursive::Cursive;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
+use crate::config::extractor_configuration::ExtractionConfig;
 
 use crate::model::ext::gvk::GvkNameExt;
 use crate::model::ext::pod::PodExt;
@@ -40,6 +41,7 @@ pub struct UiStore {
     pub selected_pod_container: Option<PodContainerView>,
 
     pub interactive_command: Option<InteractiveCommand>,
+    pub extractor_config: ExtractionConfig,
 }
 
 impl UiStore {
@@ -49,6 +51,7 @@ impl UiStore {
         to_backend_sender: kanal::Sender<ToBackendSignal>,
         column_registry: ColumnRegistry,
         highlighter: crate::ui::highlighter::Highlighter,
+        extractor_config: ExtractionConfig
     ) -> Self {
         Self {
             selected_gvk: GroupVersionKind::gvk("", "", ""),
@@ -63,7 +66,8 @@ impl UiStore {
             selected_pod_container: None,
 
             interactive_command: None,
-            highlighter
+            highlighter,
+            extractor_config
         }
     }
 
