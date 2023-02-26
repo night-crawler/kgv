@@ -2,6 +2,11 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use crate::model::dynamic_object::DynamicObjectWrapper;
+use crate::model::resource::resource_view::ResourceView;
+use crate::model::traits::{MarkerTraitForStaticCases, SpecViewAdapter};
+use crate::traits::ext::gvk::GvkNameExt;
+use crate::traits::ext::gvk::GvkStaticExt;
 use cursive::reexports::log::info;
 use futures::{StreamExt, TryStreamExt};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -11,11 +16,6 @@ use kube::api::{DynamicObject, GroupVersionKind, ListParams};
 use kube::runtime::reflector::store::Writer;
 use kube::runtime::{reflector, watcher, WatchStreamExt};
 use kube::{discovery, Api, Client};
-
-use crate::model::dynamic_object::DynamicObjectWrapper;
-use crate::model::ext::gvk::GvkNameExt;
-use crate::model::resource::resource_view::ResourceView;
-use crate::model::traits::{GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
 
 pub struct ReflectorRegistry {
     sender: AsyncSender<ResourceView>,
@@ -98,10 +98,7 @@ impl ReflectorRegistry {
             for item in items.iter_mut() {
                 if let ResourceView::DynamicObject(wrapper) = item {
                     let DynamicObjectWrapper(dyn_obj, _) = wrapper.as_ref().clone();
-                    *wrapper = Arc::new(DynamicObjectWrapper(
-                        dyn_obj,
-                        gvk.clone(),
-                    ));
+                    *wrapper = Arc::new(DynamicObjectWrapper(dyn_obj, gvk.clone()));
                 } else {
                     break;
                 }

@@ -18,3 +18,11 @@ impl GvkNameExt for GroupVersionKind {
         format!("{}/{}", &self.version, &self.kind)
     }
 }
+
+pub trait GvkStaticExt {
+    fn gvk_for_type() -> GroupVersionKind;
+}
+
+pub trait GvkExt {
+    fn gvk(&self) -> GroupVersionKind;
+}

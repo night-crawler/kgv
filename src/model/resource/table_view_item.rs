@@ -1,42 +1,33 @@
-use crate::model::resource::resource_column::ResourceColumn;
-use crate::model::resource::resource_view::ResourceView;
-use crate::ui::traits::TableViewExt;
-use crate::util::ui::ago;
-use cursive_table_view::{TableView, TableViewItem};
 use std::cmp::Ordering;
+use cursive::reexports::log::info;
 
-impl TableViewItem<ResourceColumn> for ResourceView {
-    fn to_column(&self, column: ResourceColumn) -> String {
-        match column {
-            ResourceColumn::Namespace => self.namespace(),
-            ResourceColumn::Name => self.name(),
-            ResourceColumn::Status => self.status(),
-            ResourceColumn::Ready => self.ready(),
-            ResourceColumn::Ip => self.ips().map(|ips| ips.join(", ")).unwrap_or_default(),
-            ResourceColumn::Restarts => self.restarts(),
-            ResourceColumn::Node => self.node(),
-            ResourceColumn::Age => ago(self.age()),
+use cursive_table_view::{TableView, TableViewItem};
 
-            _ => String::new(),
-        }
+use crate::model::resource::resource_view::EvaluatedResource;
+use crate::ui::traits::TableViewExt;
+
+impl TableViewItem<usize> for EvaluatedResource {
+    fn to_column(&self, column: usize) -> String {
+        self.values[column].to_string()
     }
 
-    fn cmp(&self, other: &Self, column: ResourceColumn) -> Ordering
+    fn cmp(&self, other: &Self, column: usize) -> Ordering
     where
         Self: Sized,
     {
-        self.to_column(column).cmp(&other.to_column(column))
+        self.values[column].cmp(&other.values[column])
     }
 }
 
-impl TableViewExt<ResourceView> for TableView<ResourceView, ResourceColumn> {
-    fn add_or_update_resource(&mut self, resource: ResourceView) {
+impl TableViewExt<EvaluatedResource> for TableView<EvaluatedResource, usize> {
+    fn add_or_update_resource(&mut self, evaluated_resource: EvaluatedResource) {
         for item in self.borrow_items_mut() {
-            if item.uid() == resource.uid() {
-                *item = resource;
+            if item.resource.uid() == evaluated_resource.resource.uid() {
+                *item = evaluated_resource;
                 return;
             }
         }
-        self.insert_item(resource);
+        info!("Inserting new item: {}", evaluated_resource.resource.full_unique_name());
+        self.insert_item(evaluated_resource);
     }
 }

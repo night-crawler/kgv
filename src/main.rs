@@ -8,22 +8,24 @@ use k8s_openapi::api::core::v1::{Namespace, Pod};
 
 use crate::backend::k8s_backend::K8sBackend;
 use crate::config::extractor_configuration::load_embedded_config;
-use crate::model::traits::GvkStaticExt;
+use crate::eval::evaluator::Evaluator;
 use crate::theme::get_theme;
+use crate::traits::ext::gvk::GvkStaticExt;
 use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::dispatch::dispatch_events;
 use crate::ui::logging::setup_logging;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::ui_store::UiStore;
+use crate::ui::ui_store::{ResourceManager, UiStore};
 use crate::util::panics::ResultExt;
 
 pub mod backend;
+pub mod config;
+pub mod eval;
 pub mod model;
 pub mod theme;
+pub mod traits;
 pub mod ui;
 pub mod util;
-pub mod eval;
-pub mod config;
 
 fn init_backend() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
     let backend = cursive::backends::termion::Backend::init()?;
@@ -83,13 +85,17 @@ fn main() -> Result<()> {
         .send(ToBackendSignal::RequestGvkItems(Pod::gvk_for_type()))
         .unwrap_or_log();
 
+    let resource_manager = ResourceManager::new(
+        Evaluator::new(4)?,
+        ColumnRegistry::new(extractor_config.gvk_to_columns),
+    );
+
     let store = Arc::new(Mutex::new(UiStore::new(
         ui.cb_sink().clone(),
         ui_to_ui_sender,
         to_backend_sender,
-        ColumnRegistry::default(),
+        resource_manager,
         ui::highlighter::Highlighter::new("base16-eighties.dark")?,
-        extractor_config
     )));
 
     dispatch_events(store.clone(), from_backend_receiver);

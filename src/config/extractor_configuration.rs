@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
 
+use crate::eval::build_engine;
+use crate::traits::ext::gvk::GvkNameExt;
 use cursive::reexports::log::info;
 use kube::api::GroupVersionKind;
 use rhai::{Engine, AST};
 use serde::{Deserialize, Serialize};
 
-use crate::model::ext::gvk::GvkNameExt;
 use crate::util::error::KgvError;
+use crate::util::ui::ago;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct ResourceExtractorConfigProps {
@@ -19,8 +21,8 @@ impl TryFrom<PathBuf> for ResourceExtractorConfigProps {
     type Error = KgvError;
 
     fn try_from(value: PathBuf) -> Result<Self, Self::Error> {
-        let f = File::open(value)?;
-        Ok(serde_yaml::from_reader(f)?)
+        let file = File::open(value)?;
+        Ok(serde_yaml::from_reader(file)?)
     }
 }
 
@@ -36,6 +38,7 @@ impl TryFrom<&str> for ResourceExtractorConfigProps {
 pub enum EmbeddedExtractor {
     Namespace,
     Name,
+    Status,
     Age,
 }
 
@@ -61,7 +64,7 @@ struct ColumnConfigProps {
 }
 
 #[derive(Debug)]
-pub enum Evaluator {
+pub enum EvaluatorType {
     AST(AST),
     Embedded(EmbeddedExtractor),
 }
@@ -71,32 +74,51 @@ pub struct Column {
     pub name: String,
     pub display_name: String,
     pub width: usize,
-    pub evaluator: Evaluator,
+    pub evaluator_type: EvaluatorType,
+}
+
+#[derive(Debug)]
+pub struct ColumnHandle {
+    pub name: String,
+    pub display_name: String,
+    pub width: usize,
+}
+
+impl From<&Column> for ColumnHandle {
+    fn from(column: &Column) -> Self {
+        Self {
+            name: column.name.clone(),
+            display_name: column.display_name.clone(),
+            width: column.width,
+        }
+    }
 }
 
 impl Column {
     fn from_config(config_column: ColumnConfigProps, engine: &Engine) -> anyhow::Result<Self> {
         let evaluator = match config_column.evaluator {
             EvalConfigProps::ScriptPath { path } => {
-                let ast = engine.compile_file(PathBuf::from(path))?;
-                Evaluator::AST(ast)
+                let ast: AST = engine.compile_file(PathBuf::from(path))?;
+                EvaluatorType::AST(ast)
             }
             EvalConfigProps::ScriptContent { content } => {
-                let ast = engine.compile(content)?;
-                Evaluator::AST(ast)
+                let mut ast: AST = engine.compile(&content)?;
+                ast.set_source(content);
+                EvaluatorType::AST(ast)
             }
-            EvalConfigProps::Embedded { name } => Evaluator::Embedded(name),
+            EvalConfigProps::Embedded { name } => EvaluatorType::Embedded(name),
         };
 
         Ok(Self {
             name: config_column.name,
             display_name: config_column.display_name,
             width: config_column.width,
-            evaluator,
+            evaluator_type: evaluator,
         })
     }
 }
 
+#[derive(Debug)]
 pub struct ExtractionConfig {
     pub gvk_to_columns: HashMap<GroupVersionKind, Vec<Column>>,
 }
@@ -105,7 +127,7 @@ impl TryFrom<ResourceExtractorConfigProps> for ExtractionConfig {
     type Error = KgvError;
 
     fn try_from(value: ResourceExtractorConfigProps) -> Result<Self, Self::Error> {
-        let engine = Engine::new();
+        let engine = build_engine();
         let mut map: HashMap<GroupVersionKind, Vec<Column>> = HashMap::new();
 
         let now = std::time::Instant::now();
@@ -138,7 +160,7 @@ impl TryFrom<ResourceExtractorConfigProps> for ExtractionConfig {
             "Imported {} GVKs with {} columns in {}",
             map.len(),
             num_columns,
-            now.elapsed().as_millis()
+            ago(chrono::Duration::from_std(now.elapsed()).unwrap())
         );
 
         Ok(Self {
@@ -169,6 +191,8 @@ pub fn load_embedded_config() -> Result<ExtractionConfig, KgvError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::traits::ext::gvk::GvkStaticExt;
+    use k8s_openapi::api::core::v1::Pod;
     use std::io::Write;
 
     use super::*;
@@ -180,7 +204,7 @@ mod tests {
 
         let config = ResourceExtractorConfigProps {
             resources: vec![ResourceConfigProps {
-                resource: GroupVersionKind::gvk("a", "b", "c"),
+                resource: Pod::gvk_for_type(),
                 columns: vec![
                     ColumnConfigProps {
                         name: "name".to_string(),

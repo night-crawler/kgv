@@ -2,54 +2,28 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use chrono::Utc;
-use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Pod};
+use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Node, PersistentVolumeClaim, Pod};
 use kube::ResourceExt;
 
-use crate::model::resource::resource_column::ResourceColumn;
+use crate::eval::eval_result::EvalResult;
 use crate::{extract_age, extract_status, mk_resource_enum};
 
-mk_resource_enum!(ResourceView, [
-    Namespace: [
-        ResourceColumn::Name,
-        ResourceColumn::Status,
-        ResourceColumn::Age
-    ],
-    Pod: [
-        ResourceColumn::Namespace,
-        ResourceColumn::Name,
-        ResourceColumn::Status,
-        ResourceColumn::Ready,
-        ResourceColumn::Restarts,
-        ResourceColumn::Ip,
-        ResourceColumn::Node,
-        ResourceColumn::Age
-    ],
-    ConfigMap: [
-        ResourceColumn::Namespace,
-        ResourceColumn::Name,
-        ResourceColumn::Age
-    ]
-]);
+mk_resource_enum!(
+    ResourceView,
+    Namespace,
+    Pod,
+    ConfigMap,
+    Node,
+    PersistentVolumeClaim
+);
+
+#[derive(Debug, Clone)]
+pub struct EvaluatedResource {
+    pub values: Arc<Vec<EvalResult>>,
+    pub resource: ResourceView,
+}
 
 impl ResourceView {
-    pub fn name(&self) -> String {
-        match self {
-            ResourceView::Pod(r) => r.name_any(),
-            ResourceView::Namespace(r) => r.name_any(),
-            ResourceView::ConfigMap(r) => r.name_any(),
-            ResourceView::DynamicObject(r) => r.name_any(),
-        }
-    }
-
-    pub fn namespace(&self) -> String {
-        match self {
-            ResourceView::Pod(r) => r.namespace().unwrap_or_default(),
-            ResourceView::Namespace(_) => String::new(),
-            ResourceView::ConfigMap(r) => r.namespace().unwrap_or_default(),
-            ResourceView::DynamicObject(r) => r.namespace().unwrap_or_default(),
-        }
-    }
-
     pub fn status(&self) -> String {
         match self {
             ResourceView::Namespace(r) => extract_status!(r),

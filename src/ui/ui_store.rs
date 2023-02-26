@@ -7,23 +7,96 @@ use cursive::Cursive;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
-use crate::config::extractor_configuration::ExtractionConfig;
 
-use crate::model::ext::gvk::GvkNameExt;
-use crate::model::ext::pod::PodExt;
+use crate::config::extractor_configuration::ColumnHandle;
+use crate::eval::eval_result::EvalResult;
+use crate::eval::evaluator::Evaluator;
 use crate::model::pod::pod_container_column::PodContainerColumn;
 use crate::model::pod::pod_container_view::PodContainerView;
-use crate::model::resource::resource_column::ResourceColumn;
-use crate::model::resource::resource_view::ResourceView;
-use crate::model::traits::GvkExt;
+use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
+use crate::model::traits::SerializeExt;
+use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
+use crate::traits::ext::gvk::GvkExt;
+use crate::traits::ext::gvk::GvkNameExt;
+use crate::traits::ext::pod::PodExt;
 use crate::ui::column_registry::ColumnRegistry;
-use crate::ui::components::{build_code_view, build_main_layout, build_menu, build_pod_detail_layout};
+use crate::ui::components::{
+    build_code_view, build_main_layout, build_menu, build_pod_detail_layout,
+};
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::traits::{SivExt, TableViewExt};
 use crate::util::panics::{OptionExt, ResultExt};
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
+
+pub struct ResourceManager {
+    resources_by_gvk: HashMap<GroupVersionKind, HashMap<String, EvaluatedResource>>,
+    evaluator: Evaluator,
+    column_registry: ColumnRegistry,
+}
+
+impl ResourceManager {
+    pub fn new(evaluator: Evaluator, column_registry: ColumnRegistry) -> Self {
+        Self {
+            evaluator,
+            column_registry,
+            resources_by_gvk: HashMap::default(),
+        }
+    }
+    pub fn replace(&mut self, resource: ResourceView) -> EvaluatedResource {
+        let key = resource.uid().unwrap_or_else(|| {
+            error!("Received a resource without uid: {:?}", resource);
+            resource.full_unique_name()
+        });
+        let gvk = resource.gvk();
+        let columns = self.column_registry.get_columns(&gvk);
+
+        let evaluated_resource = match self.evaluator.evaluate(resource.clone(), columns) {
+            Ok(evaluated_resource) => evaluated_resource,
+            Err(err) => {
+                error!(
+                    "Failed to evaluate resource {}: {}",
+                    resource.full_unique_name(),
+                    err
+                );
+                let values = vec![EvalResult::Error("?".to_string()); columns.len()];
+                EvaluatedResource {
+                    values: Arc::new(values),
+                    resource,
+                }
+            }
+        };
+
+        self.resources_by_gvk
+            .entry(gvk)
+            .or_default()
+            .insert(key, evaluated_resource.clone());
+
+        evaluated_resource
+    }
+
+    pub fn replace_all(&mut self, resources: Vec<ResourceView>) {
+        resources.into_iter().for_each(|resource| {
+            self.replace(resource);
+        });
+    }
+
+    pub fn get_column_handles(&self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
+        self.column_registry.get_column_handles(gvk)
+    }
+
+    pub fn get_resources_iter(
+        &self,
+        gvk: &GroupVersionKind,
+    ) -> impl Iterator<Item = &EvaluatedResource> {
+        self.resources_by_gvk
+            .get(gvk)
+            .map(|map| map.values())
+            .into_iter()
+            .flatten()
+    }
+}
 
 pub struct UiStore {
     pub highlighter: crate::ui::highlighter::Highlighter,
@@ -34,14 +107,13 @@ pub struct UiStore {
     pub to_ui_sender: kanal::Sender<ToUiSignal>,
     pub to_backend_sender: kanal::Sender<ToBackendSignal>,
     pub sink: SinkSender,
-    pub column_registry: ColumnRegistry,
 
-    pub resources: HashMap<String, ResourceView>,
-    pub selected_resource: Option<ResourceView>,
+    pub selected_resource: Option<EvaluatedResource>,
     pub selected_pod_container: Option<PodContainerView>,
 
     pub interactive_command: Option<InteractiveCommand>,
-    pub extractor_config: ExtractionConfig,
+
+    pub resource_manager: ResourceManager,
 }
 
 impl UiStore {
@@ -49,9 +121,8 @@ impl UiStore {
         sink: SinkSender,
         to_ui_sender: kanal::Sender<ToUiSignal>,
         to_backend_sender: kanal::Sender<ToBackendSignal>,
-        column_registry: ColumnRegistry,
+        resource_manager: ResourceManager,
         highlighter: crate::ui::highlighter::Highlighter,
-        extractor_config: ExtractionConfig
     ) -> Self {
         Self {
             selected_gvk: GroupVersionKind::gvk("", "", ""),
@@ -60,58 +131,47 @@ impl UiStore {
             to_ui_sender,
             to_backend_sender,
             sink,
-            column_registry,
-            resources: HashMap::new(),
             selected_resource: None,
             selected_pod_container: None,
 
             interactive_command: None,
             highlighter,
-            extractor_config
+            resource_manager,
         }
     }
 
-    pub fn get_columns(&self) -> Vec<ResourceColumn> {
-        self.column_registry.get_columns(&self.selected_gvk)
-    }
-
-    pub fn should_display_resource(&self, resource: &ResourceView) -> bool {
-        resource.namespace().starts_with(&self.ns_filter)
-            && resource.name().contains(&self.name_filter)
-    }
-
-    pub fn get_filtered_resources(&self) -> Vec<ResourceView> {
-        self.resources
-            .values()
-            .filter(|resource| self.should_display_resource(resource))
-            .cloned()
-            .collect()
-    }
-
-    pub fn add_resource(&mut self, resource: ResourceView) -> Option<ResourceView> {
-        let key = resource.uid().unwrap_or_else(|| {
-            error!("Received a resource without uid: {:?}", resource);
-            resource.full_unique_name()
-        });
-        self.resources.insert(key, resource)
-    }
-
-    pub fn replace_resources(&mut self, resources: Vec<ResourceView>) {
-        self.resources.clear();
-        for resource in resources {
-            self.add_resource(resource);
-        }
+    pub fn should_display_resource(&self, evaluated_resource: &EvaluatedResource) -> bool {
+        evaluated_resource
+            .resource
+            .namespace()
+            .starts_with(&self.ns_filter)
+            && evaluated_resource
+                .resource
+                .name()
+                .contains(&self.name_filter)
     }
 
     pub fn get_pod_containers(&self) -> Vec<PodContainerView> {
-        if let Some(ResourceView::Pod(pod)) = self.selected_resource.as_ref() {
+        if let Some(EvaluatedResource {
+            resource: ResourceView::Pod(pod),
+            ..
+        }) = self.selected_resource.as_ref()
+        {
             return pod.get_pod_containers().unwrap_or_default();
         }
-
-        panic!(
+        error!(
             "Getting pod containers on a resource that is not a pod: {:?}",
             self.selected_resource
         );
+        vec![]
+    }
+
+    fn get_filtered_resources(&self) -> Vec<EvaluatedResource> {
+        self.resource_manager
+            .get_resources_iter(&self.selected_gvk)
+            .filter(|r| self.should_display_resource(r))
+            .cloned()
+            .collect()
     }
 }
 
@@ -151,14 +211,13 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         let sink = {
             let mut store = self.lock().unwrap_or_log();
             if let Some(resources) = resources {
-                store.replace_resources(resources);
+                store.resource_manager.replace_all(resources);
             } else {
                 warn!("Empty resources for GVK: {}", next_gvk.full_name());
                 store
                     .to_backend_sender
                     .send(ToBackendSignal::RequestRegisterGvk(next_gvk))
                     .unwrap_or_log();
-                store.resources.clear();
             }
             store.sink.clone()
         };
@@ -166,34 +225,46 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         let store = Arc::clone(self);
         sink.call_on_name(
             "table",
-            move |table: &mut TableView<ResourceView, ResourceColumn>| {
-                let resources = store.lock().unwrap_or_log().get_filtered_resources();
-                info!("Rendering full view for {} local resources", resources.len());
-                table.set_items(resources);
+            move |table: &mut TableView<EvaluatedResource, usize>| {
+                let evaluated_resources = store.lock().unwrap_or_log().get_filtered_resources();
+                info!(
+                    "Rendering full view for {} local resources",
+                    evaluated_resources.len()
+                );
+                table.set_items(evaluated_resources);
             },
         );
     }
 
     fn dispatch_response_resource_updated(&self, resource: ResourceView) {
         let gvk = resource.gvk();
-        info!("Received an updated resource {}, {}/{}", gvk.full_name(), resource.namespace(), resource.name());
+        info!(
+            "Received an updated resource {}, {}/{}",
+            gvk.full_name(),
+            resource.namespace(),
+            resource.name()
+        );
 
-        let sink = {
+        let (sink, evaluated_resource) = {
             let mut store = self.lock().unwrap_or_log();
             if store.selected_gvk != gvk {
                 return;
             }
-            store.add_resource(resource.clone());
-            if !store.should_display_resource(&resource) {
+            let evaluated_resource = store.resource_manager.replace(resource);
+            if !store.should_display_resource(&evaluated_resource) {
+                info!(
+                    "Filtered out: {}",
+                    evaluated_resource.resource.full_unique_name()
+                );
                 return;
             }
-            store.sink.clone()
+            (store.sink.clone(), evaluated_resource)
         };
 
         sink.call_on_name(
             "table",
-            |table: &mut TableView<ResourceView, ResourceColumn>| {
-                table.add_or_update_resource(resource);
+            |table: &mut TableView<EvaluatedResource, usize>| {
+                table.add_or_update_resource(evaluated_resource);
             },
         );
     }
@@ -255,27 +326,30 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
     }
 
     fn dispatch_ctrl_s(&self) {
-        let has_pod = matches!(
-            self.lock().unwrap_or_log().selected_resource.as_ref(),
-            Some(ResourceView::Pod(_))
-        );
-        if has_pod {
+        let is_pod = self
+            .lock()
+            .unwrap_or_log()
+            .selected_resource
+            .as_ref()
+            .map(|evaluated_resource| evaluated_resource.is_pod())
+            .unwrap_or(false);
+        if is_pod {
             self.dispatch_shell_current();
         }
-        info!("Ctrl + e pressed outside of context");
+        info!("Ctrl + s pressed outside of context");
     }
 
     fn dispatch_ctrl_y(&self) {
         let (yaml, sink) = {
             let store = self.lock().unwrap_or_log();
-            let resource = if let Some(resource) = store.selected_resource.as_ref() {
+            let evaluated_resource = if let Some(resource) = store.selected_resource.as_ref() {
                 resource.clone()
             } else {
                 warn!("No resource is selected");
                 return;
             };
 
-            let yaml = resource.serialize_inner().unwrap_or_log();
+            let yaml = evaluated_resource.resource.to_yaml().unwrap_or_log();
             let yaml = store.highlighter.highlight(&yaml, "yaml").unwrap_or_log();
 
             (yaml, store.sink.clone())
@@ -295,7 +369,11 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             .as_ref()
             .map(|container| container.container.name.clone());
 
-        if let Some(ResourceView::Pod(pod)) = store.selected_resource.as_ref() {
+        if let Some(EvaluatedResource {
+            resource: ResourceView::Pod(pod),
+            ..
+        }) = store.selected_resource.as_ref()
+        {
             let container_name = if let Some(container_name) = container_name {
                 container_name
             } else if let Some(container_name) = pod.get_expected_exec_container_name() {
@@ -331,7 +409,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
         sink.call_on_name(
             "table",
-            move |table: &mut TableView<ResourceView, ResourceColumn>| table.set_items(resources),
+            move |table: &mut TableView<EvaluatedResource, usize>| table.set_items(resources),
         );
     }
 
@@ -352,32 +430,27 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
     fn set_selected_container_by_index(&self, index: usize) {
         let sink = self.lock().unwrap_or_log().sink.clone();
         let store = Arc::clone(self);
-        sink.send_box(move |siv| {
-            siv.call_on_name(
-                "containers",
-                |table: &mut TableView<PodContainerView, PodContainerColumn>| {
-                    let mut store = store.lock().unwrap_or_log();
-                    store.selected_pod_container = table.borrow_item(index).cloned();
-                },
-            )
-            .unwrap_or_log();
-        });
+        sink.call_on_name(
+            "containers",
+            move |table: &mut TableView<PodContainerView, PodContainerColumn>| {
+                let mut store = store.lock().unwrap_or_log();
+                store.selected_pod_container = table.borrow_item(index).cloned();
+            },
+        );
     }
 
     fn set_selected_resource_by_index(&self, index: usize) {
         let sink = self.lock().unwrap_or_log().sink.clone();
         let store = Arc::clone(self);
 
-        sink.send_box(move |siv| {
-            siv.call_on_name(
-                "table",
-                |table: &mut TableView<ResourceView, ResourceColumn>| {
-                    if let Some(resource) = table.borrow_item(index) {
-                        let mut store = store.lock().unwrap_or_log();
-                        store.selected_resource = resource.clone().into();
-                    }
-                },
-            );
-        });
+        sink.call_on_name(
+            "table",
+            move |table: &mut TableView<EvaluatedResource, usize>| {
+                if let Some(resource) = table.borrow_item(index) {
+                    let mut store = store.lock().unwrap_or_log();
+                    store.selected_resource = resource.clone().into();
+                }
+            },
+        )
     }
 }

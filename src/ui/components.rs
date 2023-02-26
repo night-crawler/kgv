@@ -10,12 +10,10 @@ use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use strum::IntoEnumIterator;
 
-use crate::model::ext::gvk::GvkNameExt;
 use crate::model::pod::pod_container_column::PodContainerColumn;
 use crate::model::pod::pod_container_view::PodContainerView;
-use crate::model::resource::resource_column::ResourceColumn;
-use crate::model::resource::resource_view::ResourceView;
-use crate::model::traits::GvkExt;
+use crate::model::resource::resource_view::EvaluatedResource;
+use crate::traits::ext::gvk::{GvkExt, GvkNameExt};
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::util::panics::ResultExt;
@@ -31,12 +29,18 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
 
     let panel_title = {
         let store = store.lock().unwrap_or_log();
-        if let Some(resource) = store.selected_resource.as_ref() {
-            let mut styled =
-                StyledString::styled(resource.gvk().full_name(), BaseColor::Blue.light());
+        if let Some(evaluated_resource) = store.selected_resource.as_ref() {
+            let mut styled = StyledString::styled(
+                evaluated_resource.resource.gvk().full_name(),
+                BaseColor::Blue.light(),
+            );
 
             styled.append(StyledString::styled(
-                format!(" [{}/{}]", resource.namespace(), resource.name()),
+                format!(
+                    " [{}/{}]",
+                    evaluated_resource.resource.namespace(),
+                    evaluated_resource.resource.name()
+                ),
                 BaseColor::Green.light(),
             ));
             styled
@@ -85,12 +89,14 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
 }
 
 pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
-    let (ns_filter, name_filter, columns, to_ui_sender, to_backend_sender, selected_gvk) = {
+    let (ns_filter, name_filter, column_handles, to_ui_sender, to_backend_sender, selected_gvk) = {
         let store = store.lock().unwrap_or_log();
         (
             store.ns_filter.clone(),
             store.name_filter.clone(),
-            store.get_columns(),
+            store
+                .resource_manager
+                .get_column_handles(&store.selected_gvk),
             store.to_ui_sender.clone(),
             store.to_backend_sender.clone(),
             store.selected_gvk.clone(),
@@ -129,21 +135,21 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     );
     filter_layout.add_child(Panel::new(name_edit_view).title("Name").full_width());
 
-    let mut table: TableView<ResourceView, ResourceColumn> = TableView::new();
+    let mut table: TableView<EvaluatedResource, usize> = TableView::new();
 
     {
         let store = store.clone();
         table.set_on_submit(move |siv, _, index| {
             siv.call_on_name(
                 "table",
-                |table: &mut TableView<ResourceView, ResourceColumn>| {
+                |table: &mut TableView<EvaluatedResource, usize>| {
                     store.set_selected_resource_by_index(index);
-                    if let Some(resource) = table.borrow_item(index) {
+                    if let Some(evaluated) = table.borrow_item(index) {
                         to_backend_sender
-                            .send(ToBackendSignal::RequestDetails(resource.clone()))
+                            .send(ToBackendSignal::RequestDetails(evaluated.resource.clone()))
                             .unwrap_or_log();
                         to_ui_sender
-                            .send(ToUiSignal::ShowDetails(resource.clone()))
+                            .send(ToUiSignal::ShowDetails(evaluated.resource.clone()))
                             .unwrap_or_log();
                     }
                 },
@@ -154,21 +160,19 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     table.set_on_select(move |siv, _, index| {
         siv.call_on_name(
             "table",
-            |_table: &mut TableView<ResourceView, ResourceColumn>| {
+            |_table: &mut TableView<EvaluatedResource, usize>| {
                 store.set_selected_resource_by_index(index);
             },
         );
     });
 
-    for column in columns {
-        table = table.column(column, column.as_ref(), |c| match column {
-            ResourceColumn::Namespace => c.width(20),
-            ResourceColumn::Name => c.width_percent(35),
-            ResourceColumn::Restarts => c.width(7),
-            ResourceColumn::Ready => c.width(7),
-            ResourceColumn::Age => c.width(7),
-            ResourceColumn::Status => c.width(7),
-            _ => c,
+    for (index, column) in column_handles.iter().enumerate() {
+        table = table.column(index, &column.display_name, |c| {
+            if column.width != 0 {
+                c.width(column.width)
+            } else {
+                c
+            }
         });
     }
 

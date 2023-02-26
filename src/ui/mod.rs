@@ -1,7 +1,7 @@
-pub mod highlighter;
 pub mod column_registry;
 pub mod components;
 pub mod dispatch;
+pub mod highlighter;
 pub mod impls;
 pub mod interactive_command;
 pub mod logging;

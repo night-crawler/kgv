@@ -1,17 +1,31 @@
-use chrono::{DateTime,  Utc};
+use anyhow::Context;
+use chrono::{DateTime, Utc};
 use handlebars::Handlebars;
 use k8s_openapi::api::core::v1::Pod;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use k8s_openapi::serde_json;
 use k8s_openapi::serde_json::json;
 use rhai::{exported_module, Dynamic, Engine, Scope, AST};
-use anyhow::Context;
 
 use crate::eval::eval_result::EvalResult;
 use crate::util::error::EvalError;
 use crate::util::ui::ago;
 
 pub mod eval_result;
+pub mod evaluator;
+
+pub fn build_engine() -> Engine {
+    let mut engine = Engine::new();
+    engine
+        .set_max_expr_depths(1024, 1024)
+        .register_type_with_name::<EvalResult>("Result")
+        .register_static_module(
+            "Result",
+            exported_module!(crate::eval::eval_result::eval_result_module).into(),
+        );
+
+    engine
+}
 
 pub fn string_ago(s: &str) -> Result<String, EvalError> {
     let dt = DateTime::parse_from_rfc3339(s)?;
@@ -69,8 +83,6 @@ pub fn sample_pod_extract() -> anyhow::Result<()> {
     let mut scope = Scope::new();
 
     scope.push("resource", map);
-
-
 
     let bla: Dynamic = engine.eval_ast_with_scope(&mut scope, &qqq)?;
     let result: EvalResult = bla.try_cast().context("no")?;

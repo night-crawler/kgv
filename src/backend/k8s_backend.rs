@@ -1,16 +1,15 @@
-use std::ops::DerefMut;
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
-
+use crate::traits::ext::gvk::GvkNameExt;
 use cursive::reexports::log::{error, info};
 use futures::StreamExt;
 use kanal::AsyncReceiver;
 use kube::Client;
+use std::ops::DerefMut;
+use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 use crate::backend::fs_cache::FsCache;
 use crate::backend::reflector_registry::ReflectorRegistry;
-use crate::model::ext::gvk::GvkNameExt;
 use crate::model::resource::resource_view::{reqister_any_gvk, ResourceView};
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::util::k8s::discover_gvk;

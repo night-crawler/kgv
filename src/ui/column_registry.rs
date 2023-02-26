@@ -1,34 +1,67 @@
 use std::collections::HashMap;
 
-use crate::model::resource::resource_column::ResourceColumn;
-use crate::model::resource::resource_view::ResourceView;
 use cursive::reexports::log::info;
 use kube::api::GroupVersionKind;
 
-pub struct ColumnRegistry {
-    map: HashMap<GroupVersionKind, Vec<ResourceColumn>>,
-}
+use crate::config::extractor_configuration::{
+    Column, ColumnHandle, EmbeddedExtractor, EvaluatorType,
+};
 
-impl Default for ColumnRegistry {
-    fn default() -> Self {
-        Self {
-            map: ResourceView::build_gvk_to_columns_map(),
-        }
-    }
+pub struct ColumnRegistry {
+    map: HashMap<GroupVersionKind, Vec<Column>>,
+    default_columns: Vec<Column>,
 }
 
 impl ColumnRegistry {
-    pub fn get_columns(&self, gvk: &GroupVersionKind) -> Vec<ResourceColumn> {
+    pub fn new(map: HashMap<GroupVersionKind, Vec<Column>>) -> Self {
+        Self {
+            map,
+            default_columns: vec![
+                Column {
+                    name: "namespace".to_string(),
+                    display_name: "Namespace".to_string(),
+                    width: 10,
+                    evaluator_type: EvaluatorType::Embedded(EmbeddedExtractor::Namespace),
+                },
+                Column {
+                    name: "name".to_string(),
+                    display_name: "Name".to_string(),
+                    width: 10,
+                    evaluator_type: EvaluatorType::Embedded(EmbeddedExtractor::Name),
+                },
+                Column {
+                    name: "status".to_string(),
+                    display_name: "Status".to_string(),
+                    width: 10,
+                    evaluator_type: EvaluatorType::Embedded(EmbeddedExtractor::Status),
+                },
+                Column {
+                    name: "age".to_string(),
+                    display_name: "Age".to_string(),
+                    width: 10,
+                    evaluator_type: EvaluatorType::Embedded(EmbeddedExtractor::Age),
+                },
+            ],
+        }
+    }
+    pub fn get_columns(&self, gvk: &GroupVersionKind) -> &[Column] {
         if let Some(columns) = self.map.get(gvk) {
-            columns.to_vec()
+            columns
         } else {
             info!("Columns for GVK {:?} were not found", gvk);
-            vec![
-                ResourceColumn::Namespace,
-                ResourceColumn::Name,
-                ResourceColumn::Status,
-                ResourceColumn::Age,
-            ]
+            &self.default_columns
+        }
+    }
+
+    pub fn get_column_handles(&self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
+        if let Some(columns) = self.map.get(gvk) {
+            columns.iter().map(ColumnHandle::from).collect()
+        } else {
+            info!("Columns for GVK {:?} were not found", gvk);
+            self.default_columns
+                .iter()
+                .map(ColumnHandle::from)
+                .collect()
         }
     }
 }
