@@ -1,11 +1,8 @@
-use std::fs;
 use std::fs::{File, OpenOptions};
-use std::path::PathBuf;
 
-use crate::util::panics::OptionExt;
+use crate::util::paths::CACHE_DIR;
 use chrono::Utc;
 use cursive::reexports::log::error;
-use home::home_dir;
 use kube::api::GroupVersionKind;
 use serde::{Deserialize, Serialize};
 
@@ -43,15 +40,8 @@ impl FsCache {
         })
     }
 
-    fn get_home_dir() -> anyhow::Result<PathBuf> {
-        let home_directory = home_dir().unwrap_or_log().join(".kgv").join("cache");
-        fs::create_dir_all(home_directory.clone())?;
-        Ok(home_directory)
-    }
-
     fn get_current_config_file(name: &str) -> anyhow::Result<File> {
-        let home = Self::get_home_dir()?;
-        let cache_file = home.join(format!("{}.yaml", name));
+        let cache_file = CACHE_DIR.join(format!("{}.yaml", name));
 
         let file = OpenOptions::new()
             .write(true)

@@ -1,10 +1,10 @@
-use std::cmp::Ordering;
 use cursive::reexports::log::info;
+use std::cmp::Ordering;
 
 use cursive_table_view::{TableView, TableViewItem};
 
 use crate::model::resource::resource_view::EvaluatedResource;
-use crate::ui::traits::TableViewExt;
+use crate::traits::ext::table_view::TableViewExt;
 
 impl TableViewItem<usize> for EvaluatedResource {
     fn to_column(&self, column: usize) -> String {
@@ -27,7 +27,10 @@ impl TableViewExt<EvaluatedResource> for TableView<EvaluatedResource, usize> {
                 return;
             }
         }
-        info!("Inserting new item: {}", evaluated_resource.resource.full_unique_name());
+        info!(
+            "Inserting new item: {}",
+            evaluated_resource.resource.full_unique_name()
+        );
         self.insert_item(evaluated_resource);
     }
 }

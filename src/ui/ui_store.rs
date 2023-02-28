@@ -15,18 +15,19 @@ use crate::model::pod::pod_container_column::PodContainerColumn;
 use crate::model::pod::pod_container_view::PodContainerView;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
+use crate::traits::ext::cursive::SivExt;
 use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
 use crate::traits::ext::gvk::GvkExt;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::pod::PodExt;
+use crate::traits::ext::table_view::TableViewExt;
 use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::components::{
     build_code_view, build_main_layout, build_menu, build_pod_detail_layout,
 };
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::traits::{SivExt, TableViewExt};
-use crate::util::panics::{OptionExt, ResultExt};
+use crate::util::panics::ResultExt;
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
@@ -449,6 +450,11 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 if let Some(resource) = table.borrow_item(index) {
                     let mut store = store.lock().unwrap_or_log();
                     store.selected_resource = resource.clone().into();
+                } else {
+                    info!(
+                        "Main table does not have an item with index {index}; items count: {}",
+                        table.borrow_items().len()
+                    );
                 }
             },
         )

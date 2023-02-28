@@ -103,7 +103,15 @@ impl Evaluator {
                             }
                         }
                     }
-                    Err(err) => EvalResult::Error(format!("{}", err)),
+                    Err(err) => {
+                        error!(
+                            "Failed to evaluate column {} (code: {}): {}",
+                            column.name,
+                            ast.source().unwrap_or(""),
+                            err
+                        );
+                        EvalResult::Error(format!("{}", err))
+                    }
                 }
             }
             EvaluatorType::Embedded(embedded) => match embedded {

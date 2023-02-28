@@ -32,27 +32,6 @@ impl ResourceView {
         }
     }
 
-    pub fn ready(&self) -> String {
-        match self {
-            ResourceView::Pod(r) => {
-                if let Some(statuses) = r
-                    .status
-                    .as_ref()
-                    .and_then(|status| status.container_statuses.as_ref())
-                {
-                    let total = statuses.len();
-                    let ready = statuses.iter().filter(|status| status.ready).count();
-
-                    format!("{}/{}", ready, total)
-                } else {
-                    String::new()
-                }
-            }
-
-            _ => String::new(),
-        }
-    }
-
     pub fn ips(&self) -> Option<Vec<String>> {
         match self {
             ResourceView::Pod(r) => r

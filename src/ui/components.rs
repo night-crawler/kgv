@@ -140,10 +140,10 @@ pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     {
         let store = store.clone();
         table.set_on_submit(move |siv, _, index| {
+            store.set_selected_resource_by_index(index);
             siv.call_on_name(
                 "table",
                 |table: &mut TableView<EvaluatedResource, usize>| {
-                    store.set_selected_resource_by_index(index);
                     if let Some(evaluated) = table.borrow_item(index) {
                         to_backend_sender
                             .send(ToBackendSignal::RequestDetails(evaluated.resource.clone()))

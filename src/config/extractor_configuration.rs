@@ -1,28 +1,36 @@
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fs::File;
 use std::path::PathBuf;
 
-use crate::eval::build_engine;
-use crate::traits::ext::gvk::GvkNameExt;
 use cursive::reexports::log::info;
 use kube::api::GroupVersionKind;
 use rhai::{Engine, AST};
 use serde::{Deserialize, Serialize};
 
+use crate::eval::build_engine;
+use crate::traits::ext::gvk::GvkNameExt;
 use crate::util::error::KgvError;
+use crate::util::panics::OptionExt;
 use crate::util::ui::ago;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct ResourceExtractorConfigProps {
     resources: Vec<ResourceConfigProps>,
+    #[serde(default)]
+    relative_scripts_dir: OsString,
 }
 
 impl TryFrom<PathBuf> for ResourceExtractorConfigProps {
     type Error = KgvError;
 
     fn try_from(value: PathBuf) -> Result<Self, Self::Error> {
-        let file = File::open(value)?;
-        Ok(serde_yaml::from_reader(file)?)
+        let file = File::open(&value)?;
+        let mut config_props: ResourceExtractorConfigProps = serde_yaml::from_reader(file)?;
+        if config_props.relative_scripts_dir.is_empty() {
+            config_props.relative_scripts_dir = value.parent().unwrap_or_log().as_os_str().to_os_string();
+        }
+        Ok(config_props)
     }
 }
 
@@ -95,10 +103,18 @@ impl From<&Column> for ColumnHandle {
 }
 
 impl Column {
-    fn from_config(config_column: ColumnConfigProps, engine: &Engine) -> anyhow::Result<Self> {
+    fn from_config(
+        relative_path: PathBuf,
+        config_column: ColumnConfigProps,
+        engine: &Engine,
+    ) -> anyhow::Result<Self> {
         let evaluator = match config_column.evaluator {
             EvalConfigProps::ScriptPath { path } => {
-                let ast: AST = engine.compile_file(PathBuf::from(path))?;
+                let path = relative_path.join(path);
+                if !path.exists() {
+                    File::create(&path).unwrap();
+                }
+                let ast: AST = engine.compile_file(path)?;
                 EvaluatorType::AST(ast)
             }
             EvalConfigProps::ScriptContent { content } => {
@@ -131,11 +147,12 @@ impl TryFrom<ResourceExtractorConfigProps> for ExtractionConfig {
         let mut map: HashMap<GroupVersionKind, Vec<Column>> = HashMap::new();
 
         let now = std::time::Instant::now();
+        let relative = PathBuf::from(value.relative_scripts_dir);
         for resource in value.resources {
             let mut columns: Vec<Column> = vec![];
             for config_column in resource.columns {
                 let col_clone = config_column.clone();
-                let column = match Column::from_config(config_column, &engine) {
+                let column = match Column::from_config(relative.clone(), config_column, &engine) {
                     Ok(col) => col,
                     Err(err) => {
                         return Err(KgvError::ContentCompileError(
@@ -169,7 +186,14 @@ impl TryFrom<ResourceExtractorConfigProps> for ExtractionConfig {
     }
 }
 
-pub fn load_embedded_config() -> Result<ExtractionConfig, KgvError> {
+pub fn load_columns_config(path: PathBuf) -> Result<ExtractionConfig, KgvError> {
+    let config_props = ResourceExtractorConfigProps::try_from(path)?;
+    let config = ExtractionConfig::try_from(config_props)?;
+
+    Ok(config)
+}
+
+pub fn load_embedded_columns_config() -> Result<ExtractionConfig, KgvError> {
     let resources = [include_str!("../../extractor_config_files/pod.yaml")];
 
     let mut map: HashMap<GroupVersionKind, Vec<Column>> = HashMap::new();
@@ -191,9 +215,11 @@ pub fn load_embedded_config() -> Result<ExtractionConfig, KgvError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::traits::ext::gvk::GvkStaticExt;
-    use k8s_openapi::api::core::v1::Pod;
     use std::io::Write;
+
+    use k8s_openapi::api::core::v1::Pod;
+
+    use crate::traits::ext::gvk::GvkStaticExt;
 
     use super::*;
 
@@ -203,6 +229,7 @@ mod tests {
         write!(tmpfile, "resource").unwrap();
 
         let config = ResourceExtractorConfigProps {
+            relative_scripts_dir: OsString::new(),
             resources: vec![ResourceConfigProps {
                 resource: Pod::gvk_for_type(),
                 columns: vec![

@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use anyhow::Context;
+use crate::util::paths::KGV_HOME_DIR;
 use cursive::reexports::log::error;
 
 pub trait OptionExt<T> {
@@ -87,16 +87,11 @@ fn failed_option(msg: &str) -> ! {
 }
 
 fn write_to_panics(message: &str) -> anyhow::Result<()> {
-    let home = home::home_dir().context("Failed to find a home directory")?;
-
-    let project_home = home.join(".kgv");
-    std::fs::create_dir_all(project_home.clone())?;
-
-    let panics_file = project_home.join("panics.log");
+    let panics_file = KGV_HOME_DIR.join("panics.log");
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
-        .write(true)
+        .append(true)
         .open(panics_file)
         .unwrap();
 

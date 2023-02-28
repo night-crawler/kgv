@@ -1,13 +1,13 @@
 use std::cmp::Ordering;
 
+use cursive_table_view::{TableView, TableViewItem};
+
 use crate::model::pod::pod_container_column::PodContainerColumn;
 use crate::model::pod::pod_container_view::PodContainerView;
 use crate::traits::ext::bool_ext::BoolExt;
 use crate::traits::ext::container::ContainerExt;
 use crate::traits::ext::container_state::ContainerStateExt;
-use cursive_table_view::{TableView, TableViewItem};
-
-use crate::ui::traits::TableViewExt;
+use crate::traits::ext::table_view::TableViewExt;
 use crate::util::ui::ago;
 
 impl TableViewExt<PodContainerView> for TableView<PodContainerView, PodContainerColumn> {

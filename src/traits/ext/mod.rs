@@ -2,6 +2,8 @@ pub mod bool_ext;
 pub mod container;
 pub mod container_port;
 pub mod container_state;
+pub mod cursive;
 pub mod evaluated_resource;
 pub mod gvk;
 pub mod pod;
+pub mod table_view;

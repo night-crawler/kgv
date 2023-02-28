@@ -1,8 +1,18 @@
 use cursive::reexports::log::error;
 use cursive::{Cursive, View};
 
-use crate::ui::traits::SivExt;
 use crate::util::panics::ResultExt;
+
+pub trait SivExt {
+    fn call_on_name<V, F, R>(&self, name: &str, callback: F)
+    where
+        V: View,
+        F: Send + FnOnce(&mut V) -> R + 'static;
+
+    fn send_box<F>(&self, callback: F)
+    where
+        F: FnOnce(&mut Cursive) + Send + 'static;
+}
 
 impl SivExt
     for cursive::reexports::crossbeam_channel::Sender<Box<dyn FnOnce(&mut Cursive) + Send>>
