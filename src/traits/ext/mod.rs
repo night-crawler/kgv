@@ -7,3 +7,4 @@ pub mod evaluated_resource;
 pub mod gvk;
 pub mod pod;
 pub mod table_view;
+pub mod kube_config;

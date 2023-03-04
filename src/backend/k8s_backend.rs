@@ -4,6 +4,7 @@ use futures::StreamExt;
 use kanal::AsyncReceiver;
 use kube::Client;
 use std::ops::DerefMut;
+use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
@@ -11,6 +12,7 @@ use tokio::runtime::Runtime;
 use crate::backend::fs_cache::FsCache;
 use crate::backend::reflector_registry::ReflectorRegistry;
 use crate::model::resource::resource_view::{reqister_any_gvk, ResourceView};
+use crate::traits::ext::kube_config::KubeConfigExt;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::util::k8s::discover_gvk;
 use crate::util::panics::ResultExt;
@@ -30,13 +32,14 @@ impl K8sBackend {
     pub fn new(
         from_client_sender: kanal::Sender<ToUiSignal>,
         from_ui_receiver: kanal::Receiver<ToBackendSignal>,
+        cache_dir: Option<PathBuf>
     ) -> anyhow::Result<Self> {
         let runtime = Self::spawn_runtime(2)?;
 
-        let config = runtime.block_on(async { Self::get_config().await })?;
-        info!("Loaded configuration");
+        let config = runtime.block_on(async { Self::get_default_config().await })?;
+        info!("Initialized k8s configuration");
 
-        let fs_cache = FsCache::try_from(config.clone())?;
+        let fs_cache = FsCache::new(cache_dir, &config.get_cluster_name());
         info!("Created FS Cache");
 
         let client = runtime.block_on(async move { Client::try_from(config) })?;
@@ -59,7 +62,7 @@ impl K8sBackend {
         Ok(instance)
     }
 
-    async fn get_config() -> Result<kube::Config, kube::Error> {
+    async fn get_default_config() -> Result<kube::Config, kube::Error> {
         kube::Config::infer()
             .await
             .map_err(kube::Error::InferConfig)

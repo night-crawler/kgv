@@ -3,7 +3,6 @@ pub mod components;
 pub mod dispatch;
 pub mod highlighter;
 pub mod interactive_command;
-pub mod logging;
 pub mod signals;
 pub mod traits;
 pub mod ui_store;

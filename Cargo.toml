@@ -34,6 +34,7 @@ handlebars = { version = "4.3", features = ["script_helper"] }
 rhai = "1.12.0"
 rayon = "1.6"
 clap = { version = "4", features = ["derive", "color", "suggestions"] }
+notify = "5"
 
 [dependencies.cursive]
 version = "0.20"

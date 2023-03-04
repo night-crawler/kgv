@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::sync::Arc;
 
 use cursive::reexports::log::error;
@@ -8,45 +7,45 @@ use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use rhai::{Dynamic, Engine, Scope};
 
 use crate::config::extractor_configuration::{Column, EmbeddedExtractor, EvaluatorType};
-use crate::eval::build_engine;
 use crate::eval::eval_result::EvalResult;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::util::error::KgvError;
-
-thread_local! {
-    static ENGINES: RefCell<Engine> = RefCell::new(build_engine());
-}
+use crate::util::watcher::FlagWatcher;
 
 pub struct Evaluator {
     pool: ThreadPool,
+    watcher: FlagWatcher<Engine>
 }
 
 impl Evaluator {
-    pub fn new(num_threads: usize) -> Result<Self, ThreadPoolBuildError> {
+    pub fn new(num_threads: usize, watcher: FlagWatcher<Engine>) -> Result<Self, ThreadPoolBuildError> {
         let pool = ThreadPoolBuilder::new()
             .thread_name(|n| format!("eval-{n}"))
             .num_threads(num_threads)
             .build()?;
 
-        Ok(Self { pool })
+        Ok(Self {
+            watcher,
+            pool,
+        })
     }
 
     pub fn evaluate(
-        &self,
+        &mut self,
         resource: ResourceView,
         columns: &[Column],
     ) -> Result<EvaluatedResource, KgvError> {
+
         let map: rhai::Map = self.pool.install(|| {
+            let engine = self.watcher.get();
+
             let json = match resource.to_json() {
                 Ok(json) => json,
                 Err(err) => return Err(KgvError::SerdeJsonError(err)),
             };
 
-            match ENGINES.with(|engine| {
-                let engine = engine.borrow();
-                engine.parse_json(&json, true)
-            }) {
+            match engine.parse_json(&json, true) {
                 Ok(parsed_json) => Ok(parsed_json),
                 Err(err) => Err(KgvError::EngineJsonParseError(json, *err)),
             }
@@ -55,10 +54,14 @@ impl Evaluator {
         let mut scope = Scope::new();
         scope.push("resource", map);
 
+        // let engine = self.watcher.get();
+
         let values = self.pool.install(|| {
+            let engine = self.watcher.get();
+
             columns
                 .par_iter()
-                .map(|col| Self::evaluate_column(col, &resource, scope.clone_visible()))
+                .map(|col| Self::evaluate_column(engine, col, &resource, scope.clone_visible()))
                 .collect::<Vec<_>>()
         });
 
@@ -69,18 +72,16 @@ impl Evaluator {
     }
 
     pub fn evaluate_column(
+        engine: &Engine,
         column: &Column,
         resource: &ResourceView,
         mut scope: Scope,
     ) -> EvalResult {
         match &column.evaluator_type {
             EvaluatorType::AST(ast) => {
-                match ENGINES.with(move |engine| {
-                    let engine = engine.borrow();
-                    let dynamic_result: Result<Dynamic, _> =
-                        engine.eval_ast_with_scope(&mut scope, ast);
-                    dynamic_result
-                }) {
+                let dynamic_result: Result<Dynamic, _> =
+                    engine.eval_ast_with_scope(&mut scope, ast);
+                match dynamic_result {
                     Ok(value) => {
                         if value.is_string() {
                             return EvalResult::String(value.into_string().unwrap());
@@ -131,6 +132,7 @@ mod tests {
     use k8s_openapi::api::core::v1::Pod;
     use k8s_openapi::serde_json;
     use k8s_openapi::serde_json::json;
+    use crate::eval::engine_factory::{build_engine};
 
     use super::*;
 
@@ -149,9 +151,13 @@ mod tests {
             }
         }))
         .unwrap();
-        let resource = ResourceView::Pod(Arc::new(pod));
 
-        let engine = build_engine();
+        let watcher = FlagWatcher::new(vec![], build_engine).unwrap();
+        let mut evaluator = Evaluator::new(10, watcher).unwrap();
+
+        let engine = build_engine(&[]);
+
+        let resource = ResourceView::Pod(Arc::new(pod));
         let columns = [
             Column {
                 name: "a".to_string(),
@@ -172,8 +178,11 @@ mod tests {
                 ),
             },
         ];
-        let evaluator = Evaluator::new(10).unwrap();
+
         let result = evaluator.evaluate(resource, &columns);
         assert!(result.is_ok());
     }
+
+
+
 }

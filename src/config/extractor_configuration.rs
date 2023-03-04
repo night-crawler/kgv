@@ -8,7 +8,6 @@ use kube::api::GroupVersionKind;
 use rhai::{Engine, AST};
 use serde::{Deserialize, Serialize};
 
-use crate::eval::build_engine;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::util::error::KgvError;
 use crate::util::panics::OptionExt;
@@ -143,7 +142,7 @@ impl TryFrom<ResourceExtractorConfigProps> for ExtractionConfig {
     type Error = KgvError;
 
     fn try_from(value: ResourceExtractorConfigProps) -> Result<Self, Self::Error> {
-        let engine = build_engine();
+        let engine = Engine::new();
         let mut map: HashMap<GroupVersionKind, Vec<Column>> = HashMap::new();
 
         let now = std::time::Instant::now();

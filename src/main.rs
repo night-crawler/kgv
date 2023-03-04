@@ -10,16 +10,19 @@ use k8s_openapi::api::core::v1::{Namespace, Pod};
 use crate::backend::k8s_backend::K8sBackend;
 use crate::config::args::Args;
 use crate::config::extractor_configuration::{load_columns_config, load_embedded_columns_config};
+use crate::config::kgv_configuration::KgvConfiguration;
+use crate::eval::engine_factory::build_engine;
 use crate::eval::evaluator::Evaluator;
 use crate::theme::get_theme;
+use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
 use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::dispatch::dispatch_events;
-use crate::ui::logging::setup_logging;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::{ResourceManager, UiStore};
 use crate::util::panics::ResultExt;
-use crate::util::paths::{create_all_paths, COLUMNS_FILE};
+use crate::util::paths::COLUMNS_FILE;
+use crate::util::watcher::FlagWatcher;
 
 pub mod backend;
 pub mod config;
@@ -30,7 +33,7 @@ pub mod traits;
 pub mod ui;
 pub mod util;
 
-fn init_backend() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
+fn init_cursive_backend() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
     let backend = cursive::backends::termion::Backend::init()?;
     let buffered_backend = cursive_buffered_backend::BufferedBackend::new(backend);
     Ok(Box::new(buffered_backend))
@@ -54,19 +57,17 @@ fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSignal>
 }
 
 fn main() -> Result<()> {
-    let a = Args::parse();
-    println!("{:?}", a);
+    let kgv_configuration = KgvConfiguration::try_from(Args::parse())?;
+    println!("{:?}", kgv_configuration);
 
-    create_all_paths()?;
+    let mut ui = CursiveRunnable::default();
+    ui.setup_logger(kgv_configuration.logs_dir)?;
+    ui.set_theme(get_theme());
 
     let (from_client_sender, from_backend_receiver) = kanal::unbounded();
     let (to_backend_sender, from_ui_receiver) = kanal::unbounded();
 
     let ui_to_ui_sender = from_client_sender.clone();
-
-    let mut ui = CursiveRunnable::default();
-    ui.set_theme(get_theme());
-    setup_logging(&ui);
 
     let extraction_config = match load_columns_config(COLUMNS_FILE.clone()) {
         Ok(config) => config,
@@ -80,7 +81,11 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut backend = K8sBackend::new(from_client_sender, from_ui_receiver)?;
+    let mut backend = K8sBackend::new(
+        from_client_sender,
+        from_ui_receiver,
+        kgv_configuration.cache_dir,
+    )?;
 
     backend.spawn_watcher_exchange_task();
     backend.spawn_discovery_task();
@@ -103,8 +108,10 @@ fn main() -> Result<()> {
         .send(ToBackendSignal::RequestGvkItems(Pod::gvk_for_type()))
         .unwrap_or_log();
 
+    let watcher = FlagWatcher::new(kgv_configuration.module_dirs, build_engine)?;
+
     let resource_manager = ResourceManager::new(
-        Evaluator::new(4)?,
+        Evaluator::new(4, watcher)?,
         ColumnRegistry::new(extraction_config.gvk_to_columns),
     );
 
@@ -119,7 +126,7 @@ fn main() -> Result<()> {
     dispatch_events(store.clone(), from_backend_receiver);
 
     loop {
-        ui.try_run_with(init_backend)?;
+        ui.try_run_with(init_cursive_backend)?;
 
         let mut store = store.lock().unwrap_or_log();
         if let Some(command) = store.interactive_command.take() {

@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+
+use anyhow::Context;
 use cursive::reexports::log::error;
 use cursive::{Cursive, View};
 
@@ -36,5 +39,27 @@ impl SivExt
         F: FnOnce(&mut Cursive) + Send + 'static,
     {
         self.send(Box::new(callback)).unwrap_or_log();
+    }
+}
+
+pub trait SivLogExt {
+    fn setup_logger(&mut self, logs_dir: Option<PathBuf>) -> anyhow::Result<()>;
+}
+
+impl SivLogExt for Cursive {
+    fn setup_logger(&mut self, logs_dir: Option<PathBuf>) -> anyhow::Result<()> {
+        let logs_dir = logs_dir.context("No logs dir")?;
+
+        flexi_logger::Logger::try_with_env_or_str("info")?
+            .log_to_file_and_writer(
+                flexi_logger::FileSpec::default()
+                    .directory(logs_dir)
+                    .suppress_timestamp(),
+                cursive_flexi_logger_view::cursive_flexi_logger(self),
+            )
+            .format(flexi_logger::colored_with_thread)
+            .start()?;
+
+        Ok(())
     }
 }

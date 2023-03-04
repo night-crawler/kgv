@@ -1,6 +1,7 @@
 use std::fs::{File, OpenOptions};
+use std::path::PathBuf;
 
-use crate::util::paths::CACHE_DIR;
+use anyhow::Context;
 use chrono::Utc;
 use cursive::reexports::log::error;
 use kube::api::GroupVersionKind;
@@ -17,31 +18,35 @@ pub struct Cache {
 pub struct FsCache {
     name: String,
     cache: Cache,
+    cache_dir: Option<PathBuf>,
 }
 
 impl FsCache {
-    pub fn new(name: &str) -> anyhow::Result<Self> {
-        let cache = match Self::load(name) {
-            Ok(cache) => cache,
+    pub fn new(cache_dir: Option<PathBuf>, name: &str) -> Self {
+        let mut instance = Self {
+            cache_dir,
+            name: name.to_string(),
+            cache: Cache {
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+                name: name.to_string(),
+                gvks: None,
+            },
+        };
+
+        match instance.load() {
+            Ok(cache) => instance.cache = cache,
             Err(err) => {
-                error!("Failed to load config: {}", err);
-                Cache {
-                    created_at: Utc::now(),
-                    updated_at: Utc::now(),
-                    name: name.to_string(),
-                    gvks: None,
-                }
+                error!("Failed to load cache: {}", err);
             }
         };
 
-        Ok(Self {
-            name: name.to_string(),
-            cache,
-        })
+        instance
     }
 
-    fn get_current_config_file(name: &str) -> anyhow::Result<File> {
-        let cache_file = CACHE_DIR.join(format!("{}.yaml", name));
+    fn get_current_config_file(&self) -> anyhow::Result<File> {
+        let dir = self.cache_dir.as_ref().context("Cache dir is not set")?;
+        let cache_file = dir.join(format!("{}.yaml", self.name));
 
         let file = OpenOptions::new()
             .write(true)
@@ -62,13 +67,13 @@ impl FsCache {
     }
 
     pub fn dump(&self) -> anyhow::Result<()> {
-        let file = Self::get_current_config_file(&self.name)?;
+        let file = self.get_current_config_file()?;
         serde_yaml::to_writer(file, &self.cache)?;
         Ok(())
     }
 
-    pub fn load(name: &str) -> anyhow::Result<Cache> {
-        let file = Self::get_current_config_file(name)?;
+    pub fn load(&self) -> anyhow::Result<Cache> {
+        let file = self.get_current_config_file()?;
         let cache: Cache = serde_yaml::from_reader(file)?;
         Ok(cache)
     }
@@ -76,18 +81,5 @@ impl FsCache {
     fn update_cache_meta(&mut self) {
         self.cache.updated_at = Utc::now();
         self.cache.name = self.name.to_string();
-    }
-}
-
-impl TryFrom<kube::Config> for FsCache {
-    type Error = anyhow::Error;
-
-    fn try_from(value: kube::Config) -> Result<Self, Self::Error> {
-        let name = if let Some(q) = value.cluster_url.authority() {
-            q.host().replace('.', "_")
-        } else {
-            Utc::now().to_string()
-        };
-        Self::new(&name)
     }
 }
