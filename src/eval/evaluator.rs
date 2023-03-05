@@ -29,7 +29,10 @@ impl Evaluator {
             .num_threads(num_threads)
             .build()?;
 
-        Ok(Self { watcher: Arc::clone(watcher), pool })
+        Ok(Self {
+            watcher: Arc::clone(watcher),
+            pool,
+        })
     }
 
     pub fn evaluate(

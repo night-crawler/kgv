@@ -1,10 +1,10 @@
+use cursive::CursiveRunnable;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use cursive::CursiveRunnable;
 
+use crate::ui::backend::init_cursive_backend;
 use cursive::reexports::crossbeam_channel::internal::SelectHandle;
 use cursive::reexports::log::{error, info, warn};
-use crate::ui::backend::init_cursive_backend;
 
 use crate::ui::signals::ToUiSignal;
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
@@ -60,7 +60,10 @@ pub fn spawn_dispatch_events_loop(
         .unwrap_or_log();
 }
 
-pub fn enter_command_handler_loop(ui: &mut CursiveRunnable, store: Arc<Mutex<UiStore>>) -> anyhow::Result<()> {
+pub fn enter_command_handler_loop(
+    ui: &mut CursiveRunnable,
+    store: Arc<Mutex<UiStore>>,
+) -> anyhow::Result<()> {
     loop {
         ui.try_run_with(init_cursive_backend)?;
 
