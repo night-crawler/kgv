@@ -1,8 +1,12 @@
 pub mod column_registry;
 pub mod components;
-pub mod dispatch;
+pub mod loops;
 pub mod highlighter;
 pub mod interactive_command;
 pub mod signals;
 pub mod traits;
 pub mod ui_store;
+pub mod resource_manager;
+pub mod detail_view_renderer;
+pub mod hotkeys;
+pub mod backend;

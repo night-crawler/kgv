@@ -10,62 +10,61 @@ use serde::{Deserialize, Serialize};
 use crate::traits::ext::engine::EngineExt;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::util::error::KgvError;
+use crate::util::paths::resolve_path;
 use crate::util::ui::ago;
 
-pub struct DeserializedResources {
-    resources: Vec<(PathBuf, ResourceConfigProps)>,
+pub struct ExtractorConfig {
+    pub columns_map: HashMap<GroupVersionKind, Vec<Column>>,
+    pub template_map: HashMap<GroupVersionKind, DetailsTemplate>,
 }
 
-impl DeserializedResources {
+impl ExtractorConfig {
     pub fn new(roots: &[PathBuf]) -> Self {
         let now = std::time::Instant::now();
-        let mut parsed_props = vec![];
-        for file in get_files(roots) {
-            if let Some(ext) = file.extension() {
-                if ext != "yaml" && ext != "yml" {
-                    continue;
-                }
-            } else {
-                continue;
-            }
-            match ResourceConfigProps::try_from(&file) {
-                Ok(resource_config_props) => {
-                    parsed_props.push((file, resource_config_props));
-                }
-                Err(err) => {
-                    error!(
-                        "Failed to parse file {} into resource configuration properties: {}",
-                        file.display(),
-                        err
-                    );
-                }
-            }
-        }
-
+        let parsed_resources = parse_resource_dirs(roots);
         let elapsed = chrono::Duration::from_std(now.elapsed())
             .unwrap_or_else(|_| chrono::Duration::seconds(0));
 
         info!(
             "Parsed {} resources in {}",
-            parsed_props.len(),
+            parsed_resources.len(),
             ago(elapsed)
         );
 
-        Self {
-            resources: parsed_props,
-        }
-    }
-
-    pub fn into_map(self) -> HashMap<GroupVersionKind, Vec<Column>> {
         let engine = Engine::new();
-        let mut map: HashMap<GroupVersionKind, Vec<Column>> = HashMap::new();
+        let mut columns_map: HashMap<GroupVersionKind, Vec<Column>> = HashMap::new();
+        let mut detail_templates_map: HashMap<GroupVersionKind, DetailsTemplate> = HashMap::new();
 
         let now = std::time::Instant::now();
 
-        for (path, resource_config_props) in self.resources {
-            let (gvk, columns) = Self::process_resource(&engine, &path, resource_config_props);
+        for (path, mut resource_config_props) in parsed_resources {
+            let detail_config = resource_config_props.details.take();
+            let (gvk, columns) = parse_resource_columns(&engine, &path, resource_config_props);
             let gvk_full_name = gvk.full_name();
-            if map.insert(gvk, columns).is_some() {
+
+            if let Some(details) = detail_config {
+                let template_path = resolve_path(&path, details.template);
+                let template = DetailsTemplate {
+                    template: template_path.clone(),
+                    helpers: details
+                        .helpers
+                        .into_iter()
+                        .map(|mut helper| {
+                            helper.path = resolve_path(&template_path, helper.path);
+                            helper
+                        })
+                        .collect(),
+                };
+
+                if detail_templates_map.insert(gvk.clone(), template).is_some() {
+                    warn!(
+                        "Replaced a template for gvk {gvk_full_name} with {:?}",
+                        template_path.display()
+                    );
+                }
+            }
+
+            if columns_map.insert(gvk, columns).is_some() {
                 warn!(
                     "Replaced GVK {} with a new one from {}",
                     gvk_full_name,
@@ -76,57 +75,19 @@ impl DeserializedResources {
 
         let elapsed = chrono::Duration::from_std(now.elapsed())
             .unwrap_or_else(|_| chrono::Duration::seconds(0));
-        let num_columns: usize = map.values().map(|columns| columns.len()).sum();
+        let num_columns: usize = columns_map.values().map(|columns| columns.len()).sum();
 
         info!(
             "Imported {} GVKs with {} columns in {}",
-            map.len(),
+            columns_map.len(),
             num_columns,
             ago(elapsed)
         );
 
-        map
-    }
-
-    fn process_resource(
-        engine: &Engine,
-        source_path: &Path,
-        resource_config_props: ResourceConfigProps,
-    ) -> (GroupVersionKind, Vec<Column>) {
-        let mut columns: Vec<Column> = vec![];
-        for column_config in resource_config_props.columns {
-            let column_name = column_config.name.clone();
-
-            let evaluator_type = EvaluatorType::try_from_config(
-                column_config.evaluator,
-                engine,
-                source_path,
-                &resource_config_props.imports,
-            );
-
-            let evaluator_type = match evaluator_type {
-                Ok(col) => col,
-                Err(err) => {
-                    error!(
-                        "Failed to process column {} in file {}: {err}",
-                        column_name,
-                        source_path.display()
-                    );
-                    continue;
-                }
-            };
-
-            let column = Column {
-                name: column_name,
-                display_name: column_config.display_name,
-                width: column_config.width,
-                evaluator_type,
-            };
-
-            columns.push(column);
+        Self {
+            columns_map,
+            template_map: detail_templates_map,
         }
-
-        (resource_config_props.resource, columns)
     }
 }
 
@@ -146,10 +107,31 @@ enum EvalConfigProps {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+pub struct HbsHelper {
+    pub name: String,
+    pub path: PathBuf,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct DetailsTemplateConfigProps {
+    template: PathBuf,
+
+    #[serde(default)]
+    helpers: Vec<HbsHelper>,
+}
+
+#[derive(Debug)]
+pub struct DetailsTemplate {
+    pub template: PathBuf,
+    pub helpers: Vec<HbsHelper>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct ResourceConfigProps {
     resource: GroupVersionKind,
     #[serde(default)]
     imports: Vec<String>,
+    details: Option<DetailsTemplateConfigProps>,
     columns: Vec<ColumnConfigProps>,
 }
 
@@ -186,14 +168,7 @@ impl EvaluatorType {
     ) -> anyhow::Result<Self> {
         let evaluator_type = match config {
             EvalConfigProps::ScriptPath { path: script_path } => {
-                let script_path = if script_path.is_absolute() {
-                    script_path
-                } else if let Some(parent) = source_path.parent() {
-                    parent.join(script_path)
-                } else {
-                    script_path
-                };
-
+                let script_path = resolve_path(source_path, script_path);
                 EvaluatorType::AST(engine.compile_file_with_imports(&script_path, imports)?)
             }
             EvalConfigProps::ScriptContent { content } => {
@@ -266,9 +241,72 @@ pub fn get_files(roots: &[PathBuf]) -> Vec<PathBuf> {
     files
 }
 
-#[derive(Debug)]
-pub struct ExtractionConfig {
-    pub gvk_to_columns: HashMap<GroupVersionKind, Vec<Column>>,
+fn parse_resource_dirs(roots: &[PathBuf]) -> Vec<(PathBuf, ResourceConfigProps)> {
+    let mut parsed_props = vec![];
+    for file in get_files(roots) {
+        if let Some(ext) = file.extension() {
+            if ext != "yaml" && ext != "yml" {
+                continue;
+            }
+        } else {
+            continue;
+        }
+        match ResourceConfigProps::try_from(&file) {
+            Ok(resource_config_props) => {
+                parsed_props.push((file, resource_config_props));
+            }
+            Err(err) => {
+                error!(
+                    "Failed to parse file {} into resource configuration properties: {}",
+                    file.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    parsed_props
+}
+
+fn parse_resource_columns(
+    engine: &Engine,
+    source_path: &Path,
+    resource_config_props: ResourceConfigProps,
+) -> (GroupVersionKind, Vec<Column>) {
+    let mut columns: Vec<Column> = vec![];
+    for column_config in resource_config_props.columns {
+        let column_name = column_config.name.clone();
+
+        let evaluator_type = EvaluatorType::try_from_config(
+            column_config.evaluator,
+            engine,
+            source_path,
+            &resource_config_props.imports,
+        );
+
+        let evaluator_type = match evaluator_type {
+            Ok(col) => col,
+            Err(err) => {
+                error!(
+                    "Failed to process column {} in file {}: {err}",
+                    column_name,
+                    source_path.display()
+                );
+                continue;
+            }
+        };
+
+        let column = Column {
+            name: column_name,
+            display_name: column_config.display_name,
+            width: column_config.width,
+            evaluator_type,
+        };
+
+        columns.push(column);
+    }
+
+    (resource_config_props.resource, columns)
 }
 
 #[cfg(test)]
@@ -281,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        assert!(DeserializedResources::new(&[]).into_map().is_empty());
+        assert!(ExtractorConfig::new(&[]).columns_map.is_empty());
     }
 
     #[test]
@@ -295,6 +333,7 @@ mod tests {
 
         let resource = ResourceConfigProps {
             resource: Pod::gvk_for_type(),
+            details: None,
             imports: vec![r##"import "pod" as pod;"##.to_string()],
             columns: vec![
                 ColumnConfigProps {
@@ -322,11 +361,13 @@ mod tests {
             ],
         };
 
-        std::fs::write(&extractor_path, serde_yaml::to_string(&resource).unwrap()).unwrap();
+        let data = serde_yaml::to_string(&resource).unwrap();
+        println!("{}", data);
 
-        let deserialized = DeserializedResources::new(&[extractor_dir.into_path()]);
-        let map = deserialized.into_map();
-        assert_eq!(map.len(), 1);
-        assert_eq!(map.values().next().unwrap().len(), 3);
+        std::fs::write(&extractor_path, data).unwrap();
+
+        let deserialized = ExtractorConfig::new(&[extractor_dir.into_path()]);
+        assert_eq!(deserialized.columns_map.len(), 1);
+        assert_eq!(deserialized.columns_map.values().next().unwrap().len(), 3);
     }
 }

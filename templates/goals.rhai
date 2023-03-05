@@ -1,3 +1,3 @@
-let goals = params[0];
+import "pod" as pod;
 
-goals.len()
+pod::ready(params[0])

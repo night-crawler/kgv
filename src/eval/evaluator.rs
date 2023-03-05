@@ -16,29 +16,29 @@ use crate::util::watcher::LazyWatcher;
 
 pub struct Evaluator {
     pool: ThreadPool,
-    watcher: LazyWatcher<Engine>,
+    watcher: Arc<LazyWatcher<Engine>>,
 }
 
 impl Evaluator {
     pub fn new(
         num_threads: usize,
-        watcher: LazyWatcher<Engine>,
+        watcher: &Arc<LazyWatcher<Engine>>,
     ) -> Result<Self, ThreadPoolBuildError> {
         let pool = ThreadPoolBuilder::new()
             .thread_name(|n| format!("eval-{n}"))
             .num_threads(num_threads)
             .build()?;
 
-        Ok(Self { watcher, pool })
+        Ok(Self { watcher: Arc::clone(watcher), pool })
     }
 
     pub fn evaluate(
-        &mut self,
+        &self,
         resource: ResourceView,
         columns: &[Column],
     ) -> Result<EvaluatedResource, KgvError> {
         let map: rhai::Map = self.pool.install(|| {
-            let engine = self.watcher.get();
+            let engine = self.watcher.value();
 
             let json = match resource.to_json() {
                 Ok(json) => json,
@@ -54,10 +54,8 @@ impl Evaluator {
         let mut scope = Scope::new();
         scope.push("resource", map);
 
-        // let engine = self.watcher.get();
-
         let values = self.pool.install(|| {
-            let engine = self.watcher.get();
+            let engine = self.watcher.value();
 
             columns
                 .par_iter()
@@ -154,8 +152,8 @@ mod tests {
         }))
         .unwrap();
 
-        let watcher = LazyWatcher::new(vec![], build_engine).unwrap();
-        let mut evaluator = Evaluator::new(10, watcher).unwrap();
+        let watcher = Arc::new(LazyWatcher::new(vec![], build_engine).unwrap());
+        let evaluator = Evaluator::new(10, &watcher).unwrap();
 
         let engine = build_engine(&[]);
 

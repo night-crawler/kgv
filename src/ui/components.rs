@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use cursive::direction::Orientation;
 use cursive::menu;
+use cursive::reexports::log::info;
 use cursive::theme::BaseColor;
 use cursive::traits::*;
 use cursive::utils::markup::StyledString;
@@ -12,12 +13,32 @@ use strum::IntoEnumIterator;
 
 use crate::model::pod::pod_container_column::PodContainerColumn;
 use crate::model::pod::pod_container_view::PodContainerView;
-use crate::model::resource::resource_view::EvaluatedResource;
+use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::traits::ext::gvk::{GvkExt, GvkNameExt};
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::util::panics::ResultExt;
 use crate::util::ui::group_gvks;
+
+pub fn build_detail_view(resource: ResourceView, html: String) -> LinearLayout {
+    let mut main_layout = LinearLayout::vertical();
+
+    let mut view = cursive_markup::MarkupView::html(&html);
+    view.on_link_focus(|_, url| {
+        info!("Focused a link: {url}");
+    });
+    view.on_link_select(|_, url| {
+        info!("Selected a link: {url}");
+    });
+
+    let title = format!("{} {}", resource.gvk().full_name(), resource.name());
+
+    let panel = Panel::new(view.scrollable()).title(title);
+
+    main_layout.add_child(panel.with_name("details").full_screen());
+
+    main_layout
+}
 
 pub fn build_code_view(styled_string: StyledString) -> Dialog {
     let tv = TextView::new(styled_string).full_screen().scrollable();
@@ -90,12 +111,13 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
 
 pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     let (ns_filter, name_filter, column_handles, to_ui_sender, to_backend_sender, selected_gvk) = {
-        let mut store = store.lock().unwrap_or_log();
-        let selected_gvk = store.selected_gvk.clone();
+        let store = store.lock().unwrap_or_log();
         (
             store.ns_filter.clone(),
             store.name_filter.clone(),
-            store.resource_manager.get_column_handles(&selected_gvk),
+            store
+                .resource_manager
+                .get_column_handles(&store.selected_gvk),
             store.to_ui_sender.clone(),
             store.to_backend_sender.clone(),
             store.selected_gvk.clone(),

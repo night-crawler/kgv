@@ -2,14 +2,14 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use clap::Parser;
-use cursive::reexports::log::{error, info};
-use cursive::{event, Cursive, CursiveRunnable};
-use cursive_flexi_logger_view::toggle_flexi_logger_debug_console;
+use cursive::CursiveRunnable;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
+use kanal::Sender;
+use kube::api::GroupVersionKind;
 
 use crate::backend::k8s_backend::K8sBackend;
 use crate::config::args::Args;
-use crate::config::extractor::DeserializedResources;
+use crate::config::extractor::ExtractorConfig;
 use crate::config::kgv_configuration::KgvConfiguration;
 use crate::eval::engine_factory::build_engine;
 use crate::eval::evaluator::Evaluator;
@@ -17,9 +17,12 @@ use crate::theme::get_theme;
 use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
 use crate::ui::column_registry::ColumnRegistry;
-use crate::ui::dispatch::dispatch_events;
+use crate::ui::detail_view_renderer::DetailViewRenderer;
+use crate::ui::hotkeys::register_hotkeys;
+use crate::ui::loops::{enter_command_handler_loop, spawn_dispatch_events_loop};
+use crate::ui::resource_manager::ResourceManager;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::ui_store::{ResourceManager, UiStore};
+use crate::ui::ui_store::UiStore;
 use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
@@ -32,32 +35,8 @@ pub mod traits;
 pub mod ui;
 pub mod util;
 
-fn init_cursive_backend() -> std::io::Result<Box<dyn cursive::backend::Backend>> {
-    let backend = cursive::backends::termion::Backend::init()?;
-    let buffered_backend = cursive_buffered_backend::BufferedBackend::new(backend);
-    Ok(Box::new(buffered_backend))
-}
-
-fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSignal>) {
-    ui.add_global_callback('~', toggle_flexi_logger_debug_console);
-    ui.add_global_callback(event::Key::F10, |siv| siv.select_menubar());
-    ui.add_global_callback(event::Key::Esc, |siv| {
-        siv.pop_layer();
-    });
-    {
-        let ui_to_ui_sender = ui_to_ui_sender.clone();
-        ui.add_global_callback(event::Event::CtrlChar('s'), move |_| {
-            ui_to_ui_sender.send(ToUiSignal::CtrlSPressed).unwrap();
-        });
-    }
-    ui.add_global_callback(event::Event::CtrlChar('y'), move |_| {
-        ui_to_ui_sender.send(ToUiSignal::CtrlYPressed).unwrap();
-    });
-}
-
 fn main() -> Result<()> {
     let kgv_configuration = KgvConfiguration::try_from(Args::parse())?;
-    println!("{:?}", kgv_configuration);
 
     let mut ui = CursiveRunnable::default();
     ui.setup_logger(kgv_configuration.logs_dir)?;
@@ -80,6 +59,48 @@ fn main() -> Result<()> {
 
     register_hotkeys(&mut ui, ui_to_ui_sender.clone());
 
+    send_init_signals(&to_backend_sender, &ui_to_ui_sender);
+
+    let extractor_config_watcher = LazyWatcher::new(kgv_configuration.extractor_dirs, |paths| {
+        ExtractorConfig::new(paths)
+    })?;
+    let extractor_config_watcher = Arc::new(extractor_config_watcher);
+
+    let engine_watcher = LazyWatcher::new(kgv_configuration.module_dirs, build_engine)?;
+    let engine_watcher = Arc::new(engine_watcher);
+
+    let detail_view_renderer = DetailViewRenderer::new(&engine_watcher, &extractor_config_watcher);
+    let resource_manager = ResourceManager::new(
+        Evaluator::new(4, &engine_watcher)?,
+        ColumnRegistry::new(&extractor_config_watcher),
+    );
+
+    let store = Arc::new(Mutex::new(UiStore {
+        highlighter: ui::highlighter::Highlighter::new("base16-eighties.dark")?,
+        selected_gvk: GroupVersionKind::gvk("", "", ""),
+        ns_filter: "".to_string(),
+        name_filter: "".to_string(),
+        to_ui_sender: ui_to_ui_sender,
+        to_backend_sender,
+        sink: ui.cb_sink().clone(),
+        selected_resource: None,
+        selected_pod_container: None,
+        interactive_command: None,
+        resource_manager,
+        detail_view_renderer,
+    }));
+
+    spawn_dispatch_events_loop(store.clone(), from_backend_receiver);
+
+    enter_command_handler_loop(&mut ui, store)?;
+
+    Ok(())
+}
+
+fn send_init_signals(
+    to_backend_sender: &Sender<ToBackendSignal>,
+    ui_to_ui_sender: &Sender<ToUiSignal>,
+) {
     to_backend_sender
         .send(ToBackendSignal::RequestRegisterGvk(Pod::gvk_for_type()))
         .unwrap_or_log();
@@ -94,49 +115,4 @@ fn main() -> Result<()> {
     to_backend_sender
         .send(ToBackendSignal::RequestGvkItems(Pod::gvk_for_type()))
         .unwrap_or_log();
-
-    let columns_watcher = LazyWatcher::new(kgv_configuration.extractor_dirs, |paths| {
-        let dr = DeserializedResources::new(paths);
-        dr.into_map()
-    })?;
-    let engine_watcher = LazyWatcher::new(kgv_configuration.module_dirs, build_engine)?;
-
-    let resource_manager = ResourceManager::new(
-        Evaluator::new(4, engine_watcher)?,
-        ColumnRegistry::new(columns_watcher),
-    );
-
-    let store = Arc::new(Mutex::new(UiStore::new(
-        ui.cb_sink().clone(),
-        ui_to_ui_sender,
-        to_backend_sender,
-        resource_manager,
-        ui::highlighter::Highlighter::new("base16-eighties.dark")?,
-    )));
-
-    dispatch_events(store.clone(), from_backend_receiver);
-
-    loop {
-        ui.try_run_with(init_cursive_backend)?;
-
-        let mut store = store.lock().unwrap_or_log();
-        if let Some(command) = store.interactive_command.take() {
-            match command.run() {
-                Ok(status) => {
-                    if !status.success() {
-                        error!("Failed to exec: {}", status);
-                    } else {
-                        info!("Executed: {}", status);
-                    }
-                }
-                Err(err) => {
-                    error!("Error executing command: {}", err);
-                }
-            }
-        } else {
-            break;
-        }
-    }
-
-    Ok(())
 }

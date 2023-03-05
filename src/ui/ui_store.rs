@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use cursive::reexports::crossbeam_channel::Sender;
@@ -8,9 +7,6 @@ use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
 
-use crate::config::extractor::ColumnHandle;
-use crate::eval::eval_result::EvalResult;
-use crate::eval::evaluator::Evaluator;
 use crate::model::pod::pod_container_column::PodContainerColumn;
 use crate::model::pod::pod_container_view::PodContainerView;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
@@ -21,83 +17,16 @@ use crate::traits::ext::gvk::GvkExt;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::pod::PodExt;
 use crate::traits::ext::table_view::TableViewExt;
-use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::components::{
-    build_code_view, build_main_layout, build_menu, build_pod_detail_layout,
+    build_code_view, build_detail_view, build_main_layout, build_menu, build_pod_detail_layout,
 };
+use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::interactive_command::InteractiveCommand;
+use crate::ui::resource_manager::ResourceManager;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::util::panics::ResultExt;
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
-
-pub struct ResourceManager {
-    resources_by_gvk: HashMap<GroupVersionKind, HashMap<String, EvaluatedResource>>,
-    evaluator: Evaluator,
-    column_registry: ColumnRegistry,
-}
-
-impl ResourceManager {
-    pub fn new(evaluator: Evaluator, column_registry: ColumnRegistry) -> Self {
-        Self {
-            evaluator,
-            column_registry,
-            resources_by_gvk: HashMap::default(),
-        }
-    }
-    pub fn replace(&mut self, resource: ResourceView) -> EvaluatedResource {
-        let key = resource.uid().unwrap_or_else(|| {
-            error!("Received a resource without uid: {:?}", resource);
-            resource.full_unique_name()
-        });
-        let gvk = resource.gvk();
-        let columns = self.column_registry.get_columns(&gvk);
-
-        let evaluated_resource = match self.evaluator.evaluate(resource.clone(), &columns) {
-            Ok(evaluated_resource) => evaluated_resource,
-            Err(err) => {
-                error!(
-                    "Failed to evaluate resource {}: {}",
-                    resource.full_unique_name(),
-                    err
-                );
-                let values = vec![EvalResult::Error("?".to_string()); columns.len()];
-                EvaluatedResource {
-                    values: Arc::new(values),
-                    resource,
-                }
-            }
-        };
-
-        self.resources_by_gvk
-            .entry(gvk)
-            .or_default()
-            .insert(key, evaluated_resource.clone());
-
-        evaluated_resource
-    }
-
-    pub fn replace_all(&mut self, resources: Vec<ResourceView>) {
-        resources.into_iter().for_each(|resource| {
-            self.replace(resource);
-        });
-    }
-
-    pub fn get_column_handles(&mut self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
-        self.column_registry.get_column_handles(gvk)
-    }
-
-    pub fn get_resources_iter(
-        &self,
-        gvk: &GroupVersionKind,
-    ) -> impl Iterator<Item = &EvaluatedResource> {
-        self.resources_by_gvk
-            .get(gvk)
-            .map(|map| map.values())
-            .into_iter()
-            .flatten()
-    }
-}
 
 pub struct UiStore {
     pub highlighter: crate::ui::highlighter::Highlighter,
@@ -115,32 +44,11 @@ pub struct UiStore {
     pub interactive_command: Option<InteractiveCommand>,
 
     pub resource_manager: ResourceManager,
+
+    pub detail_view_renderer: DetailViewRenderer,
 }
 
 impl UiStore {
-    pub fn new(
-        sink: SinkSender,
-        to_ui_sender: kanal::Sender<ToUiSignal>,
-        to_backend_sender: kanal::Sender<ToBackendSignal>,
-        resource_manager: ResourceManager,
-        highlighter: crate::ui::highlighter::Highlighter,
-    ) -> Self {
-        Self {
-            selected_gvk: GroupVersionKind::gvk("", "", ""),
-            name_filter: "".to_string(),
-            ns_filter: "".to_string(),
-            to_ui_sender,
-            to_backend_sender,
-            sink,
-            selected_resource: None,
-            selected_pod_container: None,
-
-            interactive_command: None,
-            highlighter,
-            resource_manager,
-        }
-    }
-
     pub fn should_display_resource(&self, evaluated_resource: &EvaluatedResource) -> bool {
         evaluated_resource
             .resource
@@ -305,8 +213,24 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 });
                 self.replace_pod_detail_table_items();
             }
-            _ => {
-                error!("Not supported")
+            resource => {
+                let store = self.lock().unwrap_or_log();
+                let html = match store.detail_view_renderer.render_html(&resource) {
+                    Ok(html) => html,
+                    Err(err) => {
+                        error!(
+                            "Failed to render details for {}: {err}",
+                            resource.gvk().full_name()
+                        );
+                        return;
+                    }
+                };
+                drop(store);
+
+                sink.send_box(|siv| {
+                    let layout = build_detail_view(resource, html);
+                    siv.add_fullscreen_layer(layout)
+                });
             }
         }
     }

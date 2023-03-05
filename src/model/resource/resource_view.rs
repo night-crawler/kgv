@@ -31,47 +31,4 @@ impl ResourceView {
             _ => String::new(),
         }
     }
-
-    pub fn ips(&self) -> Option<Vec<String>> {
-        match self {
-            ResourceView::Pod(r) => r
-                .status
-                .as_ref()
-                .and_then(|status| status.pod_ips.as_ref())
-                .map(|pod_ips| {
-                    pod_ips
-                        .iter()
-                        .filter_map(|pod_ip| pod_ip.ip.clone())
-                        .collect::<Vec<_>>()
-                }),
-            _ => None,
-        }
-    }
-
-    pub fn restarts(&self) -> String {
-        match self {
-            ResourceView::Pod(r) => r
-                .status
-                .as_ref()
-                .and_then(|status| status.container_statuses.as_ref())
-                .into_iter()
-                .flatten()
-                .map(|container_status| container_status.restart_count)
-                .sum::<i32>()
-                .to_string(),
-            _ => String::new(),
-        }
-    }
-
-    pub fn node(&self) -> String {
-        match self {
-            ResourceView::Pod(r) => r
-                .spec
-                .as_ref()
-                .and_then(|spec| spec.node_name.as_ref())
-                .cloned()
-                .unwrap_or_default(),
-            _ => String::new(),
-        }
-    }
 }
