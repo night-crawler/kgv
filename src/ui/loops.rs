@@ -1,14 +1,16 @@
+use cursive::CursiveRunnable;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::ui::backend::init_cursive_backend;
 use cursive::reexports::crossbeam_channel::internal::SelectHandle;
-use cursive::reexports::log::warn;
+use cursive::reexports::log::{error, info, warn};
 
 use crate::ui::signals::ToUiSignal;
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::util::panics::ResultExt;
 
-pub fn dispatch_events(
+pub fn spawn_dispatch_events_loop(
     store: Arc<Mutex<UiStore>>,
     from_backend_receiver: kanal::Receiver<ToUiSignal>,
 ) {
@@ -56,4 +58,33 @@ pub fn dispatch_events(
             }
         })
         .unwrap_or_log();
+}
+
+pub fn enter_command_handler_loop(
+    ui: &mut CursiveRunnable,
+    store: Arc<Mutex<UiStore>>,
+) -> anyhow::Result<()> {
+    loop {
+        ui.try_run_with(init_cursive_backend)?;
+
+        let mut store = store.lock().unwrap_or_log();
+        if let Some(command) = store.interactive_command.take() {
+            match command.run() {
+                Ok(status) => {
+                    if !status.success() {
+                        error!("Failed to exec: {}", status);
+                    } else {
+                        info!("Executed: {}", status);
+                    }
+                }
+                Err(err) => {
+                    error!("Error executing command: {}", err);
+                }
+            }
+        } else {
+            break;
+        }
+    }
+
+    Ok(())
 }

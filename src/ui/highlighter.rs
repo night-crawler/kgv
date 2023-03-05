@@ -16,7 +16,6 @@ impl Highlighter {
 
     fn get_theme(theme_name: &str) -> Result<syntect::highlighting::Theme, Error> {
         let mut theme_set = syntect::highlighting::ThemeSet::load_defaults();
-        println!("{:?}", theme_set.themes.keys());
         theme_set
             .themes
             .remove(theme_name)

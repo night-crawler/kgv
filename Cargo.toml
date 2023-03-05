@@ -13,7 +13,6 @@ anyhow = "1"
 tokio = { version = "1.25", features = ["full"] }
 kanal = "0.1.0-pre8"
 futures = "0.3"
-async-trait = "0.1"
 itertools = "0.10"
 cruet = "0.13"
 strum = "0.24"
@@ -23,19 +22,27 @@ serde = "1"
 serde_yaml = "0.9"
 chrono = "0.4"
 home = "0.5"
-termion = "2"
 cursive_buffered_backend = "0.6"
 cursive-markup = "0.3"
 cursive-flexi-logger-view = "^0"
 cursive-syntect = "0.1"
 syntect = "5"
 flexi_logger = "0.22"
+handlebars = { version = "4.3", features = ["script_helper"] }
+#handlebars_misc_helpers = "0.13"
+rhai = "1.12.0"
+rayon = "1.6"
+clap = { version = "4", features = ["derive", "color", "suggestions"] }
+notify = "5"
 
 [dependencies.cursive]
 version = "0.20"
 default-features = false
 features = ["termion-backend"]
 
-[dependencies.text-style]
-version = "0.3.0"
-features = ["cursive", "syntect", "termion"]
+[dev-dependencies]
+tempfile = "3"
+
+#[dependencies.text-style]
+#version = "0.3.0"
+#features = ["cursive", "syntect", "termion"]

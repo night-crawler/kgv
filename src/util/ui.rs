@@ -7,7 +7,13 @@ use crate::util::k8s::gvk_sort_key;
 use crate::util::panics::OptionExt;
 
 pub fn ago(duration: chrono::Duration) -> String {
-    if duration.num_seconds().abs() < 100 {
+    if duration.num_nanoseconds() < Some(1000) {
+        format!("{}ns", duration.num_nanoseconds().unwrap())
+    } else if duration.num_microseconds() < Some(1000) {
+        format!("{}μs", duration.num_microseconds().unwrap())
+    } else if duration.num_milliseconds() < 1000 {
+        format!("{}ms", duration.num_milliseconds())
+    } else if duration.num_seconds() < 100 {
         format!("{}s", duration.num_seconds())
     } else if duration.num_minutes() < 100 {
         format!("{}m", duration.num_minutes())

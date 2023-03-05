@@ -8,7 +8,8 @@ use kube::api::{DynamicObject, GroupVersionKind};
 use kube::runtime::reflector::Store;
 
 use crate::model::resource::resource_view::ResourceView;
-use crate::model::traits::{GvkExt, GvkStaticExt, MarkerTraitForStaticCases, SpecViewAdapter};
+use crate::model::traits::{MarkerTraitForStaticCases, SpecViewAdapter};
+use crate::traits::ext::gvk::{GvkExt, GvkStaticExt};
 
 impl<T> GvkStaticExt for T
 where

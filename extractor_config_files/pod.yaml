@@ -1,0 +1,15 @@
+resource:
+  group: ''
+  version: v1
+  kind: Pod
+columns:
+  - name: name
+    display_name: Name
+    width: 20
+    evaluator: !Embedded
+      name: Name
+  - name: sample2
+    display_name: sample2
+    width: 20
+    evaluator: !ScriptContent
+      content: resource

@@ -2,11 +2,9 @@
 macro_rules! mk_resource_enum {
     (
         $name:ident,
-        [
             $(
-                $opt_name:ident: [ $($column:expr),+ ]
+                $opt_name:ident
             ),+
-        ]
     ) => {
 
         #[derive(Debug, Clone, strum_macros::EnumIter, strum_macros::EnumString, strum_macros::IntoStaticStr)]
@@ -16,48 +14,6 @@ macro_rules! mk_resource_enum {
             )+
 
             DynamicObject(std::sync::Arc<$crate::model::dynamic_object::DynamicObjectWrapper>)
-        }
-
-        // Default get_columns()
-        impl $name {
-            pub fn get_columns(&self) -> &[$crate::model::resource::resource_column::ResourceColumn] {
-                match self {
-                    $(
-                        Self::$opt_name(_) => &[
-                            $($column),+
-                        ],
-                    )+
-
-                    Self::DynamicObject(_) => &[
-                        $crate::model::resource::resource_column::ResourceColumn::Namespace,
-                        $crate::model::resource::resource_column::ResourceColumn::Name,
-                    ],
-                }
-            }
-        }
-
-        // Build column map
-        impl $name {
-            pub fn build_gvk_to_columns_map() -> std::collections::HashMap<
-                kube::api::GroupVersionKind,
-                Vec<$crate::model::resource::resource_column::ResourceColumn>
-            > {
-                use $crate::model::traits::GvkStaticExt;
-                let mut map = std::collections::HashMap::new();
-
-                $(
-                    let gvk = k8s_openapi::api::core::v1::$opt_name::gvk_for_type();
-                    let result = map.insert(
-                        gvk.clone(),
-                        vec![
-                            $($column),+
-                        ],
-                    );
-                    assert!(result.is_none(), "Duplicate value: {:?}", gvk);
-                )+
-
-                map
-            }
         }
 
         // uid()
@@ -70,14 +26,42 @@ macro_rules! mk_resource_enum {
                     Self::DynamicObject(r) => r.uid(),
                 }
             }
+        }
 
+        // name()
+        impl $name {
+            pub fn name(&self) -> String {
+                match self {
+                    $(
+                        Self::$opt_name(r) => r.name_any(),
+                    )+
+                    Self::DynamicObject(r) => r.name_any(),
+                }
+            }
+        }
+
+        // namespace()
+        impl $name {
+            pub fn namespace(&self) -> String {
+                match self {
+                    $(
+                        Self::$opt_name(r) => r.namespace().unwrap_or_default(),
+                    )+
+                    Self::DynamicObject(r) => r.namespace().unwrap_or_default(),
+                }
+            }
+        }
+
+        // full_unique_name
+        impl $name {
             pub fn full_unique_name(&self) -> String {
-                use $crate::model::traits::GvkExt;
-                let gvk = self.gvk();
+                use $crate::traits::ext::gvk::GvkExt;
+                use $crate::traits::ext::gvk::GvkNameExt;
+
+                let gvk = self.gvk().full_name();
                 format!(
-                    "{}/{}/{}::{}/{}",
-                    gvk.group, gvk.version, gvk.kind,
-                    self.namespace(), self.name()
+                    "{}::{}/{}",
+                    gvk, self.namespace(), self.name()
                 )
             }
         }
@@ -94,14 +78,23 @@ macro_rules! mk_resource_enum {
             }
         }
 
-        // serialize inner()
-        impl $name {
-            pub fn serialize_inner(&self) -> Result<String, serde_yaml::Error>  {
+        // serialize to yaml ()
+        impl $crate::model::traits::SerializeExt for $name {
+            fn to_yaml(&self) -> Result<String, serde_yaml::Error> {
                 match self {
                     $(
                         Self::$opt_name(r) => serde_yaml::to_string(r.as_ref()),
                     )+
-                    Self::DynamicObject(r) => serde_yaml::to_string(&r.as_ref().0),
+                    Self::DynamicObject(r) => r.to_yaml(),
+                }
+            }
+
+            fn to_json(&self) -> Result<String, k8s_openapi::serde_json::Error> {
+                match self {
+                    $(
+                        Self::$opt_name(r) => k8s_openapi::serde_json::to_string(r.as_ref()),
+                    )+
+                    Self::DynamicObject(r) => r.to_json(),
                 }
             }
         }
@@ -143,7 +136,7 @@ macro_rules! mk_resource_enum {
             }
         }
 
-        impl $crate::model::traits::GvkExt for $name {
+        impl $crate::traits::ext::gvk::GvkExt for $name {
             fn gvk(&self) -> kube::api::GroupVersionKind {
                 match self {
                     $(

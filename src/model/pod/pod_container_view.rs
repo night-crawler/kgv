@@ -1,5 +1,5 @@
-use crate::model::ext::container_port::ContainerPortExt;
-use crate::model::ext::container_state::ContainerStateExt;
+use crate::traits::ext::container_port::ContainerPortExt;
+use crate::traits::ext::container_state::ContainerStateExt;
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Container, ContainerStatus};
 
