@@ -2,14 +2,14 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use clap::Parser;
-use cursive::reexports::log::{error, info, warn};
+use cursive::reexports::log::{error, info};
 use cursive::{event, Cursive, CursiveRunnable};
 use cursive_flexi_logger_view::toggle_flexi_logger_debug_console;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 
 use crate::backend::k8s_backend::K8sBackend;
 use crate::config::args::Args;
-use crate::config::extractor_configuration::{load_columns_config, load_embedded_columns_config};
+use crate::config::extractor::DeserializedResources;
 use crate::config::kgv_configuration::KgvConfiguration;
 use crate::eval::engine_factory::build_engine;
 use crate::eval::evaluator::Evaluator;
@@ -21,8 +21,7 @@ use crate::ui::dispatch::dispatch_events;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::{ResourceManager, UiStore};
 use crate::util::panics::ResultExt;
-use crate::util::paths::COLUMNS_FILE;
-use crate::util::watcher::FlagWatcher;
+use crate::util::watcher::LazyWatcher;
 
 pub mod backend;
 pub mod config;
@@ -69,18 +68,6 @@ fn main() -> Result<()> {
 
     let ui_to_ui_sender = from_client_sender.clone();
 
-    let extraction_config = match load_columns_config(COLUMNS_FILE.clone()) {
-        Ok(config) => config,
-        Err(err) => {
-            warn!(
-                "Could not read column config from {:?}: {}",
-                COLUMNS_FILE.clone().into_os_string(),
-                err
-            );
-            load_embedded_columns_config()?
-        }
-    };
-
     let mut backend = K8sBackend::new(
         from_client_sender,
         from_ui_receiver,
@@ -108,11 +95,15 @@ fn main() -> Result<()> {
         .send(ToBackendSignal::RequestGvkItems(Pod::gvk_for_type()))
         .unwrap_or_log();
 
-    let watcher = FlagWatcher::new(kgv_configuration.module_dirs, build_engine)?;
+    let columns_watcher = LazyWatcher::new(kgv_configuration.extractor_dirs, |paths| {
+        let dr = DeserializedResources::new(paths);
+        dr.into_map()
+    })?;
+    let engine_watcher = LazyWatcher::new(kgv_configuration.module_dirs, build_engine)?;
 
     let resource_manager = ResourceManager::new(
-        Evaluator::new(4, watcher)?,
-        ColumnRegistry::new(extraction_config.gvk_to_columns),
+        Evaluator::new(4, engine_watcher)?,
+        ColumnRegistry::new(columns_watcher),
     );
 
     let store = Arc::new(Mutex::new(UiStore::new(

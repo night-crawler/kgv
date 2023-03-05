@@ -3,19 +3,20 @@ use std::collections::HashMap;
 use cursive::reexports::log::info;
 use kube::api::GroupVersionKind;
 
-use crate::config::extractor_configuration::{
+use crate::config::extractor::{
     Column, ColumnHandle, EmbeddedExtractor, EvaluatorType,
 };
+use crate::util::watcher::LazyWatcher;
 
 pub struct ColumnRegistry {
-    map: HashMap<GroupVersionKind, Vec<Column>>,
+    watcher: LazyWatcher<HashMap<GroupVersionKind, Vec<Column>>>,
     default_columns: Vec<Column>,
 }
 
 impl ColumnRegistry {
-    pub fn new(map: HashMap<GroupVersionKind, Vec<Column>>) -> Self {
+    pub fn new(watcher: LazyWatcher<HashMap<GroupVersionKind, Vec<Column>>>) -> Self {
         Self {
-            map,
+            watcher,
             default_columns: vec![
                 Column {
                     name: "namespace".to_string(),
@@ -44,17 +45,17 @@ impl ColumnRegistry {
             ],
         }
     }
-    pub fn get_columns(&self, gvk: &GroupVersionKind) -> &[Column] {
-        if let Some(columns) = self.map.get(gvk) {
-            columns
+    pub fn get_columns(&mut self, gvk: &GroupVersionKind) -> Vec<Column> {
+        if let Some(columns) = self.watcher.get().get(gvk) {
+            columns.to_vec()
         } else {
             info!("Columns for GVK {:?} were not found", gvk);
-            &self.default_columns
+            self.default_columns.to_vec()
         }
     }
 
-    pub fn get_column_handles(&self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
-        if let Some(columns) = self.map.get(gvk) {
+    pub fn get_column_handles(&mut self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
+        if let Some(columns) = self.watcher.get().get(gvk) {
             columns.iter().map(ColumnHandle::from).collect()
         } else {
             info!("Columns for GVK {:?} were not found", gvk);

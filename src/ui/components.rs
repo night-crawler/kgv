@@ -90,13 +90,12 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
 
 pub fn build_main_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
     let (ns_filter, name_filter, column_handles, to_ui_sender, to_backend_sender, selected_gvk) = {
-        let store = store.lock().unwrap_or_log();
+        let mut store = store.lock().unwrap_or_log();
+        let selected_gvk = store.selected_gvk.clone();
         (
             store.ns_filter.clone(),
             store.name_filter.clone(),
-            store
-                .resource_manager
-                .get_column_handles(&store.selected_gvk),
+            store.resource_manager.get_column_handles(&selected_gvk),
             store.to_ui_sender.clone(),
             store.to_backend_sender.clone(),
             store.selected_gvk.clone(),

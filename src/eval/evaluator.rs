@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::sync::Arc;
 
 use cursive::reexports::log::error;
@@ -6,29 +7,29 @@ use rayon::prelude::IntoParallelRefIterator;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use rhai::{Dynamic, Engine, Scope};
 
-use crate::config::extractor_configuration::{Column, EmbeddedExtractor, EvaluatorType};
+use crate::config::extractor::{Column, EmbeddedExtractor, EvaluatorType};
 use crate::eval::eval_result::EvalResult;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::util::error::KgvError;
-use crate::util::watcher::FlagWatcher;
+use crate::util::watcher::LazyWatcher;
 
 pub struct Evaluator {
     pool: ThreadPool,
-    watcher: FlagWatcher<Engine>
+    watcher: LazyWatcher<Engine>,
 }
 
 impl Evaluator {
-    pub fn new(num_threads: usize, watcher: FlagWatcher<Engine>) -> Result<Self, ThreadPoolBuildError> {
+    pub fn new(
+        num_threads: usize,
+        watcher: LazyWatcher<Engine>,
+    ) -> Result<Self, ThreadPoolBuildError> {
         let pool = ThreadPoolBuilder::new()
             .thread_name(|n| format!("eval-{n}"))
             .num_threads(num_threads)
             .build()?;
 
-        Ok(Self {
-            watcher,
-            pool,
-        })
+        Ok(Self { watcher, pool })
     }
 
     pub fn evaluate(
@@ -36,7 +37,6 @@ impl Evaluator {
         resource: ResourceView,
         columns: &[Column],
     ) -> Result<EvaluatedResource, KgvError> {
-
         let map: rhai::Map = self.pool.install(|| {
             let engine = self.watcher.get();
 
@@ -61,7 +61,9 @@ impl Evaluator {
 
             columns
                 .par_iter()
-                .map(|col| Self::evaluate_column(engine, col, &resource, scope.clone_visible()))
+                .map(|col| {
+                    Self::evaluate_column(engine.deref(), col, &resource, scope.clone_visible())
+                })
                 .collect::<Vec<_>>()
         });
 
@@ -129,10 +131,10 @@ impl Evaluator {
 mod tests {
     use std::sync::Arc;
 
+    use crate::eval::engine_factory::build_engine;
     use k8s_openapi::api::core::v1::Pod;
     use k8s_openapi::serde_json;
     use k8s_openapi::serde_json::json;
-    use crate::eval::engine_factory::{build_engine};
 
     use super::*;
 
@@ -152,7 +154,7 @@ mod tests {
         }))
         .unwrap();
 
-        let watcher = FlagWatcher::new(vec![], build_engine).unwrap();
+        let watcher = LazyWatcher::new(vec![], build_engine).unwrap();
         let mut evaluator = Evaluator::new(10, watcher).unwrap();
 
         let engine = build_engine(&[]);
@@ -182,7 +184,4 @@ mod tests {
         let result = evaluator.evaluate(resource, &columns);
         assert!(result.is_ok());
     }
-
-
-
 }

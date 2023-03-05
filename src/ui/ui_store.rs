@@ -8,7 +8,7 @@ use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
 
-use crate::config::extractor_configuration::ColumnHandle;
+use crate::config::extractor::ColumnHandle;
 use crate::eval::eval_result::EvalResult;
 use crate::eval::evaluator::Evaluator;
 use crate::model::pod::pod_container_column::PodContainerColumn;
@@ -53,7 +53,7 @@ impl ResourceManager {
         let gvk = resource.gvk();
         let columns = self.column_registry.get_columns(&gvk);
 
-        let evaluated_resource = match self.evaluator.evaluate(resource.clone(), columns) {
+        let evaluated_resource = match self.evaluator.evaluate(resource.clone(), &columns) {
             Ok(evaluated_resource) => evaluated_resource,
             Err(err) => {
                 error!(
@@ -83,7 +83,7 @@ impl ResourceManager {
         });
     }
 
-    pub fn get_column_handles(&self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
+    pub fn get_column_handles(&mut self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
         self.column_registry.get_column_handles(gvk)
     }
 

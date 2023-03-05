@@ -5,6 +5,7 @@ use cursive::reexports::log::{error, info};
 
 use crate::config::kgv_configuration::KgvConfiguration;
 use crate::util::error::KgvError;
+use crate::util::paths::SELF_NAME;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -71,7 +72,7 @@ enum Action {
 
 fn get_home_dir() -> PathBuf {
     home::home_dir()
-        .map(|home| home.join(".kgv"))
+        .map(|home| home.join(SELF_NAME))
         .unwrap_or_else(|| PathBuf::from("."))
 }
 

@@ -32,7 +32,7 @@ impl K8sBackend {
     pub fn new(
         from_client_sender: kanal::Sender<ToUiSignal>,
         from_ui_receiver: kanal::Receiver<ToBackendSignal>,
-        cache_dir: Option<PathBuf>
+        cache_dir: Option<PathBuf>,
     ) -> anyhow::Result<Self> {
         let runtime = Self::spawn_runtime(2)?;
 

@@ -7,7 +7,7 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
 type Builder<T> = dyn FnMut(&[PathBuf]) -> T + Send + Sync;
 
-pub struct FlagWatcher<T> {
+pub struct LazyWatcher<T> {
     create: Box<Builder<T>>,
     data: T,
     flag: Arc<AtomicBool>,
@@ -15,7 +15,7 @@ pub struct FlagWatcher<T> {
     _watchers: Vec<RecommendedWatcher>,
 }
 
-impl<T: Send + Sync> FlagWatcher<T> {
+impl<T: Send + Sync> LazyWatcher<T> {
     pub fn new(
         watch_paths: Vec<PathBuf>,
         mut create: impl FnMut(&[PathBuf]) -> T + Send + Sync + 'static,
@@ -64,7 +64,7 @@ mod tests {
     fn test_watch() {
         let temp_dir = tempfile::tempdir().unwrap().into_path();
         let mut counter = 0;
-        let mut watcher = FlagWatcher::new(vec![temp_dir.clone()], move |_| {
+        let mut watcher = LazyWatcher::new(vec![temp_dir.clone()], move |_| {
             counter += 1;
             counter
         })
