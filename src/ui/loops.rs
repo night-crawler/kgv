@@ -33,11 +33,11 @@ pub fn spawn_dispatch_events_loop(
                     ToUiSignal::ResponseGvkItems(next_gvk, resources) => {
                         store.dispatch_response_gvk_items(next_gvk, resources);
                     }
-                    ToUiSignal::ApplyNamespaceFilter(ns) => {
-                        store.dispatch_apply_namespace_filter(ns);
+                    ToUiSignal::ApplyNamespaceFilter(gvk, ns) => {
+                        store.dispatch_apply_namespace_filter(gvk, ns);
                     }
-                    ToUiSignal::ApplyNameFilter(name) => {
-                        store.dispatch_apply_name_filter(name);
+                    ToUiSignal::ApplyNameFilter(gvk, name) => {
+                        store.dispatch_apply_name_filter(gvk, name);
                     }
                     ToUiSignal::ShowDetails(resource) => {
                         store.dispatch_show_details(resource);

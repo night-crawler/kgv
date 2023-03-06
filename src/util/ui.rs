@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
 use cruet::Inflector;
+use cursive::traits::Nameable;
+use cursive::views::{EditView, NamedView};
+use cursive::Cursive;
 use kube::api::GroupVersionKind;
 
 use crate::util::k8s::gvk_sort_key;
@@ -84,4 +87,15 @@ pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionK
 
     grouped.push(("Misc".to_string(), misc));
     grouped
+}
+
+pub fn build_edit_view<S, F>(name: S, initial: S, on_edit: F) -> NamedView<EditView>
+where
+    F: Fn(&mut Cursive, &str, usize) + 'static,
+    S: Into<String>,
+{
+    EditView::new()
+        .content(initial)
+        .on_edit(on_edit)
+        .with_name(name)
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use cursive::reexports::crossbeam_channel::Sender;
@@ -13,13 +14,15 @@ use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::traits::ext::cursive::SivExt;
 use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
-use crate::traits::ext::gvk::GvkExt;
 use crate::traits::ext::gvk::GvkNameExt;
+use crate::traits::ext::gvk::{GvkExt, GvkUiExt};
 use crate::traits::ext::pod::PodExt;
 use crate::traits::ext::table_view::TableViewExt;
-use crate::ui::components::{
-    build_code_view, build_detail_view, build_main_layout, build_menu, build_pod_detail_layout,
-};
+use crate::ui::components::code_view::build_code_view;
+use crate::ui::components::detail_view::build_detail_view;
+use crate::ui::components::gvk_list_view::build_gvk_list_view_layout;
+use crate::ui::components::menu::build_menu;
+use crate::ui::components::pod_detail::build_pod_detail_layout;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::resource_manager::ResourceManager;
@@ -28,12 +31,17 @@ use crate::util::panics::ResultExt;
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
+#[derive(Default, Clone)]
+pub struct Filter {
+    pub namespace: String,
+    pub name: String,
+}
+
 pub struct UiStore {
     pub highlighter: crate::ui::highlighter::Highlighter,
+    pub filters: HashMap<GroupVersionKind, Filter>,
 
     pub selected_gvk: GroupVersionKind,
-    pub ns_filter: String,
-    pub name_filter: String,
     pub to_ui_sender: kanal::Sender<ToUiSignal>,
     pub to_backend_sender: kanal::Sender<ToBackendSignal>,
     pub sink: SinkSender,
@@ -50,14 +58,22 @@ pub struct UiStore {
 
 impl UiStore {
     pub fn should_display_resource(&self, evaluated_resource: &EvaluatedResource) -> bool {
+        let gvk = evaluated_resource.resource.gvk();
+        let filter = if let Some(filter) = self.filters.get(&gvk) {
+            filter
+        } else {
+            warn!(
+                "Received an entity {} {} with unregistered filters",
+                gvk.full_name(),
+                evaluated_resource.resource.name()
+            );
+            return true;
+        };
         evaluated_resource
             .resource
             .namespace()
-            .starts_with(&self.ns_filter)
-            && evaluated_resource
-                .resource
-                .name()
-                .contains(&self.name_filter)
+            .starts_with(&filter.namespace)
+            && evaluated_resource.resource.name().contains(&filter.name)
     }
 
     pub fn get_pod_containers(&self) -> Vec<PodContainerView> {
@@ -75,12 +91,20 @@ impl UiStore {
         vec![]
     }
 
-    fn get_filtered_resources(&self) -> Vec<EvaluatedResource> {
+    fn get_filtered_resources(&self, gvk: &GroupVersionKind) -> Vec<EvaluatedResource> {
         self.resource_manager
-            .get_resources_iter(&self.selected_gvk)
+            .get_resources_iter(gvk)
             .filter(|r| self.should_display_resource(r))
             .cloned()
             .collect()
+    }
+
+    pub fn get_or_create_filter_for_gvk(&mut self, gvk: &GroupVersionKind) -> &mut Filter {
+        self.filters.entry(gvk.clone()).or_default()
+    }
+
+    pub fn get_or_create_filter_for_selected_gvk(&mut self) -> &mut Filter {
+        self.filters.entry(self.selected_gvk.clone()).or_default()
     }
 }
 
@@ -94,8 +118,8 @@ pub trait UiStoreDispatcherExt {
     fn dispatch_response_resource_updated(&self, resource: ResourceView);
     fn dispatch_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>);
 
-    fn dispatch_apply_namespace_filter(&self, namespace: String);
-    fn dispatch_apply_name_filter(&self, name: String);
+    fn dispatch_apply_namespace_filter(&self, gvk: GroupVersionKind, namespace: String);
+    fn dispatch_apply_name_filter(&self, gvk: GroupVersionKind, name: String);
 
     fn dispatch_show_details(&self, resource: ResourceView);
     fn dispatch_show_gvk(&self, gvk: GroupVersionKind);
@@ -104,11 +128,11 @@ pub trait UiStoreDispatcherExt {
     fn dispatch_ctrl_y(&self);
     fn dispatch_shell_current(&self);
 
-    fn replace_table_items(&self);
+    fn replace_table_items(&self, gvk: &GroupVersionKind);
     fn replace_pod_detail_table_items(&self);
 
     fn set_selected_container_by_index(&self, index: usize);
-    fn set_selected_resource_by_index(&self, index: usize);
+    fn set_selected_resource_by_index(&self, table_name: &str, index: usize);
 }
 
 impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
@@ -118,6 +142,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         resources: Option<Vec<ResourceView>>,
     ) {
         let sink = {
+            let next_gvk = next_gvk.clone();
             let mut store = self.lock().unwrap_or_log();
             if let Some(resources) = resources {
                 store.resource_manager.replace_all(resources);
@@ -133,9 +158,12 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
         let store = Arc::clone(self);
         sink.call_on_name(
-            "table",
+            &next_gvk.list_view_table_name(),
             move |table: &mut TableView<EvaluatedResource, usize>| {
-                let evaluated_resources = store.lock().unwrap_or_log().get_filtered_resources();
+                let evaluated_resources = store
+                    .lock()
+                    .unwrap_or_log()
+                    .get_filtered_resources(&next_gvk);
                 info!(
                     "Rendering full view for {} local resources",
                     evaluated_resources.len()
@@ -171,7 +199,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         };
 
         sink.call_on_name(
-            "table",
+            &gvk.list_view_table_name(),
             |table: &mut TableView<EvaluatedResource, usize>| {
                 table.add_or_update_resource(evaluated_resource);
             },
@@ -188,14 +216,21 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         });
     }
 
-    fn dispatch_apply_namespace_filter(&self, namespace: String) {
-        self.lock().unwrap_or_log().ns_filter = namespace;
-        self.replace_table_items();
+    fn dispatch_apply_namespace_filter(&self, gvk: GroupVersionKind, namespace: String) {
+        {
+            let mut store = self.lock().unwrap_or_log();
+            store.get_or_create_filter_for_gvk(&gvk).namespace = namespace;
+        }
+        self.replace_table_items(&gvk);
     }
 
-    fn dispatch_apply_name_filter(&self, name: String) {
-        self.lock().unwrap_or_log().name_filter = name;
-        self.replace_table_items();
+    fn dispatch_apply_name_filter(&self, gvk: GroupVersionKind, name: String) {
+        {
+            let mut store = self.lock().unwrap_or_log();
+            store.get_or_create_filter_for_gvk(&gvk).name = name;
+        }
+
+        self.replace_table_items(&gvk);
     }
 
     fn dispatch_show_details(&self, resource: ResourceView) {
@@ -244,9 +279,8 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
         let store = Arc::clone(self);
         sink.send_box(move |siv| {
-            siv.pop_layer();
-            let main_layout = build_main_layout(store);
-            siv.add_fullscreen_layer(main_layout);
+            let layout = build_gvk_list_view_layout(store);
+            siv.add_fullscreen_layer(layout);
         });
     }
 
@@ -326,14 +360,14 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         sink.send_box(|siv| siv.quit());
     }
 
-    fn replace_table_items(&self) {
+    fn replace_table_items(&self, gvk: &GroupVersionKind) {
         let (sink, resources) = {
             let store = self.lock().unwrap_or_log();
-            (store.sink.clone(), store.get_filtered_resources())
+            (store.sink.clone(), store.get_filtered_resources(gvk))
         };
 
         sink.call_on_name(
-            "table",
+            &gvk.list_view_table_name(),
             move |table: &mut TableView<EvaluatedResource, usize>| table.set_items(resources),
         );
     }
@@ -364,12 +398,12 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         );
     }
 
-    fn set_selected_resource_by_index(&self, index: usize) {
+    fn set_selected_resource_by_index(&self, table_name: &str, index: usize) {
         let sink = self.lock().unwrap_or_log().sink.clone();
         let store = Arc::clone(self);
 
         sink.call_on_name(
-            "table",
+            table_name,
             move |table: &mut TableView<EvaluatedResource, usize>| {
                 if let Some(resource) = table.borrow_item(index) {
                     let mut store = store.lock().unwrap_or_log();

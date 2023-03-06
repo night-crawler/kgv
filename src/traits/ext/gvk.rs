@@ -26,3 +26,27 @@ pub trait GvkStaticExt {
 pub trait GvkExt {
     fn gvk(&self) -> GroupVersionKind;
 }
+
+pub trait GvkUiExt {
+    fn list_view_table_name(&self) -> String;
+    fn list_view_panel_name(&self) -> String;
+    fn namespace_edit_view_name(&self) -> String;
+    fn name_edit_view_name(&self) -> String;
+}
+
+impl GvkUiExt for GroupVersionKind {
+    fn list_view_table_name(&self) -> String {
+        format!("{}-table", self.full_name())
+    }
+    fn list_view_panel_name(&self) -> String {
+        format!("{}-panel", self.full_name())
+    }
+
+    fn namespace_edit_view_name(&self) -> String {
+        format!("{}-namespace-edit-view", self.full_name())
+    }
+
+    fn name_edit_view_name(&self) -> String {
+        format!("{}-name-edit-view", self.full_name())
+    }
+}

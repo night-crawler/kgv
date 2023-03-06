@@ -77,9 +77,8 @@ fn main() -> Result<()> {
 
     let store = Arc::new(Mutex::new(UiStore {
         highlighter: ui::highlighter::Highlighter::new("base16-eighties.dark")?,
+        filters: Default::default(),
         selected_gvk: GroupVersionKind::gvk("", "", ""),
-        ns_filter: "".to_string(),
-        name_filter: "".to_string(),
         to_ui_sender: ui_to_ui_sender,
         to_backend_sender,
         sink: ui.cb_sink().clone(),
