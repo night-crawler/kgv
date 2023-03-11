@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use crate::model::pod::pod_container_view::PodContainerView;
 use k8s_openapi::api::core::v1::{ContainerStatus, Pod};
+
+use crate::model::pod::pod_container_view::PodContainerView;
 
 pub trait PodExt {
     fn get_pod_containers(&self) -> Option<Vec<PodContainerView>>;
@@ -45,7 +46,9 @@ impl PodExt for Pod {
 
     fn get_expected_exec_container_name(&self) -> Option<String> {
         for container in self.get_pod_containers().into_iter().flatten() {
-            if container.container.name.to_lowercase().contains("istio") {
+            let container_name = container.container.name.to_lowercase();
+            // TODO: filter other
+            if container_name.contains("istio") {
                 continue;
             }
             return Some(container.container.name);
@@ -54,9 +57,10 @@ impl PodExt for Pod {
     }
 
     fn get_first_container_name(&self) -> Option<String> {
-        for container in self.get_pod_containers().into_iter().flatten() {
-            return Some(container.container.name);
-        }
-        None
+        self.get_pod_containers()
+            .into_iter()
+            .flatten()
+            .next()
+            .map(|container| container.container.name)
     }
 }

@@ -1,15 +1,18 @@
-use std::sync::{Arc, RwLock};
 use cursive::direction::Direction;
 use cursive::event::{AnyCb, Event, EventResult};
 use cursive::view::{CannotFocus, Selector, ViewNotFound};
 use cursive::{Printer, Rect, Vec2, View};
+use std::sync::{Arc, RwLock};
 
 pub struct ViewWithData<T> {
     pub inner: Box<dyn View>,
-    pub data: Arc<RwLock<T>>
+    pub data: Arc<RwLock<T>>,
 }
 
-impl <T> View for ViewWithData<T> where T: 'static {
+impl<T> View for ViewWithData<T>
+where
+    T: 'static,
+{
     fn draw(&self, printer: &Printer) {
         self.inner.draw(printer)
     }

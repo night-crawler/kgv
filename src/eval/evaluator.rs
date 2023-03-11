@@ -12,6 +12,7 @@ use crate::eval::eval_result::EvalResult;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::util::error::KgvError;
+use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
 pub struct Evaluator {
@@ -74,6 +75,15 @@ impl Evaluator {
         })
     }
 
+    fn evaluate_embedded(extractor: &EmbeddedExtractor, resource: &ResourceView) -> EvalResult {
+        match extractor {
+            EmbeddedExtractor::Namespace => EvalResult::String(resource.namespace()),
+            EmbeddedExtractor::Name => EvalResult::String(resource.name()),
+            EmbeddedExtractor::Status => EvalResult::String(resource.status()),
+            EmbeddedExtractor::Age => EvalResult::Duration(resource.age()),
+        }
+    }
+
     pub fn evaluate_column(
         engine: &Engine,
         column: &Column,
@@ -81,15 +91,17 @@ impl Evaluator {
         mut scope: Scope,
     ) -> EvalResult {
         match &column.evaluator_type {
+            EvaluatorType::Embedded(embedded) => Self::evaluate_embedded(embedded, resource),
+
             EvaluatorType::AST(ast) => {
                 let dynamic_result: Result<Dynamic, _> =
                     engine.eval_ast_with_scope(&mut scope, ast);
                 match dynamic_result {
                     Ok(value) => {
                         if value.is_string() {
-                            return EvalResult::String(value.into_string().unwrap());
+                            return EvalResult::String(value.into_string().unwrap_or_log());
                         } else if value.is_int() {
-                            return EvalResult::Int(value.as_int().unwrap());
+                            return EvalResult::Int(value.as_int().unwrap_or_log());
                         }
 
                         let type_name = value.type_name();
@@ -118,12 +130,6 @@ impl Evaluator {
                     }
                 }
             }
-            EvaluatorType::Embedded(embedded) => match embedded {
-                EmbeddedExtractor::Namespace => EvalResult::String(resource.namespace()),
-                EmbeddedExtractor::Name => EvalResult::String(resource.name()),
-                EmbeddedExtractor::Status => EvalResult::String(resource.status()),
-                EmbeddedExtractor::Age => EvalResult::Duration(resource.age()),
-            },
         }
     }
 }
@@ -132,10 +138,11 @@ impl Evaluator {
 mod tests {
     use std::sync::Arc;
 
-    use crate::eval::engine_factory::build_engine;
     use k8s_openapi::api::core::v1::Pod;
     use k8s_openapi::serde_json;
     use k8s_openapi::serde_json::json;
+
+    use crate::eval::engine_factory::build_engine;
 
     use super::*;
 

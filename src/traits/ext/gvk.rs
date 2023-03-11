@@ -26,4 +26,3 @@ pub trait GvkStaticExt {
 pub trait GvkExt {
     fn gvk(&self) -> GroupVersionKind;
 }
-

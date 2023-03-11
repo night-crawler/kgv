@@ -54,6 +54,12 @@ pub fn spawn_dispatch_events_loop(
                     ToUiSignal::CtrlYPressed => {
                         store.dispatch_ctrl_y();
                     }
+                    ToUiSignal::F5Pressed => {
+                        store.dispatch_f5();
+                    }
+                    ToUiSignal::EscPressed => {
+                        store.dispatch_esc();
+                    }
                 }
             }
         })

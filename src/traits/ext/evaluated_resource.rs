@@ -6,9 +6,6 @@ pub trait EvaluatedResourceExt {
 
 impl EvaluatedResourceExt for EvaluatedResource {
     fn is_pod(&self) -> bool {
-        match self.resource {
-            ResourceView::Pod(_) => true,
-            _ => false,
-        }
+        matches!(self.resource, ResourceView::Pod(_))
     }
 }
