@@ -22,7 +22,7 @@ use crate::ui::hotkeys::register_hotkeys;
 use crate::ui::loops::{enter_command_handler_loop, spawn_dispatch_events_loop};
 use crate::ui::resource_manager::ResourceManager;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
-use crate::ui::ui_store::UiStore;
+use crate::ui::ui_store::{UiStore, ViewStack};
 use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
@@ -76,8 +76,9 @@ fn main() -> Result<()> {
     );
 
     let store = Arc::new(Mutex::new(UiStore {
+        counter: 1,
+        view_stack: ViewStack::default(),
         highlighter: ui::highlighter::Highlighter::new("base16-eighties.dark")?,
-        filters: Default::default(),
         selected_gvk: GroupVersionKind::gvk("", "", ""),
         to_ui_sender: ui_to_ui_sender,
         to_backend_sender,

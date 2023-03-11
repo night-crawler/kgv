@@ -15,8 +15,8 @@ pub enum ToUiSignal {
     ResponseDiscoveredGvks(Vec<GroupVersionKind>),
     ResponseGvkItems(GroupVersionKind, Option<Vec<ResourceView>>),
 
-    ApplyNamespaceFilter(GroupVersionKind, String),
-    ApplyNameFilter(GroupVersionKind, String),
+    ApplyNamespaceFilter(usize, String),
+    ApplyNameFilter(usize, String),
 
     ShowGvk(GroupVersionKind),
     ShowDetails(ResourceView),

@@ -1,6 +1,7 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::ops::Deref;
+use std::sync::{Arc, Mutex, RwLock};
 
+use cursive::reexports::ahash::HashMap;
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::{error, info, warn};
 use cursive::Cursive;
@@ -14,8 +15,8 @@ use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::traits::ext::cursive::SivExt;
 use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
+use crate::traits::ext::gvk::GvkExt;
 use crate::traits::ext::gvk::GvkNameExt;
-use crate::traits::ext::gvk::{GvkExt, GvkUiExt};
 use crate::traits::ext::pod::PodExt;
 use crate::traits::ext::table_view::TableViewExt;
 use crate::ui::components::code_view::build_code_view;
@@ -31,15 +32,98 @@ use crate::util::panics::ResultExt;
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
-#[derive(Default, Clone)]
+#[derive(Debug, Hash)]
+pub enum ViewType {
+    List {
+        id: usize,
+        gvk: GroupVersionKind,
+        filter: Filter,
+    },
+    Detail {
+        id: usize,
+        gvk: GroupVersionKind,
+        uid: String,
+    },
+    PodDetail {
+        id: usize,
+        uid: String,
+    },
+    Dialog {
+        id: usize,
+        name: String,
+    },
+}
+
+impl ViewType {
+    pub fn get_unique_name(&self) -> String {
+        match self {
+            ViewType::List { id, gvk, filter: _ } => {
+                format!("gvk-list-{id}-{}-table", gvk.full_name())
+            }
+            ViewType::Detail { id, gvk, uid } => {
+                format!("gvk-details-{id}-{}-{uid}", gvk.full_name())
+            }
+            ViewType::PodDetail { id, uid } => format!("pod-detail-{id}-{uid}"),
+            ViewType::Dialog { id, name } => format!("dialog-{id}-{name}"),
+        }
+    }
+
+    pub fn get_edit_name(&self, edit_type: &str) -> String {
+        format!("{}-{edit_type}", self.get_unique_name())
+    }
+
+    pub fn get_panel_name(&self) -> String {
+        format!("{}-panel", self.get_unique_name())
+    }
+
+    pub fn set_namespace(&mut self, namespace: String) {
+        match self {
+            ViewType::List { filter, .. } => filter.namespace = namespace,
+            this => panic!("Setting namespace {namespace} on {:?}", this),
+        }
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        match self {
+            ViewType::List { filter, .. } => filter.name = name,
+            this => panic!("Setting namespace {name} on {:?}", this),
+        }
+    }
+
+    pub fn get_id(&self) -> usize {
+        match self {
+            ViewType::List { id, .. }
+            | ViewType::Detail { id, .. }
+            | ViewType::PodDetail { id, .. }
+            | ViewType::Dialog { id, .. } => *id,
+        }
+    }
+
+    pub fn get_filter(&self) -> &Filter {
+        match self {
+            ViewType::List { filter, .. } => filter,
+            this => panic!("Trying to get filter on {:?}", this),
+        }
+    }
+
+    pub fn get_gvk(&self) -> &GroupVersionKind {
+        match self {
+            ViewType::List { gvk, .. } | ViewType::Detail { gvk, .. } => gvk,
+            this => panic!("{:?} does not have GVK", this),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Hash)]
 pub struct Filter {
     pub namespace: String,
     pub name: String,
 }
 
 pub struct UiStore {
+    pub counter: usize,
     pub highlighter: crate::ui::highlighter::Highlighter,
-    pub filters: HashMap<GroupVersionKind, Filter>,
+    pub view_stack: ViewStack,
 
     pub selected_gvk: GroupVersionKind,
     pub to_ui_sender: kanal::Sender<ToUiSignal>,
@@ -56,19 +140,40 @@ pub struct UiStore {
     pub detail_view_renderer: DetailViewRenderer,
 }
 
+#[derive(Default, Debug)]
+pub struct ViewStack {
+    pub stack: Vec<Arc<RwLock<ViewType>>>,
+    pub map: HashMap<usize, Arc<RwLock<ViewType>>>,
+}
+
+impl ViewStack {
+    pub fn push(&mut self, view: Arc<RwLock<ViewType>>) {
+        let id = view.read().unwrap_or_log().get_id();
+        self.stack.push(view.clone());
+        self.map.insert(id, view);
+    }
+
+    pub fn find_all(&self, gvk: &GroupVersionKind) -> Vec<Arc<RwLock<ViewType>>> {
+        self.stack
+            .iter()
+            .filter_map(|view| match view.read().unwrap_or_log().deref() {
+                ViewType::List { gvk: list_gvk, .. } if list_gvk == gvk => Some(Arc::clone(view)),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    }
+
+    pub fn get(&mut self, view_id: usize) -> Option<Arc<RwLock<ViewType>>> {
+        self.map.get(&view_id).map(Arc::clone)
+    }
+}
+
 impl UiStore {
-    pub fn should_display_resource(&self, evaluated_resource: &EvaluatedResource) -> bool {
-        let gvk = evaluated_resource.resource.gvk();
-        let filter = if let Some(filter) = self.filters.get(&gvk) {
-            filter
-        } else {
-            warn!(
-                "Received an entity {} {} with unregistered filters",
-                gvk.full_name(),
-                evaluated_resource.resource.name()
-            );
-            return true;
-        };
+    pub fn should_display_resource(
+        &self,
+        filter: &Filter,
+        evaluated_resource: &EvaluatedResource,
+    ) -> bool {
         evaluated_resource
             .resource
             .namespace()
@@ -91,20 +196,14 @@ impl UiStore {
         vec![]
     }
 
-    fn get_filtered_resources(&self, gvk: &GroupVersionKind) -> Vec<EvaluatedResource> {
+    fn get_filtered_resources(&self, view_type: &ViewType) -> Vec<EvaluatedResource> {
+        let filter = view_type.get_filter();
+        let gvk = view_type.get_gvk();
         self.resource_manager
             .get_resources_iter(gvk)
-            .filter(|r| self.should_display_resource(r))
+            .filter(|r| self.should_display_resource(filter, r))
             .cloned()
             .collect()
-    }
-
-    pub fn get_or_create_filter_for_gvk(&mut self, gvk: &GroupVersionKind) -> &mut Filter {
-        self.filters.entry(gvk.clone()).or_default()
-    }
-
-    pub fn get_or_create_filter_for_selected_gvk(&mut self) -> &mut Filter {
-        self.filters.entry(self.selected_gvk.clone()).or_default()
     }
 }
 
@@ -118,8 +217,8 @@ pub trait UiStoreDispatcherExt {
     fn dispatch_response_resource_updated(&self, resource: ResourceView);
     fn dispatch_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>);
 
-    fn dispatch_apply_namespace_filter(&self, gvk: GroupVersionKind, namespace: String);
-    fn dispatch_apply_name_filter(&self, gvk: GroupVersionKind, name: String);
+    fn dispatch_apply_namespace_filter(&self, id: usize, namespace: String);
+    fn dispatch_apply_name_filter(&self, id: usize, name: String);
 
     fn dispatch_show_details(&self, resource: ResourceView);
     fn dispatch_show_gvk(&self, gvk: GroupVersionKind);
@@ -128,11 +227,12 @@ pub trait UiStoreDispatcherExt {
     fn dispatch_ctrl_y(&self);
     fn dispatch_shell_current(&self);
 
-    fn replace_table_items(&self, gvk: &GroupVersionKind);
+    fn replace_table_items(&self, id: usize);
     fn replace_pod_detail_table_items(&self);
 
+    fn update_list_views_for_gvk(&self, gvk: &GroupVersionKind);
+
     fn set_selected_container_by_index(&self, index: usize);
-    fn set_selected_resource_by_index(&self, table_name: &str, index: usize);
 }
 
 impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
@@ -141,9 +241,10 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         next_gvk: GroupVersionKind,
         resources: Option<Vec<ResourceView>>,
     ) {
-        let sink = {
+        {
             let next_gvk = next_gvk.clone();
             let mut store = self.lock().unwrap_or_log();
+
             if let Some(resources) = resources {
                 store.resource_manager.replace_all(resources);
             } else {
@@ -153,24 +254,9 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                     .send(ToBackendSignal::RequestRegisterGvk(next_gvk))
                     .unwrap_or_log();
             }
-            store.sink.clone()
         };
 
-        let store = Arc::clone(self);
-        sink.call_on_name(
-            &next_gvk.list_view_table_name(),
-            move |table: &mut TableView<EvaluatedResource, usize>| {
-                let evaluated_resources = store
-                    .lock()
-                    .unwrap_or_log()
-                    .get_filtered_resources(&next_gvk);
-                info!(
-                    "Rendering full view for {} local resources",
-                    evaluated_resources.len()
-                );
-                table.set_items(evaluated_resources);
-            },
-        );
+        self.update_list_views_for_gvk(&next_gvk);
     }
 
     fn dispatch_response_resource_updated(&self, resource: ResourceView) {
@@ -182,28 +268,35 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             resource.name()
         );
 
-        let (sink, evaluated_resource) = {
+        let (sink, affected_views, evaluated_resource) = {
             let mut store = self.lock().unwrap_or_log();
-            if store.selected_gvk != gvk {
-                return;
-            }
-            let evaluated_resource = store.resource_manager.replace(resource);
-            if !store.should_display_resource(&evaluated_resource) {
-                info!(
-                    "Filtered out: {}",
-                    evaluated_resource.resource.full_unique_name()
-                );
-                return;
-            }
-            (store.sink.clone(), evaluated_resource)
+            (
+                store.sink.clone(),
+                store.view_stack.find_all(&gvk),
+                store.resource_manager.replace(resource),
+            )
         };
 
-        sink.call_on_name(
-            &gvk.list_view_table_name(),
-            |table: &mut TableView<EvaluatedResource, usize>| {
-                table.add_or_update_resource(evaluated_resource);
-            },
-        );
+        for affected_view in affected_views {
+            let store = self.lock().unwrap_or_log();
+            let view_guard = affected_view.read().unwrap_or_log();
+            let evaluated_resource = evaluated_resource.clone();
+            if !store.should_display_resource(view_guard.get_filter(), &evaluated_resource) {
+                info!(
+                    "Not updating view {:?}: {:?}",
+                    view_guard, evaluated_resource.resource
+                );
+                continue;
+            }
+            let view_name = view_guard.get_unique_name();
+
+            sink.call_on_name(
+                &view_name,
+                move |table: &mut TableView<EvaluatedResource, usize>| {
+                    table.add_or_update_resource(evaluated_resource);
+                },
+            );
+        }
     }
 
     fn dispatch_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>) {
@@ -216,21 +309,28 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         });
     }
 
-    fn dispatch_apply_namespace_filter(&self, gvk: GroupVersionKind, namespace: String) {
+    fn dispatch_apply_namespace_filter(&self, id: usize, namespace: String) {
         {
             let mut store = self.lock().unwrap_or_log();
-            store.get_or_create_filter_for_gvk(&gvk).namespace = namespace;
+            if let Some(view_type) = store.view_stack.get(id) {
+                view_type.write().unwrap_or_log().set_namespace(namespace)
+            } else {
+                warn!("Could not set namespace filter {namespace} a filter for {id}");
+            }
         }
-        self.replace_table_items(&gvk);
+        self.replace_table_items(id);
     }
 
-    fn dispatch_apply_name_filter(&self, gvk: GroupVersionKind, name: String) {
+    fn dispatch_apply_name_filter(&self, id: usize, name: String) {
         {
             let mut store = self.lock().unwrap_or_log();
-            store.get_or_create_filter_for_gvk(&gvk).name = name;
+            if let Some(view_type) = store.view_stack.get(id) {
+                view_type.write().unwrap_or_log().set_name(name)
+            } else {
+                warn!("Could not set name filter {name} a filter for {id}");
+            }
         }
-
-        self.replace_table_items(&gvk);
+        self.replace_table_items(id);
     }
 
     fn dispatch_show_details(&self, resource: ResourceView) {
@@ -279,7 +379,9 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
         let store = Arc::clone(self);
         sink.send_box(move |siv| {
-            let layout = build_gvk_list_view_layout(store);
+            let layout = build_gvk_list_view_layout(Arc::clone(&store));
+            let view_type = layout.data.clone();
+            store.lock().unwrap_or_log().view_stack.push(view_type);
             siv.add_fullscreen_layer(layout);
         });
     }
@@ -360,14 +462,20 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         sink.send_box(|siv| siv.quit());
     }
 
-    fn replace_table_items(&self, gvk: &GroupVersionKind) {
-        let (sink, resources) = {
-            let store = self.lock().unwrap_or_log();
-            (store.sink.clone(), store.get_filtered_resources(gvk))
-        };
+    fn replace_table_items(&self, id: usize) {
+        let mut store = self.lock().unwrap_or_log();
 
-        sink.call_on_name(
-            &gvk.list_view_table_name(),
+        let view_type = if let Some(view_type) = store.view_stack.get(id) {
+            view_type
+        } else {
+            warn!("Could not find a view with id={id}");
+            return;
+        };
+        let view_type = view_type.read().unwrap_or_log();
+        let resources = store.get_filtered_resources(view_type.deref());
+
+        store.sink.call_on_name(
+            &view_type.get_unique_name(),
             move |table: &mut TableView<EvaluatedResource, usize>| table.set_items(resources),
         );
     }
@@ -386,6 +494,32 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         );
     }
 
+    fn update_list_views_for_gvk(&self, gvk: &GroupVersionKind) {
+        let (affected_views, sink) = {
+            let store = self.lock().unwrap_or_log();
+            (store.view_stack.find_all(&gvk), store.sink.clone())
+        };
+
+        for view_type in affected_views {
+            let name = view_type.read().unwrap_or_log().get_unique_name();
+            let store = Arc::clone(self);
+            sink.call_on_name(
+                &name,
+                move |table: &mut TableView<EvaluatedResource, usize>| {
+                    let store = store.lock().unwrap_or_log();
+                    let view_type = view_type.read().unwrap_or_log();
+                    let evaluated_resources = store.get_filtered_resources(view_type.deref());
+
+                    info!(
+                        "Rendering full view for {} local resources",
+                        evaluated_resources.len()
+                    );
+                    table.set_items(evaluated_resources);
+                },
+            );
+        }
+    }
+
     fn set_selected_container_by_index(&self, index: usize) {
         let sink = self.lock().unwrap_or_log().sink.clone();
         let store = Arc::clone(self);
@@ -396,25 +530,5 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 store.selected_pod_container = table.borrow_item(index).cloned();
             },
         );
-    }
-
-    fn set_selected_resource_by_index(&self, table_name: &str, index: usize) {
-        let sink = self.lock().unwrap_or_log().sink.clone();
-        let store = Arc::clone(self);
-
-        sink.call_on_name(
-            table_name,
-            move |table: &mut TableView<EvaluatedResource, usize>| {
-                if let Some(resource) = table.borrow_item(index) {
-                    let mut store = store.lock().unwrap_or_log();
-                    store.selected_resource = resource.clone().into();
-                } else {
-                    info!(
-                        "Main table does not have an item with index {index}; items count: {}",
-                        table.borrow_items().len()
-                    );
-                }
-            },
-        )
     }
 }
