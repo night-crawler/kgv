@@ -1,9 +1,10 @@
 use std::cmp::Ordering;
 
+use anyhow::Context;
 use rhai::plugin::*;
 use strum_macros::AsRefStr;
 
-use crate::util::error::EvalError;
+use crate::util::error::{EvalError, KgvError};
 use crate::util::ui::ago;
 
 #[derive(Clone, Debug, AsRefStr)]
@@ -13,6 +14,26 @@ pub enum EvalResult {
     String(String),
     Int(i64),
     MaybeString(Result<String, EvalError>),
+    Vec(Vec<Dynamic>),
+}
+
+impl TryFrom<Dynamic> for EvalResult {
+    type Error = KgvError;
+
+    fn try_from(value: Dynamic) -> Result<Self, <EvalResult as TryFrom<Dynamic>>::Error> {
+        if value.is_string() {
+            let x = value.into_string()?;
+            return Ok(EvalResult::String(x));
+        } else if value.is_int() {
+            return Ok(EvalResult::Int(value.as_int()?));
+        } else if value.is_array() {
+            return Ok(EvalResult::Vec(value.into_typed_array::<Dynamic>()?));
+        }
+
+        Ok(value
+            .try_cast::<EvalResult>()
+            .context("Type conversion error")?)
+    }
 }
 
 impl Eq for EvalResult {}
@@ -66,6 +87,7 @@ impl ToString for EvalResult {
                 Ok(value) => value.clone(),
                 Err(err) => format!("{}", err),
             },
+            EvalResult::Vec(v) => format!("{:?}", v),
         }
     }
 }

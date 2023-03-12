@@ -12,7 +12,7 @@ use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::{Filter, ViewMeta};
 use crate::util::panics::ResultExt;
 use crate::util::ui::build_edit_view;
-use crate::util::view_with_data::ViewWithData;
+use crate::util::view_with_data::ViewWithMeta;
 
 trait UiStoreComponentExt {
     fn build_list_view_table(
@@ -83,14 +83,13 @@ impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
     }
 }
 
-pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithData<ViewMeta> {
+pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
     let (to_ui_sender, selected_gvk, counter) = {
         let mut store = store.lock().unwrap_or_log();
-        store.counter += 1;
         (
             store.to_ui_sender.clone(),
             store.selected_gvk.clone(),
-            store.counter,
+            store.inc_counter(),
         )
     };
 
@@ -145,8 +144,8 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithData<Vi
     main_layout.add_child(DummyView {}.full_width());
     main_layout.add_child(table_panel);
 
-    ViewWithData {
+    ViewWithMeta {
         inner: Box::new(main_layout),
-        data: Arc::new(RwLock::new(view_meta)),
+        meta: Arc::new(RwLock::new(view_meta)),
     }
 }

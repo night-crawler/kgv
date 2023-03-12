@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use cursive::theme::BaseColor;
 use cursive::traits::*;
@@ -12,14 +12,21 @@ use crate::model::pod::pod_container_view::PodContainerView;
 use crate::traits::ext::gvk::{GvkExt, GvkNameExt};
 use crate::ui::signals::ToUiSignal;
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
-use crate::util::panics::ResultExt;
+use crate::ui::view_meta::ViewMeta;
+use crate::util::panics::{OptionExt, ResultExt};
+use crate::util::view_with_data::ViewWithMeta;
 
-pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
+pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> Option<ViewWithMeta<ViewMeta>> {
     let mut main_layout = LinearLayout::vertical();
-
-    let panel_title = {
+    let counter = store.inc_counter();
+    let (panel_title, view_meta) = {
         let store = store.lock().unwrap_or_log();
         if let Some(evaluated_resource) = store.selected_resource.as_ref() {
+            let view_meta = ViewMeta::PodDetail {
+                id: counter,
+                uid: evaluated_resource.resource.uid().unwrap_or_log(),
+            };
+
             let mut styled = StyledString::styled(
                 evaluated_resource.resource.gvk().full_name(),
                 BaseColor::Blue.light(),
@@ -33,27 +40,41 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
                 ),
                 BaseColor::Green.light(),
             ));
-            styled
+            (styled, view_meta)
         } else {
-            StyledString::new()
+            return None;
         }
     };
 
     let mut table: TableView<PodContainerView, PodContainerColumn> = TableView::new();
     {
         let store = store.clone();
-        table.set_on_submit(move |_siv, _row, index| {
-            store.set_selected_container_by_index(index);
-            let to_ui_sender = store.lock().unwrap_or_log().to_ui_sender.clone();
-            to_ui_sender
-                .send(ToUiSignal::ExecuteCurrent)
-                .unwrap_or_log();
+        let name = view_meta.get_unique_name();
+        table.set_on_submit(move |siv, _row, index| {
+            siv.call_on_name(
+                &name,
+                |table: &mut TableView<PodContainerView, PodContainerColumn>| {
+                    let mut store = store.lock().unwrap_or_log();
+                    store.selected_pod_container = table.borrow_item(index).cloned();
+                    store
+                        .to_ui_sender
+                        .send(ToUiSignal::ExecuteCurrent)
+                        .unwrap_or_log();
+                },
+            );
         });
     }
 
     {
-        table.set_on_select(move |_siv, _row, index| {
-            store.set_selected_container_by_index(index);
+        let name = view_meta.get_unique_name();
+        table.set_on_select(move |siv, _row, index| {
+            siv.call_on_name(
+                &name,
+                |table: &mut TableView<PodContainerView, PodContainerColumn>| {
+                    store.lock().unwrap_or_log().selected_pod_container =
+                        table.borrow_item(index).cloned();
+                },
+            );
         });
     }
 
@@ -72,8 +93,13 @@ pub fn build_pod_detail_layout(store: Arc<Mutex<UiStore>>) -> LinearLayout {
         });
     }
 
-    let panel = Panel::new(table.with_name("containers").full_screen()).title(panel_title);
+    let table = table.with_name(&view_meta.get_unique_name()).full_screen();
+
+    let panel = Panel::new(table).title(panel_title);
     main_layout.add_child(panel);
 
-    main_layout
+    Some(ViewWithMeta {
+        inner: Box::new(main_layout),
+        meta: Arc::new(RwLock::new(view_meta)),
+    })
 }

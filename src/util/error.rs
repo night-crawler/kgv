@@ -29,4 +29,13 @@ pub enum KgvError {
 
     #[error("YAML Serialization error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("Error {0}")]
+    StrError(&'static str),
+}
+
+impl From<&'static str> for KgvError {
+    fn from(value: &'static str) -> Self {
+        Self::StrError(value)
+    }
 }

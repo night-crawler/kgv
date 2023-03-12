@@ -12,7 +12,6 @@ use crate::eval::eval_result::EvalResult;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::util::error::KgvError;
-use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
 pub struct Evaluator {
@@ -98,23 +97,19 @@ impl Evaluator {
                     engine.eval_ast_with_scope(&mut scope, ast);
                 match dynamic_result {
                     Ok(value) => {
-                        if value.is_string() {
-                            return EvalResult::String(value.into_string().unwrap_or_log());
-                        } else if value.is_int() {
-                            return EvalResult::Int(value.as_int().unwrap_or_log());
-                        }
-
                         let type_name = value.type_name();
-                        match value.try_cast::<EvalResult>() {
-                            Some(eval_result) => eval_result,
-                            None => {
+
+                        match EvalResult::try_from(value) {
+                            Ok(value) => value,
+                            Err(err) => {
                                 let error_message = format!(
-                                    "Returned value for column '{}' (code: {}) is not EvalResult: {}",
+                                    "Error evaluating column {}, code: {}, type: {}: {}",
                                     column.name,
                                     ast.source().unwrap_or(""),
-                                    type_name
+                                    type_name,
+                                    err
                                 );
-                                error!("{}", error_message);
+                                error!("{error_message}");
                                 EvalResult::Error(error_message)
                             }
                         }
@@ -140,27 +135,37 @@ mod tests {
 
     use k8s_openapi::api::core::v1::Pod;
     use k8s_openapi::serde_json;
-    use k8s_openapi::serde_json::json;
+    use k8s_openapi::serde_json::{json, Value};
 
     use crate::eval::engine_factory::build_engine;
 
     use super::*;
 
-    #[test]
-    fn test() {
-        let pod: Pod = serde_json::from_value(json!({
+    fn pod_json() -> Value {
+        json!({
             "apiVersion": "v1",
             "kind": "Pod",
             "metadata": { "name": "example" },
             "spec": {
-                "containers": [{
-                    "name": "example",
-                    "image": "alpine",
-                    "command": ["tail", "-f", "/dev/null"],
-                }],
+                "containers": [
+                    {
+                        "name": "example1",
+                        "image": "alpine1",
+                        "command": ["tail", "-f", "/dev/null"],
+                    },
+                    {
+                        "name": "example2",
+                        "image": "alpine2",
+                        "command": ["tail", "-f", "/dev/null"],
+                    }
+                ],
             }
-        }))
-        .unwrap();
+        })
+    }
+
+    #[test]
+    fn test() {
+        let pod: Pod = serde_json::from_value(pod_json()).unwrap();
 
         let watcher = Arc::new(LazyWatcher::new(vec![], build_engine).unwrap());
         let evaluator = Evaluator::new(10, &watcher).unwrap();
@@ -191,5 +196,34 @@ mod tests {
 
         let result = evaluator.evaluate(resource, &columns);
         assert!(result.is_ok());
+        let result = result.unwrap();
+        for eval_result in result.values.iter() {
+            let is_error = matches!(eval_result, EvalResult::Error(_));
+            assert!(!is_error, "eval_result has an error: {:?}", eval_result);
+        }
+    }
+
+    #[test]
+    fn test_extract_vec() {
+        let pod: Pod = serde_json::from_value(pod_json()).unwrap();
+
+        let watcher = Arc::new(LazyWatcher::new(vec![], build_engine).unwrap());
+        let evaluator = Evaluator::new(10, &watcher).unwrap();
+
+        let engine = build_engine(&[]);
+
+        let resource = ResourceView::Pod(Arc::new(pod));
+
+        let columns = [Column {
+            name: "extract_containers".to_string(),
+            display_name: "extract_containers".to_string(),
+            width: 0,
+            evaluator_type: EvaluatorType::AST(
+                engine.compile(r#"resource.spec.containers"#).unwrap(),
+            ),
+        }];
+
+        let result = evaluator.evaluate(resource, &columns);
+        println!("{:?}", result);
     }
 }

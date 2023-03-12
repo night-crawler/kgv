@@ -1,6 +1,6 @@
-use cursive::reexports::log::info;
 use std::cmp::Ordering;
 
+use cursive::reexports::log::info;
 use cursive_table_view::{TableView, TableViewItem};
 
 use crate::model::resource::resource_view::EvaluatedResource;
@@ -23,6 +23,7 @@ impl TableViewExt<EvaluatedResource> for TableView<EvaluatedResource, usize> {
     fn add_or_update_resource(&mut self, evaluated_resource: EvaluatedResource) {
         for item in self.borrow_items_mut() {
             if item.resource.uid() == evaluated_resource.resource.uid() {
+                info!("Updated by uid {}", item.resource.full_unique_name());
                 *item = evaluated_resource;
                 return;
             }

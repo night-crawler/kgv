@@ -5,11 +5,13 @@ use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
 use rhai::{exported_module, Engine};
 
 use crate::eval::eval_result::EvalResult;
+use crate::util::ui::string_ago;
 
 pub fn build_engine(paths: &[PathBuf]) -> Engine {
     let mut engine = Engine::new();
     let collection_resolver = prepare_resolvers(paths);
     engine
+        .register_fn("compute_age", string_ago)
         .set_max_expr_depths(64, 64)
         .register_type_with_name::<EvalResult>("Result")
         .register_static_module(

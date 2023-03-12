@@ -4,12 +4,12 @@ use cursive::view::{CannotFocus, Selector, ViewNotFound};
 use cursive::{Printer, Rect, Vec2, View};
 use std::sync::{Arc, RwLock};
 
-pub struct ViewWithData<T> {
+pub struct ViewWithMeta<T> {
     pub inner: Box<dyn View>,
-    pub data: Arc<RwLock<T>>,
+    pub meta: Arc<RwLock<T>>,
 }
 
-impl<T> View for ViewWithData<T>
+impl<T> View for ViewWithMeta<T>
 where
     T: 'static,
 {

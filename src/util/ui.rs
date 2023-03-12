@@ -7,7 +7,14 @@ use cursive::Cursive;
 use kube::api::GroupVersionKind;
 
 use crate::util::k8s::gvk_sort_key;
-use crate::util::panics::OptionExt;
+use crate::util::panics::{OptionExt, ResultExt};
+
+pub fn string_ago(iso_date: &str) -> String {
+    let date = chrono::DateTime::parse_from_rfc3339(iso_date).unwrap_or_log();
+    let now = chrono::Utc::now();
+    let duration = now.signed_duration_since(date);
+    ago(duration)
+}
 
 pub fn ago(duration: chrono::Duration) -> String {
     if duration.num_nanoseconds() < Some(1000) {
