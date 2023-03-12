@@ -18,7 +18,7 @@ use crate::util::ui::ago;
 pub struct ExtractorConfig {
     pub columns_map: HashMap<GroupVersionKind, Vec<Column>>,
     pub template_map: HashMap<GroupVersionKind, DetailsTemplate>,
-    pub pseudo_resources_map: HashMap<GroupVersionKind, Vec<PseudoResource>>,
+    pub pseudo_resources_map: HashMap<GroupVersionKind, Vec<PseudoResourceExtractor>>,
 }
 
 impl ExtractorConfig {
@@ -51,7 +51,7 @@ impl ExtractorConfig {
             }
 
             instance.register_gvk_columns(gvk.clone(), columns, &path);
-            instance.register_gvk_pseudo_resources(gvk.clone(), pseudo_resources, &path);
+            instance.register_gvk_pseudo_resource_extractors(gvk.clone(), pseudo_resources, &path);
         }
 
         let elapsed = chrono::Duration::from_std(now.elapsed())
@@ -81,14 +81,18 @@ impl ExtractorConfig {
                 origin.display()
             );
         } else {
-            info!("{}: Loaded columns from {}", gvk_full_name, origin.display());
+            info!(
+                "{}: Loaded columns from {}",
+                gvk_full_name,
+                origin.display()
+            );
         }
     }
 
-    fn register_gvk_pseudo_resources(
+    fn register_gvk_pseudo_resource_extractors(
         &mut self,
         gvk: GroupVersionKind,
-        pseudo_resources: Vec<PseudoResource>,
+        pseudo_resources: Vec<PseudoResourceExtractor>,
         origin: &Path,
     ) {
         let gvk_full_name = gvk.full_name();
@@ -170,7 +174,7 @@ pub struct DetailsTemplate {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-pub struct PseudoResourceConfigPros {
+pub struct PseudoResourceExtractorConfigPros {
     name: String,
     script_content: String,
 }
@@ -182,7 +186,7 @@ struct ResourceConfigProps {
     imports: Vec<String>,
 
     #[serde(default)]
-    pseudo_resources: Vec<PseudoResourceConfigPros>,
+    pseudo_resources: Vec<PseudoResourceExtractorConfigPros>,
 
     details: Option<DetailsTemplateConfigProps>,
     columns: Vec<ColumnConfigProps>,
@@ -207,21 +211,20 @@ struct ColumnConfigProps {
 }
 
 #[derive(Debug, Clone)]
-pub struct PseudoResource {
+pub struct PseudoResourceExtractor {
     pub name: String,
     pub ast: AST,
 }
 
-impl PseudoResource {
+impl PseudoResourceExtractor {
     fn try_from_config(
-        config: &PseudoResourceConfigPros,
+        config: &PseudoResourceExtractorConfigPros,
         engine: &Engine,
         imports: &[String],
     ) -> anyhow::Result<Self> {
-        let ast = engine.compile_content_with_imports(&config.script_content, imports)?;
         Ok(Self {
             name: config.name.clone(),
-            ast,
+            ast: engine.compile_content_with_imports(&config.script_content, imports)?,
         })
     }
 }
@@ -351,12 +354,12 @@ fn parse_pseudo_resources(
     engine: &Engine,
     source_path: &Path,
     resource_config_props: &ResourceConfigProps,
-) -> Vec<PseudoResource> {
-    let mut pseudo_resources: Vec<PseudoResource> = vec![];
+) -> Vec<PseudoResourceExtractor> {
+    let mut pseudo_resources: Vec<PseudoResourceExtractor> = vec![];
     for pseudo_resource_config in &resource_config_props.pseudo_resources {
         let pseudo_resource_name = pseudo_resource_config.name.clone();
 
-        let pseudo_resource = PseudoResource::try_from_config(
+        let pseudo_resource = PseudoResourceExtractor::try_from_config(
             pseudo_resource_config,
             engine,
             &resource_config_props.imports,
