@@ -9,14 +9,14 @@ use crate::config::extractor::{
 use crate::util::watcher::LazyWatcher;
 
 pub struct ColumnRegistry {
-    watcher: Arc<LazyWatcher<ExtractorConfig>>,
+    config_watcher: Arc<LazyWatcher<ExtractorConfig>>,
     default_columns: Vec<Column>,
 }
 
 impl ColumnRegistry {
     pub fn new(watcher: &Arc<LazyWatcher<ExtractorConfig>>) -> Self {
         Self {
-            watcher: Arc::clone(watcher),
+            config_watcher: Arc::clone(watcher),
             default_columns: vec![
                 Column {
                     name: "namespace".to_string(),
@@ -46,7 +46,7 @@ impl ColumnRegistry {
         }
     }
     pub fn get_columns(&self, gvk: &GroupVersionKind) -> Vec<Column> {
-        if let Some(columns) = self.watcher.value().columns_map.get(gvk) {
+        if let Some(columns) = self.config_watcher.value().columns_map.get(gvk) {
             columns.to_vec()
         } else {
             info!("Columns for GVK {:?} were not found", gvk);
@@ -55,7 +55,7 @@ impl ColumnRegistry {
     }
 
     pub fn get_column_handles(&self, gvk: &GroupVersionKind) -> Vec<ColumnHandle> {
-        if let Some(columns) = self.watcher.value().columns_map.get(gvk) {
+        if let Some(columns) = self.config_watcher.value().columns_map.get(gvk) {
             columns.iter().map(ColumnHandle::from).collect()
         } else {
             info!("Column handles for GVK {:?} were not found", gvk);

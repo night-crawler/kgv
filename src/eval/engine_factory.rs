@@ -4,7 +4,7 @@ use cursive::reexports::log::info;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
 use rhai::{exported_module, Engine};
 
-use crate::eval::eval_result::EvalResult;
+use crate::eval::eval_result::{EvalResult, PseudoResource, RhaiPseudoResource};
 use crate::util::ui::string_ago;
 
 pub fn build_engine(paths: &[PathBuf]) -> Engine {
@@ -12,8 +12,10 @@ pub fn build_engine(paths: &[PathBuf]) -> Engine {
     let collection_resolver = prepare_resolvers(paths);
     engine
         .register_fn("compute_age", string_ago)
+        .register_fn("PseudoResource", PseudoResource)
         .set_max_expr_depths(64, 64)
         .register_type_with_name::<EvalResult>("Result")
+        .register_type_with_name::<RhaiPseudoResource>("PseudoResource")
         .register_static_module(
             "Result",
             exported_module!(crate::eval::eval_result::eval_result_module).into(),

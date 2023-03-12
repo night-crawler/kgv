@@ -4,3 +4,5 @@ pub mod r#macro;
 pub mod pod;
 pub mod resource;
 pub mod traits;
+pub mod pseudo_resource;
+

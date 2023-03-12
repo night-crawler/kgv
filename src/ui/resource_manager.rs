@@ -33,7 +33,7 @@ impl ResourceManager {
         let gvk = resource.gvk();
         let columns = self.column_registry.get_columns(&gvk);
 
-        let evaluated_resource = match self.evaluator.evaluate(resource.clone(), &columns) {
+        let evaluated_resource = match self.evaluator.evaluate_columns(resource.clone(), &columns) {
             Ok(evaluated_resource) => evaluated_resource,
             Err(err) => {
                 error!(

@@ -30,6 +30,9 @@ pub enum KgvError {
     #[error("YAML Serialization error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
 
+    #[error("YAML Serialization error: {0}")]
+    EngineError(#[from] Box<EvalAltResult>),
+
     #[error("Error {0}")]
     StrError(&'static str),
 }

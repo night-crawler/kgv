@@ -17,8 +17,8 @@ use crate::util::ui::ago;
 #[derive(Debug, Default)]
 pub struct ExtractorConfig {
     pub columns_map: HashMap<GroupVersionKind, Vec<Column>>,
-    pub template_map: HashMap<GroupVersionKind, DetailsTemplate>,
-    pub pseudo_resources_map: HashMap<GroupVersionKind, Vec<PseudoResourceExtractor>>,
+    pub templates_map: HashMap<GroupVersionKind, DetailsTemplate>,
+    pub pseudo_resources_map: HashMap<GroupVersionKind, Vec<PseudoResourceConf>>,
 }
 
 impl ExtractorConfig {
@@ -92,7 +92,7 @@ impl ExtractorConfig {
     fn register_gvk_pseudo_resource_extractors(
         &mut self,
         gvk: GroupVersionKind,
-        pseudo_resources: Vec<PseudoResourceExtractor>,
+        pseudo_resources: Vec<PseudoResourceConf>,
         origin: &Path,
     ) {
         let gvk_full_name = gvk.full_name();
@@ -122,7 +122,7 @@ impl ExtractorConfig {
         origin: &Path,
     ) {
         let gvk_full_name = gvk.full_name();
-        if self.template_map.insert(gvk, template).is_some() {
+        if self.templates_map.insert(gvk, template).is_some() {
             warn!(
                 "{}: Replaced detail template from {}",
                 gvk_full_name,
@@ -211,12 +211,12 @@ struct ColumnConfigProps {
 }
 
 #[derive(Debug, Clone)]
-pub struct PseudoResourceExtractor {
+pub struct PseudoResourceConf {
     pub name: String,
     pub ast: AST,
 }
 
-impl PseudoResourceExtractor {
+impl PseudoResourceConf {
     fn try_from_config(
         config: &PseudoResourceExtractorConfigPros,
         engine: &Engine,
@@ -354,12 +354,12 @@ fn parse_pseudo_resources(
     engine: &Engine,
     source_path: &Path,
     resource_config_props: &ResourceConfigProps,
-) -> Vec<PseudoResourceExtractor> {
-    let mut pseudo_resources: Vec<PseudoResourceExtractor> = vec![];
+) -> Vec<PseudoResourceConf> {
+    let mut pseudo_resources: Vec<PseudoResourceConf> = vec![];
     for pseudo_resource_config in &resource_config_props.pseudo_resources {
         let pseudo_resource_name = pseudo_resource_config.name.clone();
 
-        let pseudo_resource = PseudoResourceExtractor::try_from_config(
+        let pseudo_resource = PseudoResourceConf::try_from_config(
             pseudo_resource_config,
             engine,
             &resource_config_props.imports,

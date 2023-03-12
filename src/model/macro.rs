@@ -13,7 +13,8 @@ macro_rules! mk_resource_enum {
                 $opt_name(std::sync::Arc<k8s_openapi::api::core::v1::$opt_name>),
             )+
 
-            DynamicObject(std::sync::Arc<$crate::model::dynamic_object::DynamicObjectWrapper>)
+            DynamicObject(std::sync::Arc<$crate::model::dynamic_object::DynamicObjectWrapper>),
+            PseudoResouce(std::sync::Arc<$crate::model::pseudo_resource::PseudoResource>),
         }
 
         // uid()
@@ -24,6 +25,7 @@ macro_rules! mk_resource_enum {
                         Self::$opt_name(r) => r.uid(),
                     )+
                     Self::DynamicObject(r) => r.uid(),
+                    Self::PseudoResouce(r) => r.uid(),
                 }
             }
         }
@@ -36,6 +38,7 @@ macro_rules! mk_resource_enum {
                         Self::$opt_name(r) => r.name_any(),
                     )+
                     Self::DynamicObject(r) => r.name_any(),
+                    Self::PseudoResouce(r) => r.name(),
                 }
             }
         }
@@ -48,6 +51,7 @@ macro_rules! mk_resource_enum {
                         Self::$opt_name(r) => r.namespace().unwrap_or_default(),
                     )+
                     Self::DynamicObject(r) => r.namespace().unwrap_or_default(),
+                    Self::PseudoResouce(r) => r.namespace(),
                 }
             }
         }
@@ -74,6 +78,7 @@ macro_rules! mk_resource_enum {
                         Self::$opt_name(r) => extract_age!(r),
                     )+
                     Self::DynamicObject(r) => extract_age!(r),
+                    Self::PseudoResouce(r) => r.age(),
                 }
             }
         }
@@ -86,6 +91,7 @@ macro_rules! mk_resource_enum {
                         Self::$opt_name(r) => serde_yaml::to_string(r.as_ref()),
                     )+
                     Self::DynamicObject(r) => r.to_yaml(),
+                    Self::PseudoResouce(r) => r.to_yaml(),
                 }
             }
 
@@ -95,6 +101,7 @@ macro_rules! mk_resource_enum {
                         Self::$opt_name(r) => k8s_openapi::serde_json::to_string(r.as_ref()),
                     )+
                     Self::DynamicObject(r) => r.to_json(),
+                    Self::PseudoResouce(r) => r.to_json(),
                 }
             }
         }
@@ -143,7 +150,8 @@ macro_rules! mk_resource_enum {
                         Self::$opt_name(resource) => resource.gvk(),
                     )+
 
-                    Self::DynamicObject(wrapper) => wrapper.gvk()
+                    Self::DynamicObject(wrapper) => wrapper.gvk(),
+                    Self::PseudoResouce(r) => r.gvk(),
                 }
             }
         }

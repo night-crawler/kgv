@@ -7,6 +7,14 @@ use strum_macros::AsRefStr;
 use crate::util::error::{EvalError, KgvError};
 use crate::util::ui::ago;
 
+
+#[derive(Clone, Debug)]
+pub struct RhaiPseudoResource {
+    pub id: String,
+    pub resource: Dynamic
+}
+
+
 #[derive(Clone, Debug, AsRefStr)]
 pub enum EvalResult {
     Error(String),
@@ -27,7 +35,9 @@ impl TryFrom<Dynamic> for EvalResult {
         } else if value.is_int() {
             return Ok(EvalResult::Int(value.as_int()?));
         } else if value.is_array() {
-            return Ok(EvalResult::Vec(value.into_typed_array::<Dynamic>()?));
+            let array = value.into_typed_array::<Dynamic>()?;
+
+            return Ok(EvalResult::Vec(array));
         }
 
         Ok(value
@@ -106,4 +116,9 @@ pub mod eval_result_module {
     pub fn MaybeString(value: Result<String, EvalError>) -> EvalResult {
         EvalResult::MaybeString(value)
     }
+}
+
+#[allow(non_snake_case)]
+pub fn PseudoResource(id: String, resource: Dynamic) -> RhaiPseudoResource {
+    RhaiPseudoResource { id, resource }
 }

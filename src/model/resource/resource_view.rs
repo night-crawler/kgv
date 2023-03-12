@@ -25,6 +25,7 @@ pub struct EvaluatedResource {
 
 impl ResourceView {
     pub fn status(&self) -> String {
+        // rhai::Dynamic
         match self {
             ResourceView::Namespace(r) => extract_status!(r),
             ResourceView::Pod(r) => extract_status!(r),

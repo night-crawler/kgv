@@ -12,3 +12,4 @@ pub mod traits;
 pub mod ui_store;
 pub mod view_meta;
 pub mod view_stack;
+pub mod pseudo_resource_extractor;
