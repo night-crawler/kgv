@@ -2,10 +2,10 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
+use crate::traits::ext::mutex::MutexExt;
+use crate::traits::ext::rw_lock::RwLockExt;
 use cursive::reexports::log::error;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-
-use crate::util::panics::ResultExt;
 
 type Builder<T> = dyn FnMut(&[PathBuf]) -> T + Send + Sync;
 
@@ -54,14 +54,14 @@ impl<T: Send + Sync> LazyWatcher<T> {
     pub fn value(&self) -> Arc<T> {
         if self.flag.swap(false, Ordering::AcqRel) {
             self.version.fetch_add(1, Ordering::AcqRel);
-            *self.data.write().unwrap_or_log() = Arc::new(self.build());
+            *self.data.write_unwrap() = Arc::new(self.build());
         }
 
-        self.data.read().unwrap_or_log().clone()
+        self.data.read_unwrap().clone()
     }
 
     pub fn build(&self) -> T {
-        (self.builder.lock().unwrap_or_log())(&self.watch_paths)
+        (self.builder.lock_unwrap())(&self.watch_paths)
     }
 
     pub fn version(&self) -> usize {

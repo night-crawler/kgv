@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use cursive::reexports::log::error;
 use cursive::{Cursive, View};
+use cursive_table_view::{TableView, TableViewItem};
 
 use crate::util::panics::ResultExt;
 
@@ -61,5 +62,32 @@ impl SivLogExt for Cursive {
             .start()?;
 
         Ok(())
+    }
+}
+
+pub trait CursiveTableExt<T, H>
+where
+    T: TableViewItem<H> + Clone + 'static,
+    H: Eq + std::hash::Hash + Copy + 'static,
+{
+    fn get_table_item(&mut self, name: &str, index: usize) -> Option<T>;
+}
+
+impl<T, H> CursiveTableExt<T, H> for Cursive
+where
+    T: TableViewItem<H> + Clone + 'static,
+    H: Eq + std::hash::Hash + Copy + 'static,
+{
+    fn get_table_item(&mut self, name: &str, index: usize) -> Option<T> {
+        let result = self.call_on_name(name, |table: &mut TableView<T, H>| {
+            table.borrow_item(index).cloned()
+        });
+
+        if let Some(call_result) = result {
+            call_result
+        } else {
+            error!("Could not find a table with name: {name}");
+            None
+        }
     }
 }

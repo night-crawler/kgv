@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
@@ -10,16 +10,20 @@ use serde::{Deserialize, Serialize};
 use crate::traits::ext::engine::EngineExt;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::util::error::KgvError;
+use crate::util::fs::scan_files;
 use crate::util::paths::resolve_path;
 use crate::util::ui::ago;
 
+#[derive(Debug, Default)]
 pub struct ExtractorConfig {
     pub columns_map: HashMap<GroupVersionKind, Vec<Column>>,
     pub template_map: HashMap<GroupVersionKind, DetailsTemplate>,
+    pub pseudo_resources_map: HashMap<GroupVersionKind, Vec<PseudoResource>>,
 }
 
 impl ExtractorConfig {
     pub fn new(roots: &[PathBuf]) -> Self {
+        let mut instance = Self::default();
         let now = std::time::Instant::now();
         let parsed_resources = parse_resource_dirs(roots);
         let elapsed = chrono::Duration::from_std(now.elapsed())
@@ -32,61 +36,100 @@ impl ExtractorConfig {
         );
 
         let engine = Engine::new();
-        let mut columns_map: HashMap<GroupVersionKind, Vec<Column>> = HashMap::new();
-        let mut detail_templates_map: HashMap<GroupVersionKind, DetailsTemplate> = HashMap::new();
 
         let now = std::time::Instant::now();
 
         for (path, mut resource_config_props) in parsed_resources {
             let detail_config = resource_config_props.details.take();
-            let (gvk, columns) = parse_resource_columns(&engine, &path, resource_config_props);
-            let gvk_full_name = gvk.full_name();
+            let columns = parse_resource_columns(&engine, &path, &resource_config_props);
+            let pseudo_resources = parse_pseudo_resources(&engine, &path, &resource_config_props);
+            let gvk = resource_config_props.resource.clone();
 
             if let Some(details) = detail_config {
-                let template_path = resolve_path(&path, details.template);
-                let template = DetailsTemplate {
-                    template: template_path.clone(),
-                    helpers: details
-                        .helpers
-                        .into_iter()
-                        .map(|mut helper| {
-                            helper.path = resolve_path(&template_path, helper.path);
-                            helper
-                        })
-                        .collect(),
-                };
-
-                if detail_templates_map.insert(gvk.clone(), template).is_some() {
-                    warn!(
-                        "Replaced a template for gvk {gvk_full_name} with {:?}",
-                        template_path.display()
-                    );
-                }
+                let (template_path, template) = parse_detail_templates(&path, details);
+                instance.register_detail_template(gvk.clone(), template, &template_path);
             }
 
-            if columns_map.insert(gvk, columns).is_some() {
-                warn!(
-                    "Replaced GVK {} with a new one from {}",
-                    gvk_full_name,
-                    path.display()
-                );
-            }
+            instance.register_gvk_columns(gvk.clone(), columns, &path);
+            instance.register_gvk_pseudo_resources(gvk.clone(), pseudo_resources, &path);
         }
 
         let elapsed = chrono::Duration::from_std(now.elapsed())
             .unwrap_or_else(|_| chrono::Duration::seconds(0));
-        let num_columns: usize = columns_map.values().map(|columns| columns.len()).sum();
+        let num_columns: usize = instance
+            .columns_map
+            .values()
+            .map(|columns| columns.len())
+            .sum();
 
         info!(
             "Imported {} GVKs with {} columns in {}",
-            columns_map.len(),
+            instance.columns_map.len(),
             num_columns,
             ago(elapsed)
         );
 
-        Self {
-            columns_map,
-            template_map: detail_templates_map,
+        instance
+    }
+
+    fn register_gvk_columns(&mut self, gvk: GroupVersionKind, columns: Vec<Column>, origin: &Path) {
+        let gvk_full_name = gvk.full_name();
+        if self.columns_map.insert(gvk, columns).is_some() {
+            warn!(
+                "{}: Replaced columns from {}",
+                gvk_full_name,
+                origin.display()
+            );
+        } else {
+            info!("{}: Loaded columns from {}", gvk_full_name, origin.display());
+        }
+    }
+
+    fn register_gvk_pseudo_resources(
+        &mut self,
+        gvk: GroupVersionKind,
+        pseudo_resources: Vec<PseudoResource>,
+        origin: &Path,
+    ) {
+        let gvk_full_name = gvk.full_name();
+        if self
+            .pseudo_resources_map
+            .insert(gvk, pseudo_resources)
+            .is_some()
+        {
+            warn!(
+                "{}: Replaced pseudo resources from {}",
+                gvk_full_name,
+                origin.display()
+            );
+        } else {
+            info!(
+                "{}: Imported pseudo resources from {}",
+                gvk_full_name,
+                origin.display()
+            );
+        }
+    }
+
+    fn register_detail_template(
+        &mut self,
+        gvk: GroupVersionKind,
+        template: DetailsTemplate,
+        origin: &Path,
+    ) {
+        let gvk_full_name = gvk.full_name();
+        if self.template_map.insert(gvk, template).is_some() {
+            warn!(
+                "{}: Replaced detail template from {}",
+                gvk_full_name,
+                origin.display()
+            );
+        } else {
+            info!(
+                "{}: Loaded detail template from {}",
+                gvk_full_name,
+                origin.display()
+            );
         }
     }
 }
@@ -127,10 +170,20 @@ pub struct DetailsTemplate {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+pub struct PseudoResourceConfigPros {
+    name: String,
+    script_content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct ResourceConfigProps {
     resource: GroupVersionKind,
     #[serde(default)]
     imports: Vec<String>,
+
+    #[serde(default)]
+    pseudo_resources: Vec<PseudoResourceConfigPros>,
+
     details: Option<DetailsTemplateConfigProps>,
     columns: Vec<ColumnConfigProps>,
 }
@@ -154,6 +207,26 @@ struct ColumnConfigProps {
 }
 
 #[derive(Debug, Clone)]
+pub struct PseudoResource {
+    pub name: String,
+    pub ast: AST,
+}
+
+impl PseudoResource {
+    fn try_from_config(
+        config: &PseudoResourceConfigPros,
+        engine: &Engine,
+        imports: &[String],
+    ) -> anyhow::Result<Self> {
+        let ast = engine.compile_content_with_imports(&config.script_content, imports)?;
+        Ok(Self {
+            name: config.name.clone(),
+            ast,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum EvaluatorType {
     AST(AST),
     Embedded(EmbeddedExtractor),
@@ -161,7 +234,7 @@ pub enum EvaluatorType {
 
 impl EvaluatorType {
     fn try_from_config(
-        config: EvalConfigProps,
+        config: &EvalConfigProps,
         engine: &Engine,
         source_path: &Path,
         imports: &[String],
@@ -172,9 +245,9 @@ impl EvaluatorType {
                 EvaluatorType::AST(engine.compile_file_with_imports(&script_path, imports)?)
             }
             EvalConfigProps::ScriptContent { content } => {
-                EvaluatorType::AST(engine.compile_content_with_imports(&content, imports)?)
+                EvaluatorType::AST(engine.compile_content_with_imports(content, imports)?)
             }
-            EvalConfigProps::Embedded { name } => EvaluatorType::Embedded(name),
+            EvalConfigProps::Embedded { name } => EvaluatorType::Embedded(name.clone()),
         };
 
         Ok(evaluator_type)
@@ -206,44 +279,9 @@ impl From<&Column> for ColumnHandle {
     }
 }
 
-pub fn get_files(roots: &[PathBuf]) -> Vec<PathBuf> {
-    let mut queue = VecDeque::from_iter(roots.iter().cloned());
-    let mut files = vec![];
-    while let Some(path) = queue.pop_front() {
-        if path.is_dir() {
-            match std::fs::read_dir(&path) {
-                Ok(dir) => {
-                    for dir_entry in dir {
-                        match dir_entry {
-                            Ok(dir_entry) => {
-                                let path = dir_entry.path();
-                                if path.is_file() {
-                                    files.push(path);
-                                } else {
-                                    queue.push_back(path);
-                                }
-                            }
-                            Err(err) => {
-                                error!("Failed to get dir entry: {err}");
-                            }
-                        }
-                    }
-                }
-                Err(err) => {
-                    error!("Failed to read dir {}: {}", path.display(), err);
-                }
-            }
-        } else {
-            files.push(path.clone());
-        }
-    }
-
-    files
-}
-
 fn parse_resource_dirs(roots: &[PathBuf]) -> Vec<(PathBuf, ResourceConfigProps)> {
     let mut parsed_props = vec![];
-    for file in get_files(roots) {
+    for file in scan_files(roots) {
         if let Some(ext) = file.extension() {
             if ext != "yaml" && ext != "yml" {
                 continue;
@@ -271,14 +309,14 @@ fn parse_resource_dirs(roots: &[PathBuf]) -> Vec<(PathBuf, ResourceConfigProps)>
 fn parse_resource_columns(
     engine: &Engine,
     source_path: &Path,
-    resource_config_props: ResourceConfigProps,
-) -> (GroupVersionKind, Vec<Column>) {
+    resource_config_props: &ResourceConfigProps,
+) -> Vec<Column> {
     let mut columns: Vec<Column> = vec![];
-    for column_config in resource_config_props.columns {
+    for column_config in &resource_config_props.columns {
         let column_name = column_config.name.clone();
 
         let evaluator_type = EvaluatorType::try_from_config(
-            column_config.evaluator,
+            &column_config.evaluator,
             engine,
             source_path,
             &resource_config_props.imports,
@@ -298,7 +336,7 @@ fn parse_resource_columns(
 
         let column = Column {
             name: column_name,
-            display_name: column_config.display_name,
+            display_name: column_config.display_name.clone(),
             width: column_config.width,
             evaluator_type,
         };
@@ -306,7 +344,59 @@ fn parse_resource_columns(
         columns.push(column);
     }
 
-    (resource_config_props.resource, columns)
+    columns
+}
+
+fn parse_pseudo_resources(
+    engine: &Engine,
+    source_path: &Path,
+    resource_config_props: &ResourceConfigProps,
+) -> Vec<PseudoResource> {
+    let mut pseudo_resources: Vec<PseudoResource> = vec![];
+    for pseudo_resource_config in &resource_config_props.pseudo_resources {
+        let pseudo_resource_name = pseudo_resource_config.name.clone();
+
+        let pseudo_resource = PseudoResource::try_from_config(
+            pseudo_resource_config,
+            engine,
+            &resource_config_props.imports,
+        );
+
+        let pseudo_resource = match pseudo_resource {
+            Ok(pseudo_resource) => pseudo_resource,
+            Err(err) => {
+                error!(
+                    "Failed to process pseudo resource {} in file {}: {err}",
+                    pseudo_resource_name,
+                    source_path.display()
+                );
+                continue;
+            }
+        };
+
+        pseudo_resources.push(pseudo_resource);
+    }
+
+    pseudo_resources
+}
+
+fn parse_detail_templates(
+    path: &Path,
+    details: DetailsTemplateConfigProps,
+) -> (PathBuf, DetailsTemplate) {
+    let template_path = resolve_path(path, &details.template);
+    let template = DetailsTemplate {
+        template: template_path.clone(),
+        helpers: details
+            .helpers
+            .into_iter()
+            .map(|mut helper| {
+                helper.path = resolve_path(&template_path, &helper.path);
+                helper
+            })
+            .collect(),
+    };
+    (template_path, template)
 }
 
 #[cfg(test)]
@@ -333,7 +423,11 @@ mod tests {
 
         let resource = ResourceConfigProps {
             resource: Pod::gvk_for_type(),
-            details: None,
+            details: Some(DetailsTemplateConfigProps {
+                template: Default::default(),
+                helpers: vec![],
+            }),
+            pseudo_resources: Vec::new(),
             imports: vec![r##"import "pod" as pod;"##.to_string()],
             columns: vec![
                 ColumnConfigProps {

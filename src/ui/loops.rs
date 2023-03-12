@@ -2,6 +2,7 @@ use cursive::CursiveRunnable;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::traits::ext::mutex::MutexExt;
 use crate::ui::backend::init_cursive_backend;
 use cursive::reexports::crossbeam_channel::internal::SelectHandle;
 use cursive::reexports::log::{error, info, warn};
@@ -18,7 +19,7 @@ pub fn spawn_dispatch_events_loop(
         .name("dispatcher".to_string())
         .spawn(move || {
             for signal in from_backend_receiver {
-                while !store.lock().unwrap_or_log().sink.is_ready() {
+                while !store.lock_unwrap().sink.is_ready() {
                     warn!("UI is not ready");
                     std::thread::sleep(Duration::from_millis(50));
                 }
@@ -73,7 +74,7 @@ pub fn enter_command_handler_loop(
     loop {
         ui.try_run_with(init_cursive_backend)?;
 
-        let mut store = store.lock().unwrap_or_log();
+        let mut store = store.lock_unwrap();
         if let Some(command) = store.interactive_command.take() {
             match command.run() {
                 Ok(status) => {

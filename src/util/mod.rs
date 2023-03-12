@@ -5,3 +5,4 @@ pub mod paths;
 pub mod ui;
 pub mod view_with_data;
 pub mod watcher;
+pub mod fs;

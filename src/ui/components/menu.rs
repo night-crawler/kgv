@@ -5,14 +5,15 @@ use cursive::views::Menubar;
 use kube::api::GroupVersionKind;
 
 use crate::traits::ext::gvk::GvkNameExt;
+use crate::traits::ext::kanal_sender::KanalSenderExt;
+use crate::traits::ext::mutex::MutexExt;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::UiStore;
-use crate::util::panics::ResultExt;
 use crate::util::ui::group_gvks;
 
 pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiStore>>) -> Menubar {
     let (to_backend_sender, to_ui_sender) = {
-        let store = store.lock().unwrap_or_log();
+        let store = store.lock_unwrap();
         (store.to_backend_sender.clone(), store.to_ui_sender.clone())
     };
 
@@ -33,12 +34,9 @@ pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiSto
             let to_backend_sender = to_backend_sender.clone();
             let to_ui_sender = to_ui_sender.clone();
             group_tree = group_tree.leaf(leaf_name, move |_| {
-                to_ui_sender
-                    .send(ToUiSignal::ShowGvk(resource_gvk.clone()))
-                    .unwrap_or_log();
+                to_ui_sender.send_unwrap(ToUiSignal::ShowGvk(resource_gvk.clone()));
                 to_backend_sender
-                    .send(ToBackendSignal::RequestGvkItems(resource_gvk.clone()))
-                    .unwrap_or_log();
+                    .send_unwrap(ToBackendSignal::RequestGvkItems(resource_gvk.clone()));
             });
         }
         menubar.add_subtree(group_name, group_tree);

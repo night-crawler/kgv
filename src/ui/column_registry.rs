@@ -58,7 +58,7 @@ impl ColumnRegistry {
         if let Some(columns) = self.watcher.value().columns_map.get(gvk) {
             columns.iter().map(ColumnHandle::from).collect()
         } else {
-            info!("Columns for GVK {:?} were not found", gvk);
+            info!("Column handles for GVK {:?} were not found", gvk);
             self.default_columns
                 .iter()
                 .map(ColumnHandle::from)

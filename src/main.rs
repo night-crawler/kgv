@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use clap::Parser;
 use cursive::CursiveRunnable;
-use k8s_openapi::api::core::v1::Pod;
+use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kanal::Sender;
 use kube::api::GroupVersionKind;
 
@@ -16,6 +16,7 @@ use crate::eval::evaluator::Evaluator;
 use crate::theme::get_theme;
 use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
+use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::hotkeys::register_hotkeys;
@@ -24,7 +25,6 @@ use crate::ui::resource_manager::ResourceManager;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_stack::ViewStack;
-use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
 pub mod backend;
@@ -102,18 +102,10 @@ fn send_init_signals(
     to_backend_sender: &Sender<ToBackendSignal>,
     ui_to_ui_sender: &Sender<ToUiSignal>,
 ) {
-    // to_backend_sender
-    //     .send(ToBackendSignal::RequestRegisterGvk(Pod::gvk_for_type()))
-    //     .unwrap_or_log();
-    // to_backend_sender
-    //     .send(ToBackendSignal::RequestRegisterGvk(
-    //         Namespace::gvk_for_type(),
-    //     ))
-    //     .unwrap_or_log();
-    ui_to_ui_sender
-        .send(ToUiSignal::ShowGvk(Pod::gvk_for_type()))
-        .unwrap_or_log();
-    to_backend_sender
-        .send(ToBackendSignal::RequestGvkItems(Pod::gvk_for_type()))
-        .unwrap_or_log();
+    to_backend_sender.send_unwrap(ToBackendSignal::RequestRegisterGvk(Pod::gvk_for_type()));
+    to_backend_sender.send_unwrap(ToBackendSignal::RequestRegisterGvk(
+        Namespace::gvk_for_type(),
+    ));
+    ui_to_ui_sender.send_unwrap(ToUiSignal::ShowGvk(Pod::gvk_for_type()));
+    to_backend_sender.send_unwrap(ToBackendSignal::RequestGvkItems(Pod::gvk_for_type()));
 }
