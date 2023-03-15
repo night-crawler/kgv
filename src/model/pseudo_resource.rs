@@ -7,7 +7,6 @@ use serde_yaml::Error;
 use crate::model::dynamic_object::DynamicObjectWrapper;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::SerializeExt;
-use crate::traits::ext::gvk::GvkExt;
 
 #[derive(Debug)]
 pub struct PseudoResource {
@@ -57,7 +56,7 @@ impl PseudoResource {
     }
 
     pub fn namespace(&self) -> String {
-        self.source.namespace().clone()
+        self.source.namespace()
     }
 
     pub fn age(&self) -> chrono::Duration {
@@ -65,9 +64,7 @@ impl PseudoResource {
     }
 
     pub fn gvk(&self) -> GroupVersionKind {
-        let mut gvk = self.source.gvk();
-        gvk.kind = format!("{}#{}#{}", gvk.kind, self.extractor_name, self.id);
-        gvk
+        self.source.to_pseudo_gvk(&self.extractor_name)
     }
 }
 

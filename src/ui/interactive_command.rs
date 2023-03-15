@@ -24,7 +24,7 @@ impl InteractiveCommand {
                 info!("Running exec: {}", pod_msg_name);
 
                 let mut command = Command::new("kubectl");
-                command.args(&[
+                command.args([
                     "exec",
                     "-it",
                     pod.name_any().as_str(),

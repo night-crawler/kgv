@@ -33,7 +33,7 @@ pub enum KgvError {
     #[error("YAML Serialization error: {0}")]
     EngineError(#[from] Box<EvalAltResult>),
 
-    #[error("Error {0}")]
+    #[error("Static string error: {0}")]
     StrError(&'static str),
 }
 

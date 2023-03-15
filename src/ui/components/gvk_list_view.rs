@@ -25,7 +25,7 @@ impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
     fn build_list_view_table(&self, gvk: &GroupVersionKind) -> TableView<EvaluatedResource, usize> {
         let column_handles = {
             let store = self.lock_unwrap();
-            store.resource_manager.get_column_handles(gvk)
+            store.resource_manager.get_columns(gvk)
         };
 
         let mut table: TableView<EvaluatedResource, usize> = TableView::new();

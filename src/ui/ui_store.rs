@@ -13,7 +13,7 @@ use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::traits::ext::cursive::SivExt;
 use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
-use crate::traits::ext::gvk::GvkExt;
+use crate::traits::ext::gvk::{GvkExt, PseudoGvkBuilderExt};
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
@@ -125,6 +125,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             let mut store = self.lock_unwrap();
 
             if let Some(resources) = resources {
+                info!("Received {} resources for GVK: {}", resources.len(), next_gvk.full_name());
                 store.resource_manager.replace_all(resources);
             } else {
                 warn!("Empty resources for GVK: {}", next_gvk.full_name());
@@ -225,8 +226,10 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         // let store = Arc::clone(self);
 
         match resource {
-            ResourceView::Pod(_) => {
-                self.dispatch_show_gvk(GroupVersionKind::gvk("", "v1", "Pod#container"));
+            ResourceView::Pod(pod) => {
+                let gvk = pod.build_pseudo_gvk("container");
+                self.dispatch_show_gvk(gvk.clone());
+                self.update_list_views_for_gvk(&gvk);
             }
             resource => {
                 let store = self.lock_unwrap();
@@ -305,7 +308,22 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
     }
 
     fn dispatch_f5(&self) {
-        error!("F5 not implemented")
+        let last_view = self.lock_unwrap().view_stack.last();
+
+        if let Some(view_meta) = last_view {
+            let view_meta = view_meta.read_unwrap();
+            match view_meta.deref() {
+                ViewMeta::List { gvk, .. } => {
+                    self.update_list_views_for_gvk(gvk);
+                    return;
+                }
+                ViewMeta::Detail { .. } => {}
+                ViewMeta::PodDetail { .. } => {}
+                ViewMeta::Dialog { .. } => {}
+            }
+
+        }
+        error!("F5 not implemented for the current view")
     }
 
     fn dispatch_esc(&self) {
@@ -371,7 +389,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 move |table: &mut TableView<EvaluatedResource, usize>| table.set_items(resources),
             );
         } else {
-            warn!("Could not find a view with id={id}");
+            warn!("Could not find a view with id={id}, {}", store.view_stack.stack.len());
         };
     }
 
@@ -380,6 +398,10 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             let store = self.lock_unwrap();
             (store.view_stack.find_all(gvk), store.sink.clone())
         };
+
+        if affected_views.is_empty() {
+            warn!("No views found for gvk={}", gvk.full_name());
+        }
 
         for view_meta in affected_views {
             let name = view_meta.read_unwrap().get_unique_name();

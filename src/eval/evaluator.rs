@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use cursive::reexports::log::{error, info};
+use cursive::reexports::log::error;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
@@ -38,11 +38,11 @@ impl Evaluator {
 
     pub fn evaluate_pseudo_resources(
         &self,
-        resource: ResourceView,
+        resource: &ResourceView,
         extractors: &[PseudoResourceConf],
     ) -> Vec<PseudoResource> {
         let mut scope = Scope::new();
-        scope.push("resource", self.to_rhai_object(&resource).unwrap());
+        scope.push("resource", self.to_rhai_object(resource).unwrap());
 
         let pseudo_resources: Vec<(String, Vec<RhaiPseudoResource>)> = self.pool.install(|| {
             let engine = self.watcher.value();
@@ -55,11 +55,13 @@ impl Evaluator {
                         scope.clone_visible(),
                     ) {
                         Ok(pseudo_resources) => {
-                            info!("Evaluated pseudo resource: {:?}", pseudo_resources);
                             Some((extractor.name.to_string(), pseudo_resources))
                         }
                         Err(err) => {
-                            error!("Failed to evaluate pseudo resource: {}", err);
+                            error!(
+                                "Failed to evaluate pseudo resource {}: {err}",
+                                resource.full_unique_name()
+                            );
                             None
                         }
                     }
@@ -323,7 +325,7 @@ mod tests {
         }];
 
         let pseudo_resources =
-            evaluator.evaluate_pseudo_resources(resource, &pseudo_col_extractor_configs);
+            evaluator.evaluate_pseudo_resources(&resource, &pseudo_col_extractor_configs);
         assert_eq!(pseudo_resources.len(), 2);
     }
 }

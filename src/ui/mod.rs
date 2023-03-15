@@ -1,5 +1,4 @@
 pub mod backend;
-pub mod column_registry;
 pub mod components;
 pub mod detail_view_renderer;
 pub mod highlighter;
@@ -12,4 +11,3 @@ pub mod traits;
 pub mod ui_store;
 pub mod view_meta;
 pub mod view_stack;
-pub mod pseudo_resource_extractor;

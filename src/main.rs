@@ -17,7 +17,6 @@ use crate::theme::get_theme;
 use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
-use crate::ui::column_registry::ColumnRegistry;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::hotkeys::register_hotkeys;
 use crate::ui::loops::{enter_command_handler_loop, spawn_dispatch_events_loop};
@@ -72,12 +71,12 @@ fn main() -> Result<()> {
 
     let detail_view_renderer = DetailViewRenderer::new(&engine_watcher, &extractor_config_watcher);
     let resource_manager = ResourceManager::new(
-        Evaluator::new(4, &engine_watcher)?,
-        ColumnRegistry::new(&extractor_config_watcher),
+        Evaluator::new(32, &engine_watcher)?,
+        &extractor_config_watcher,
     );
 
     let store = Arc::new(Mutex::new(UiStore {
-        counter: 1,
+        counter: 0,
         view_stack: ViewStack::default(),
         highlighter: ui::highlighter::Highlighter::new("base16-eighties.dark")?,
         selected_gvk: GroupVersionKind::gvk("", "", ""),

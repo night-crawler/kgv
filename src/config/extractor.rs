@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use cursive::reexports::log::{error, info, warn};
 use kube::api::GroupVersionKind;
@@ -16,9 +17,9 @@ use crate::util::ui::ago;
 
 #[derive(Debug, Default)]
 pub struct ExtractorConfig {
-    pub columns_map: HashMap<GroupVersionKind, Vec<Column>>,
-    pub templates_map: HashMap<GroupVersionKind, DetailsTemplate>,
-    pub pseudo_resources_map: HashMap<GroupVersionKind, Vec<PseudoResourceConf>>,
+    pub columns_map: HashMap<GroupVersionKind, Arc<Vec<Column>>>,
+    pub templates_map: HashMap<GroupVersionKind, Arc<DetailsTemplate>>,
+    pub pseudo_resources_map: HashMap<GroupVersionKind, Arc<Vec<PseudoResourceConf>>>,
 }
 
 impl ExtractorConfig {
@@ -74,7 +75,7 @@ impl ExtractorConfig {
 
     fn register_gvk_columns(&mut self, gvk: GroupVersionKind, columns: Vec<Column>, origin: &Path) {
         let gvk_full_name = gvk.full_name();
-        if self.columns_map.insert(gvk, columns).is_some() {
+        if self.columns_map.insert(gvk, columns.into()).is_some() {
             warn!(
                 "{}: Replaced columns from {}",
                 gvk_full_name,
@@ -98,7 +99,7 @@ impl ExtractorConfig {
         let gvk_full_name = gvk.full_name();
         if self
             .pseudo_resources_map
-            .insert(gvk, pseudo_resources)
+            .insert(gvk, pseudo_resources.into())
             .is_some()
         {
             warn!(
@@ -122,7 +123,7 @@ impl ExtractorConfig {
         origin: &Path,
     ) {
         let gvk_full_name = gvk.full_name();
-        if self.templates_map.insert(gvk, template).is_some() {
+        if self.templates_map.insert(gvk, template.into()).is_some() {
             warn!(
                 "{}: Replaced detail template from {}",
                 gvk_full_name,
@@ -263,23 +264,6 @@ pub struct Column {
     pub display_name: String,
     pub width: usize,
     pub evaluator_type: EvaluatorType,
-}
-
-#[derive(Debug)]
-pub struct ColumnHandle {
-    pub name: String,
-    pub display_name: String,
-    pub width: usize,
-}
-
-impl From<&Column> for ColumnHandle {
-    fn from(column: &Column) -> Self {
-        Self {
-            name: column.name.clone(),
-            display_name: column.display_name.clone(),
-            width: column.width,
-        }
-    }
 }
 
 fn parse_resource_dirs(roots: &[PathBuf]) -> Vec<(PathBuf, ResourceConfigProps)> {

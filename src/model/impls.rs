@@ -1,45 +1,15 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::model::dynamic_object::DynamicObjectWrapper;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::Metadata;
 use kube::api::{DynamicObject, GroupVersionKind};
 use kube::runtime::reflector::Store;
 
+use crate::model::dynamic_object::DynamicObjectWrapper;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::{MarkerTraitForStaticCases, SpecViewAdapter};
-use crate::traits::ext::gvk::{GvkExt, GvkStaticExt};
-
-impl<T> GvkStaticExt for T
-where
-    T: Metadata<Ty = ObjectMeta>
-        + 'static
-        + Clone
-        + Debug
-        + Send
-        + Sync
-        + for<'de> k8s_openapi::serde::Deserialize<'de>,
-{
-    fn gvk_for_type() -> GroupVersionKind {
-        GroupVersionKind::gvk(T::GROUP, T::VERSION, T::KIND)
-    }
-}
-
-impl<T> GvkExt for T
-where
-    T: Metadata<Ty = ObjectMeta>
-        + 'static
-        + Clone
-        + Debug
-        + Send
-        + Sync
-        + for<'de> k8s_openapi::serde::Deserialize<'de>,
-{
-    fn gvk(&self) -> GroupVersionKind {
-        GroupVersionKind::gvk(T::GROUP, T::VERSION, T::KIND)
-    }
-}
+use crate::traits::ext::gvk::GvkExt;
 
 impl<T> SpecViewAdapter for Store<T>
 where

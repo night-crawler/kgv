@@ -24,6 +24,10 @@ pub fn spawn_dispatch_events_loop(
                     std::thread::sleep(Duration::from_millis(50));
                 }
 
+                let now = std::time::Instant::now();
+                let signal_name = signal.as_ref().to_string();
+                info!("Dispatching signal: {signal_name}");
+
                 match signal {
                     ToUiSignal::ResponseResourceUpdated(resource) => {
                         store.dispatch_response_resource_updated(resource);
@@ -62,6 +66,8 @@ pub fn spawn_dispatch_events_loop(
                         store.dispatch_esc();
                     }
                 }
+
+                info!("Dispatching {signal_name} took {:?}",  now.elapsed());
             }
         })
         .unwrap_or_log();
