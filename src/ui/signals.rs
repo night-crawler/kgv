@@ -1,7 +1,7 @@
-use crate::model::resource::resource_view::ResourceView;
 use kube::api::GroupVersionKind;
 use strum_macros::AsRefStr;
 
+use crate::model::resource::resource_view::ResourceView;
 
 #[derive(Debug)]
 pub enum ToBackendSignal {
@@ -11,8 +11,7 @@ pub enum ToBackendSignal {
     RequestDetails(ResourceView),
 }
 
-
-#[derive(Debug, AsRefStr)]
+#[derive(AsRefStr)]
 pub enum ToUiSignal {
     ResponseResourceUpdated(ResourceView),
     ResponseDiscoveredGvks(Vec<GroupVersionKind>),

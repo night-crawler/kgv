@@ -90,6 +90,7 @@ fn main() -> Result<()> {
         detail_view_renderer,
     }));
 
+    spawn_dispatch_events_loop(store.clone(), from_backend_receiver.clone());
     spawn_dispatch_events_loop(store.clone(), from_backend_receiver);
 
     enter_command_handler_loop(&mut ui, store)?;

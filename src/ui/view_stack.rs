@@ -1,11 +1,10 @@
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 
-use crate::traits::ext::rw_lock::RwLockExt;
 use cursive::reexports::ahash::HashMap;
-use cursive::reexports::log::error;
 use kube::api::GroupVersionKind;
 
+use crate::traits::ext::rw_lock::RwLockExt;
 use crate::ui::view_meta::ViewMeta;
 
 #[derive(Default, Debug)]
@@ -19,7 +18,6 @@ impl ViewStack {
         let id = view.read_unwrap().get_id();
         self.stack.push(view.clone());
         self.view_by_id_map.insert(id, view);
-        error!("???");
     }
 
     pub fn find_all(&self, gvk: &GroupVersionKind) -> Vec<Arc<RwLock<ViewMeta>>> {

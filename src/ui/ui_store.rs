@@ -13,8 +13,8 @@ use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::traits::ext::cursive::SivExt;
 use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
-use crate::traits::ext::gvk::{GvkExt, PseudoGvkBuilderExt};
 use crate::traits::ext::gvk::GvkNameExt;
+use crate::traits::ext::gvk::{GvkExt, PseudoGvkBuilderExt};
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
 use crate::traits::ext::pod::PodExt;
@@ -125,7 +125,11 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             let mut store = self.lock_unwrap();
 
             if let Some(resources) = resources {
-                info!("Received {} resources for GVK: {}", resources.len(), next_gvk.full_name());
+                info!(
+                    "Received {} resources for GVK: {}",
+                    resources.len(),
+                    next_gvk.full_name()
+                );
                 store.resource_manager.replace_all(resources);
             } else {
                 warn!("Empty resources for GVK: {}", next_gvk.full_name());
@@ -223,7 +227,6 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             let store = self.lock_unwrap();
             store.sink.clone()
         };
-        // let store = Arc::clone(self);
 
         match resource {
             ResourceView::Pod(pod) => {
@@ -245,9 +248,9 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 };
                 drop(store);
 
-                sink.send_box(|siv| {
+                sink.send_box(move |siv| {
                     let layout = build_detail_view(resource, html);
-                    siv.add_fullscreen_layer(layout)
+                    siv.add_fullscreen_layer(layout);
                 });
             }
         }
@@ -261,6 +264,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         };
 
         let store = Arc::clone(self);
+
         sink.send_box(move |siv| {
             let layout = build_gvk_list_view_layout(Arc::clone(&store));
             let view_meta = layout.meta.clone();
@@ -321,7 +325,6 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 ViewMeta::PodDetail { .. } => {}
                 ViewMeta::Dialog { .. } => {}
             }
-
         }
         error!("F5 not implemented for the current view")
     }
@@ -389,7 +392,10 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 move |table: &mut TableView<EvaluatedResource, usize>| table.set_items(resources),
             );
         } else {
-            warn!("Could not find a view with id={id}, {}", store.view_stack.stack.len());
+            warn!(
+                "Could not find a view with id={id}, {}",
+                store.view_stack.stack.len()
+            );
         };
     }
 

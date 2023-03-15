@@ -9,7 +9,6 @@ use kube::runtime::reflector::Store;
 use crate::model::dynamic_object::DynamicObjectWrapper;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::{MarkerTraitForStaticCases, SpecViewAdapter};
-use crate::traits::ext::gvk::GvkExt;
 
 impl<T> SpecViewAdapter for Store<T>
 where
