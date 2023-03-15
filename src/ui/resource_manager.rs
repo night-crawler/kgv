@@ -10,6 +10,7 @@ use crate::eval::evaluator::Evaluator;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::traits::ext::gvk::{GvkExt, PseudoResourceGvkExt};
 use crate::traits::ext::gvk::GvkNameExt;
+use crate::util::ui::ago;
 use crate::util::watcher::LazyWatcher;
 
 pub struct ResourceManager {
@@ -59,9 +60,9 @@ impl ResourceManager {
         let now = std::time::Instant::now();
         let evaluated_resource = self.replace_inner(resource);
         info!(
-            "Resource {} was replaced in {}ms",
+            "Resource {} was replaced in {}",
             evaluated_resource.resource.full_unique_name(),
-            now.elapsed().as_millis()
+            ago(chrono::Duration::from_std(now.elapsed()).unwrap())
         );
         evaluated_resource
     }

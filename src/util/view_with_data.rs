@@ -1,12 +1,22 @@
+use std::sync::{Arc, RwLock};
+
 use cursive::direction::Direction;
 use cursive::event::{AnyCb, Event, EventResult};
 use cursive::view::{CannotFocus, Selector, ViewNotFound};
 use cursive::{Printer, Rect, Vec2, View};
-use std::sync::{Arc, RwLock};
 
 pub struct ViewWithMeta<T> {
     pub inner: Box<dyn View>,
     pub meta: Arc<RwLock<T>>,
+}
+
+impl<T> ViewWithMeta<T> {
+    pub fn new<I: View>(inner: I, meta: T) -> Self {
+        Self {
+            inner: Box::new(inner),
+            meta: Arc::new(RwLock::new(meta)),
+        }
+    }
 }
 
 impl<T> View for ViewWithMeta<T>

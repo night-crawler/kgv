@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::{error, info, warn};
+use cursive::views::Dialog;
 use cursive::Cursive;
+use cursive_flexi_logger_view::FlexiLoggerView;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
@@ -31,6 +33,7 @@ use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::view_meta::{Filter, ViewMeta};
 use crate::ui::view_stack::ViewStack;
 use crate::util::panics::ResultExt;
+use crate::util::view_with_data::ViewWithMeta;
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
@@ -104,6 +107,7 @@ pub trait UiStoreDispatcherExt {
     fn dispatch_f5(&self);
     fn dispatch_esc(&self);
     fn dispatch_shell_current(&self);
+    fn dispatch_show_debug_log(&self);
 
     fn replace_table_items(&self, id: usize);
 
@@ -265,6 +269,8 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
         let store = Arc::clone(self);
 
+        let (sender, receiver) = kanal::unbounded::<()>();
+
         sink.send_box(move |siv| {
             let layout = build_gvk_list_view_layout(Arc::clone(&store));
             let view_meta = layout.meta.clone();
@@ -272,7 +278,10 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             store.lock_unwrap().view_stack.push(view_meta);
             siv.add_fullscreen_layer(layout);
             info!("Registered view: {view_name}");
+            sender.send(()).unwrap_or_log();
         });
+
+        receiver.recv().unwrap_or_log();
     }
 
     fn dispatch_ctrl_s(&self) {
@@ -379,6 +388,20 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         drop(store);
 
         sink.send_box(|siv| siv.quit());
+    }
+
+    fn dispatch_show_debug_log(&self) {
+        let store = Arc::clone(self);
+        self.lock_unwrap().sink.send_box(move |siv| {
+            let view_meta = ViewMeta::Dialog {
+                id: store.inc_counter(),
+                name: "Debug".to_string(),
+            };
+            let logger = FlexiLoggerView::scrollable();
+            let logger = ViewWithMeta::new(logger, view_meta);
+            store.lock_unwrap().view_stack.push(logger.meta.clone());
+            siv.add_fullscreen_layer(Dialog::around(logger));
+        });
     }
 
     fn replace_table_items(&self, id: usize) {

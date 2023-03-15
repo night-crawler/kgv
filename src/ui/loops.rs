@@ -71,6 +71,9 @@ fn dispatch_signal(store: &Arc<Mutex<UiStore>>, signal: ToUiSignal) {
         ToUiSignal::EscPressed => {
             store.dispatch_esc();
         }
+        ToUiSignal::ShowDebugLog => {
+            store.dispatch_show_debug_log();
+        }
     }
 }
 

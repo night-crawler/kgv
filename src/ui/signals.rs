@@ -28,4 +28,5 @@ pub enum ToUiSignal {
     ExecuteCurrent,
     F5Pressed,
     EscPressed,
+    ShowDebugLog,
 }

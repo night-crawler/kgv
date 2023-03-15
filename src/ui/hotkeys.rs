@@ -1,11 +1,16 @@
 use cursive::{event, Cursive};
-use cursive_flexi_logger_view::toggle_flexi_logger_debug_console;
 
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::ui::signals::ToUiSignal;
 
 pub fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSignal>) {
-    ui.add_global_callback('~', toggle_flexi_logger_debug_console);
+    {
+        let ui_to_ui_sender = ui_to_ui_sender.clone();
+        ui.add_global_callback('~', move |_| {
+            ui_to_ui_sender.send_unwrap(ToUiSignal::ShowDebugLog);
+        });
+    }
+
     ui.add_global_callback(event::Key::F10, |siv| siv.select_menubar());
 
     {
