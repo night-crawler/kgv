@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::{error, info, warn};
@@ -13,6 +13,7 @@ use kube::ResourceExt;
 use crate::model::pod::pod_container_view::PodContainerView;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
+use crate::reexports::Mutex;
 use crate::traits::ext::cursive::SivExt;
 use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
 use crate::traits::ext::gvk::GvkNameExt;
@@ -225,6 +226,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             }
             let view_name = view_guard.get_unique_name();
             drop(store);
+            drop(view_guard);
 
             self.call_on_name(
                 &view_name,
@@ -308,7 +310,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
 
         self.send_box(move |siv| {
             let layout = build_gvk_list_view_layout(Arc::clone(&store));
-            let view_meta = layout.meta.clone();
+            let view_meta = Arc::clone(&layout.meta);
             let view_name = view_meta.read_unwrap().get_unique_name();
             store.lock_unwrap().view_stack.push(view_meta);
             siv.add_fullscreen_layer(layout);
@@ -433,10 +435,10 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
         let extracted = {
             let mut store = self.data.lock_unwrap();
             if let Some(view_meta) = store.view_stack.get(id) {
-                Some((
-                    view_meta.read_unwrap().get_unique_name(),
-                    store.get_filtered_resources(view_meta.read_unwrap().deref()),
-                ))
+                let view_meta = view_meta.read_unwrap();
+                let name = view_meta.get_unique_name();
+                let resources = store.get_filtered_resources(view_meta.deref());
+                Some((name, resources))
             } else {
                 warn!(
                     "Could not find a view with id={id}, {}",

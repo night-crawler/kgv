@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 
+use crate::reexports::{Mutex, RwLock};
 use crate::traits::ext::mutex::MutexExt;
 use crate::traits::ext::rw_lock::RwLockExt;
 use cursive::reexports::log::error;

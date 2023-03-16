@@ -1,8 +1,11 @@
-use std::sync::{Arc, Mutex};
+use std::panic;
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
+use cursive::backends::termion::termion::raw::IntoRawMode;
 use cursive::CursiveRunnable;
+use cursive::reexports::log::error;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kanal::Sender;
 use kube::api::GroupVersionKind;
@@ -13,6 +16,7 @@ use crate::config::extractor::ExtractorConfig;
 use crate::config::kgv_configuration::KgvConfiguration;
 use crate::eval::engine_factory::build_engine;
 use crate::eval::evaluator::Evaluator;
+use crate::reexports::Mutex;
 use crate::theme::get_theme;
 use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
@@ -25,18 +29,33 @@ use crate::ui::resource_manager::ResourceManager;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_stack::ViewStack;
+use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
 pub mod backend;
 pub mod config;
 pub mod eval;
 pub mod model;
+pub mod reexports;
 pub mod theme;
 pub mod traits;
 pub mod ui;
 pub mod util;
 
+
 fn main() -> Result<()> {
+    better_panic::install();
+    let raw_handle = std::io::stdout().into_raw_mode().unwrap_or_log();
+    let orig_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        // todo: it breaks terminal
+        raw_handle
+            .suspend_raw_mode()
+            .unwrap_or_else(|e| error!("Could not suspend raw mode: {}", e));
+        orig_hook(panic_info);
+        std::process::exit(1);
+    }));
+
     let kgv_configuration = KgvConfiguration::try_from(Args::parse())?;
 
     let mut ui = CursiveRunnable::default();

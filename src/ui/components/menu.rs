@@ -1,8 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use cursive::menu;
 use cursive::views::Menubar;
 use kube::api::GroupVersionKind;
+use crate::reexports::Mutex;
 
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
@@ -39,12 +40,9 @@ pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiSto
                 let to_backend_sender = to_backend_sender.clone();
 
                 let chain = ToUiSignal::new_chain()
-                    .chain(|_| {
-                        Some(ToUiSignal::ShowGvk(r))
-                    })
+                    .chain(|_| Some(ToUiSignal::ShowGvk(r)))
                     .chain(move |_| {
-                        to_backend_sender
-                            .send_unwrap(ToBackendSignal::RequestGvkItems(r2));
+                        to_backend_sender.send_unwrap(ToBackendSignal::RequestGvkItems(r2));
                         None
                     });
 

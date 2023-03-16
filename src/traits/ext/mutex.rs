@@ -1,6 +1,6 @@
-use std::sync::{Mutex, MutexGuard};
 
 use cursive::reexports::log::debug;
+use crate::reexports::{Mutex, MutexGuard};
 
 use crate::util::panics::ResultExt;
 

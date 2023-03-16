@@ -1,6 +1,7 @@
 use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
+use crate::reexports::RwLock;
 use cursive::reexports::ahash::HashMap;
 use kube::api::GroupVersionKind;
 

@@ -8,8 +8,8 @@ use crate::config::extractor::{Column, EmbeddedExtractor, EvaluatorType, Extract
 use crate::eval::eval_result::EvalResult;
 use crate::eval::evaluator::Evaluator;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
-use crate::traits::ext::gvk::{GvkExt, PseudoResourceGvkExt};
 use crate::traits::ext::gvk::GvkNameExt;
+use crate::traits::ext::gvk::{GvkExt, PseudoResourceGvkExt};
 use crate::util::ui::ago;
 use crate::util::watcher::LazyWatcher;
 

@@ -7,13 +7,11 @@ use strum_macros::AsRefStr;
 use crate::util::error::{EvalError, KgvError};
 use crate::util::ui::ago;
 
-
 #[derive(Clone, Debug)]
 pub struct RhaiPseudoResource {
     pub id: String,
-    pub resource: Dynamic
+    pub resource: Dynamic,
 }
-
 
 #[derive(Clone, Debug, AsRefStr)]
 pub enum EvalResult {

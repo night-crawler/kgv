@@ -29,7 +29,7 @@ impl TableViewExt<EvaluatedResource> for TableView<EvaluatedResource, usize> {
             }
         }
         info!(
-            "Inserting new item: {}",
+            "Inserting a new table item: {}",
             evaluated_resource.resource.full_unique_name()
         );
         self.insert_item(evaluated_resource);

@@ -1,9 +1,9 @@
-use std::fmt::Debug;
 use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::Metadata;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
+use std::fmt::Debug;
 
 pub trait GvkNameExt {
     fn full_name(&self) -> String;
@@ -52,8 +52,8 @@ impl PseudoResourceGvkExt for GroupVersionKind {
 }
 
 impl<T> GvkStaticExt for T
-    where
-        T: Metadata<Ty = ObjectMeta>
+where
+    T: Metadata<Ty = ObjectMeta>
         + 'static
         + Clone
         + Debug
@@ -67,8 +67,8 @@ impl<T> GvkStaticExt for T
 }
 
 impl<T> GvkExt for T
-    where
-        T: Metadata<Ty = ObjectMeta>
+where
+    T: Metadata<Ty = ObjectMeta>
         + 'static
         + Clone
         + Debug
@@ -81,10 +81,9 @@ impl<T> GvkExt for T
     }
 }
 
-
 impl<T> PseudoGvkBuilderExt for T
-    where
-        T: Metadata<Ty = ObjectMeta>
+where
+    T: Metadata<Ty = ObjectMeta>
         + 'static
         + Clone
         + Debug
@@ -94,21 +93,16 @@ impl<T> PseudoGvkBuilderExt for T
 {
     fn build_pseudo_gvk(&self, extractor_name: &str) -> GroupVersionKind {
         let mut gvk = self.gvk();
-        let parts = [
-            &gvk.kind,
-            extractor_name,
-            &self.name_any()
-        ];
+        let parts = [&gvk.kind, extractor_name, &self.name_any()];
         gvk.kind = parts.join("#");
         gvk
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use k8s_openapi::api::core::v1::Pod;
     use super::*;
+    use k8s_openapi::api::core::v1::Pod;
 
     #[test]
     fn test_pseudo_trait() {

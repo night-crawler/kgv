@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 
 use cursive::direction::Orientation;
 use cursive::traits::*;
@@ -7,6 +7,7 @@ use cursive_table_view::TableView;
 use kube::core::GroupVersionKind;
 
 use crate::model::resource::resource_view::EvaluatedResource;
+use crate::reexports::{Mutex, RwLock};
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;

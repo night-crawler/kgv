@@ -1,6 +1,5 @@
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-
 use util::panics::ResultExt;
+use crate::reexports::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::util;
 
