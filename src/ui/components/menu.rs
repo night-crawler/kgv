@@ -34,9 +34,21 @@ pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiSto
             let to_backend_sender = to_backend_sender.clone();
             let to_ui_sender = to_ui_sender.clone();
             group_tree = group_tree.leaf(leaf_name, move |_| {
-                to_ui_sender.send_unwrap(ToUiSignal::ShowGvk(resource_gvk.clone()));
-                to_backend_sender
-                    .send_unwrap(ToBackendSignal::RequestGvkItems(resource_gvk.clone()));
+                let r = resource_gvk.clone();
+                let r2 = resource_gvk.clone();
+                let to_backend_sender = to_backend_sender.clone();
+
+                let chain = ToUiSignal::new_chain()
+                    .chain(|_| {
+                        Some(ToUiSignal::ShowGvk(r))
+                    })
+                    .chain(move |_| {
+                        to_backend_sender
+                            .send_unwrap(ToBackendSignal::RequestGvkItems(r2));
+                        None
+                    });
+
+                to_ui_sender.send_unwrap(chain);
             });
         }
         menubar.add_subtree(group_name, group_tree);

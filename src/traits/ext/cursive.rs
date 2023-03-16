@@ -13,7 +13,16 @@ pub trait SivExt {
         V: View,
         F: Send + FnOnce(&mut V) -> R + 'static;
 
+    fn call_on_name_sync<V, F, R>(&self, sender: kanal::Sender<()>, name: &str, callback: F)
+    where
+        V: View,
+        F: Send + FnOnce(&mut V) -> R + 'static;
+
     fn send_box<F>(&self, callback: F)
+    where
+        F: FnOnce(&mut Cursive) + Send + 'static;
+
+    fn send_box_sync<F>(&self, sender: kanal::Sender<()>, callback: F)
     where
         F: FnOnce(&mut Cursive) + Send + 'static;
 }
@@ -35,11 +44,32 @@ impl SivExt
         .unwrap_or_log();
     }
 
+    fn call_on_name_sync<V, F, R>(&self, sender: kanal::Sender<()>, name: &str, callback: F)
+    where
+        V: View,
+        F: Send + FnOnce(&mut V) -> R + 'static,
+    {
+        self.call_on_name(name, move |siv| {
+            callback(siv);
+            sender.send(()).unwrap_or_log();
+        })
+    }
+
     fn send_box<F>(&self, callback: F)
     where
         F: FnOnce(&mut Cursive) + Send + 'static,
     {
         self.send(Box::new(callback)).unwrap_or_log();
+    }
+
+    fn send_box_sync<F>(&self, sender: kanal::Sender<()>, callback: F)
+    where
+        F: FnOnce(&mut Cursive) + Send + 'static,
+    {
+        self.send_box(move |siv| {
+            callback(siv);
+            sender.send(()).unwrap_or_log();
+        })
     }
 }
 

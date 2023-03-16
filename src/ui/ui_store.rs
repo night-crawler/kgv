@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::{error, info, warn};
 use cursive::views::Dialog;
-use cursive::Cursive;
+use cursive::{Cursive, View};
 use cursive_flexi_logger_view::FlexiLoggerView;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
@@ -27,6 +27,7 @@ use crate::ui::components::detail_view::build_detail_view;
 use crate::ui::components::gvk_list_view::build_gvk_list_view_layout;
 use crate::ui::components::menu::build_menu;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
+use crate::ui::dispatcher::DispatchContext;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::resource_manager::ResourceManager;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
@@ -87,46 +88,87 @@ impl UiStore {
 
 pub trait UiStoreDispatcherExt {
     fn inc_counter(&self) -> usize;
-    fn dispatch_response_gvk_items(
-        &self,
-        next_gvk: GroupVersionKind,
-        resources: Option<Vec<ResourceView>>,
-    );
-
-    fn dispatch_response_resource_updated(&self, resource: ResourceView);
-    fn dispatch_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>);
-
-    fn dispatch_apply_namespace_filter(&self, id: usize, namespace: String);
-    fn dispatch_apply_name_filter(&self, id: usize, name: String);
-
-    fn dispatch_show_details(&self, resource: ResourceView);
-    fn dispatch_show_gvk(&self, gvk: GroupVersionKind);
-
-    fn dispatch_ctrl_s(&self);
-    fn dispatch_ctrl_y(&self);
-    fn dispatch_f5(&self);
-    fn dispatch_esc(&self);
-    fn dispatch_shell_current(&self);
-    fn dispatch_show_debug_log(&self);
-
-    fn replace_table_items(&self, id: usize);
-
-    fn update_list_views_for_gvk(&self, gvk: &GroupVersionKind);
 }
 
 impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
     fn inc_counter(&self) -> usize {
         self.lock_unwrap().inc_counter()
     }
+}
+
+pub trait DispatchContextExt {
+    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind);
+    fn dispatch_response_gvk_items(
+        self,
+        next_gvk: GroupVersionKind,
+        resources: Option<Vec<ResourceView>>,
+    );
+    fn dispatch_response_resource_updated(self, resource: ResourceView);
+    fn dispatch_response_discovered_gvks(self, gvks: Vec<GroupVersionKind>);
+
+    fn dispatch_apply_namespace_filter(self, id: usize, namespace: String);
+    fn dispatch_apply_name_filter(self, id: usize, name: String);
+
+    fn dispatch_show_details(self, resource: ResourceView);
+    fn dispatch_show_gvk(self, gvk: GroupVersionKind);
+
+    fn dispatch_ctrl_s(self);
+    fn dispatch_ctrl_y(self);
+    fn dispatch_f5(self);
+    fn dispatch_esc(self);
+    fn dispatch_shell_current(self);
+    fn dispatch_show_debug_log(self);
+    fn dispatch_replace_table_items(&self, id: usize);
+
+    fn call_on_name<V, F, R>(&self, name: &str, callback: F)
+    where
+        V: View,
+        F: Send + FnOnce(&mut V) -> R + 'static;
+
+    fn send_box<F>(&self, callback: F)
+    where
+        F: FnOnce(&mut Cursive) + Send + 'static;
+}
+
+impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
+    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind) {
+        let affected_views = {
+            let store = self.data.lock_unwrap();
+            store.view_stack.find_all(&gvk)
+        };
+
+        if affected_views.is_empty() {
+            warn!("No views found for gvk={}", gvk.full_name());
+        }
+
+        for view_meta in affected_views {
+            let name = view_meta.read_unwrap().get_unique_name();
+            let store = Arc::clone(&self.data);
+            self.call_on_name(
+                &name,
+                move |table: &mut TableView<EvaluatedResource, usize>| {
+                    let store = store.lock_unwrap();
+                    let view_meta = view_meta.read_unwrap();
+                    let evaluated_resources = store.get_filtered_resources(view_meta.deref());
+
+                    info!(
+                        "Rendering full view for {} local resources",
+                        evaluated_resources.len()
+                    );
+                    table.set_items(evaluated_resources);
+                },
+            );
+        }
+    }
 
     fn dispatch_response_gvk_items(
-        &self,
+        self,
         next_gvk: GroupVersionKind,
         resources: Option<Vec<ResourceView>>,
     ) {
         {
             let next_gvk = next_gvk.clone();
-            let mut store = self.lock_unwrap();
+            let mut store = self.data.lock_unwrap();
 
             if let Some(resources) = resources {
                 info!(
@@ -143,20 +185,20 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             }
         };
 
-        self.update_list_views_for_gvk(&next_gvk);
+        self.dispatcher
+            .dispatch_sync(ToUiSignal::UpdateListViewForGvk(next_gvk));
     }
 
-    fn dispatch_response_resource_updated(&self, resource: ResourceView) {
+    fn dispatch_response_resource_updated(self, resource: ResourceView) {
         let gvk = resource.gvk();
         info!(
             "Received an updated resource {}",
             resource.full_unique_name()
         );
 
-        let (sink, affected_views, evaluated_resource) = {
-            let mut store = self.lock_unwrap();
+        let (affected_views, evaluated_resource) = {
+            let mut store = self.data.lock_unwrap();
             (
-                store.sink.clone(),
                 store.view_stack.find_all(&gvk),
                 store.resource_manager.replace(resource),
             )
@@ -170,7 +212,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         }
 
         for affected_view in affected_views {
-            let store = self.lock_unwrap();
+            let store = self.data.lock_unwrap();
 
             let view_guard = affected_view.read_unwrap();
             let evaluated_resource = evaluated_resource.clone();
@@ -182,8 +224,9 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 continue;
             }
             let view_name = view_guard.get_unique_name();
+            drop(store);
 
-            sink.call_on_name(
+            self.call_on_name(
                 &view_name,
                 move |table: &mut TableView<EvaluatedResource, usize>| {
                     table.add_or_update_resource(evaluated_resource);
@@ -192,54 +235,53 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         }
     }
 
-    fn dispatch_response_discovered_gvks(&self, gvks: Vec<GroupVersionKind>) {
-        let store = Arc::clone(self);
-        let sink = store.lock_unwrap().sink.clone();
-        sink.send_box(move |siv| {
+    fn dispatch_response_discovered_gvks(self, gvks: Vec<GroupVersionKind>) {
+        let store = Arc::clone(&self.data);
+        self.send_box(move |siv| {
             let mut menubar = build_menu(gvks, store);
             menubar.autohide = false;
             *siv.menubar() = menubar;
         });
     }
 
-    fn dispatch_apply_namespace_filter(&self, id: usize, namespace: String) {
+    fn dispatch_apply_namespace_filter(self, id: usize, namespace: String) {
         {
-            let mut store = self.lock_unwrap();
+            let mut store = self.data.lock_unwrap();
             if let Some(view_meta) = store.view_stack.get(id) {
                 view_meta.write_unwrap().set_namespace(namespace)
             } else {
                 warn!("Could not set namespace filter {namespace} a filter for {id}");
             }
         }
-        self.replace_table_items(id);
+
+        self.dispatcher
+            .dispatch_sync(ToUiSignal::ReplaceTableItems(id));
     }
 
-    fn dispatch_apply_name_filter(&self, id: usize, name: String) {
+    fn dispatch_apply_name_filter(self, id: usize, name: String) {
         {
-            let mut store = self.lock_unwrap();
+            let mut store = self.data.lock_unwrap();
             if let Some(view_meta) = store.view_stack.get(id) {
                 view_meta.write_unwrap().set_name(name)
             } else {
                 warn!("Could not set name filter {name} a filter for {id}");
             }
         }
-        self.replace_table_items(id);
+        self.dispatcher
+            .dispatch_sync(ToUiSignal::ReplaceTableItems(id));
     }
 
-    fn dispatch_show_details(&self, resource: ResourceView) {
-        let sink = {
-            let store = self.lock_unwrap();
-            store.sink.clone()
-        };
-
+    fn dispatch_show_details(self, resource: ResourceView) {
         match resource {
             ResourceView::Pod(pod) => {
                 let gvk = pod.build_pseudo_gvk("container");
-                self.dispatch_show_gvk(gvk.clone());
-                self.update_list_views_for_gvk(&gvk);
+                self.dispatcher
+                    .dispatch_sync(ToUiSignal::ShowGvk(gvk.clone()));
+                self.dispatcher
+                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk));
             }
             resource => {
-                let store = self.lock_unwrap();
+                let store = self.data.lock_unwrap();
                 let html = match store.detail_view_renderer.render_html(&resource) {
                     Ok(html) => html,
                     Err(err) => {
@@ -252,7 +294,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                 };
                 drop(store);
 
-                sink.send_box(move |siv| {
+                self.send_box(move |siv| {
                     let layout = build_detail_view(resource, html);
                     siv.add_fullscreen_layer(layout);
                 });
@@ -260,34 +302,24 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         }
     }
 
-    fn dispatch_show_gvk(&self, gvk: GroupVersionKind) {
-        let sink = {
-            let mut store = self.lock_unwrap();
-            store.selected_gvk = gvk;
-            store.sink.clone()
-        };
+    fn dispatch_show_gvk(self, gvk: GroupVersionKind) {
+        self.data.lock_unwrap().selected_gvk = gvk;
+        let store = Arc::clone(&self.data);
 
-        let store = Arc::clone(self);
-
-        let (sender, receiver) = kanal::unbounded::<()>();
-
-        sink.send_box(move |siv| {
+        self.send_box(move |siv| {
             let layout = build_gvk_list_view_layout(Arc::clone(&store));
             let view_meta = layout.meta.clone();
             let view_name = view_meta.read_unwrap().get_unique_name();
             store.lock_unwrap().view_stack.push(view_meta);
             siv.add_fullscreen_layer(layout);
             info!("Registered view: {view_name}");
-            sender.send(()).unwrap_or_log();
         });
-
-        receiver.recv().unwrap_or_log();
     }
 
-    fn dispatch_ctrl_s(&self) {
+    fn dispatch_ctrl_s(self) {
         let is_pod = self
-            .lock()
-            .unwrap_or_log()
+            .data
+            .lock_unwrap()
             .selected_resource
             .as_ref()
             .map(|evaluated_resource| evaluated_resource.is_pod())
@@ -298,9 +330,9 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         info!("Ctrl + s pressed outside of context");
     }
 
-    fn dispatch_ctrl_y(&self) {
-        let (yaml, sink) = {
-            let store = self.lock_unwrap();
+    fn dispatch_ctrl_y(self) {
+        let yaml = {
+            let store = self.data.lock_unwrap();
             let evaluated_resource = if let Some(resource) = store.selected_resource.as_ref() {
                 resource.clone()
             } else {
@@ -309,25 +341,25 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             };
 
             let yaml = evaluated_resource.resource.to_yaml().unwrap_or_log();
-            let yaml = store.highlighter.highlight(&yaml, "yaml").unwrap_or_log();
 
-            (yaml, store.sink.clone())
+            store.highlighter.highlight(&yaml, "yaml").unwrap_or_log()
         };
 
-        sink.send_box(|siv| {
+        self.send_box(|siv| {
             let c = build_code_view(yaml);
             siv.add_layer(c);
         })
     }
 
-    fn dispatch_f5(&self) {
-        let last_view = self.lock_unwrap().view_stack.last();
+    fn dispatch_f5(self) {
+        let last_view = self.data.lock_unwrap().view_stack.last();
 
         if let Some(view_meta) = last_view {
             let view_meta = view_meta.read_unwrap();
             match view_meta.deref() {
                 ViewMeta::List { gvk, .. } => {
-                    self.update_list_views_for_gvk(gvk);
+                    self.dispatcher
+                        .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk.clone()));
                     return;
                 }
                 ViewMeta::Detail { .. } => {}
@@ -338,20 +370,16 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         error!("F5 not implemented for the current view")
     }
 
-    fn dispatch_esc(&self) {
-        let sink = {
-            let store = self.lock_unwrap();
-            store.sink.clone()
-        };
-        let store = Arc::clone(self);
-        sink.send_box(move |siv| {
+    fn dispatch_esc(self) {
+        let store = Arc::clone(&self.data);
+        self.send_box(move |siv| {
             store.lock_unwrap().view_stack.pop();
             siv.pop_layer();
         })
     }
 
-    fn dispatch_shell_current(&self) {
-        let mut store = self.lock_unwrap();
+    fn dispatch_shell_current(self) {
+        let mut store = self.data.lock_unwrap();
 
         let container_name = store
             .selected_pod_container
@@ -384,15 +412,12 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
             return;
         }
 
-        let sink = store.sink.clone();
-        drop(store);
-
-        sink.send_box(|siv| siv.quit());
+        self.send_box(|siv| siv.quit());
     }
 
-    fn dispatch_show_debug_log(&self) {
-        let store = Arc::clone(self);
-        self.lock_unwrap().sink.send_box(move |siv| {
+    fn dispatch_show_debug_log(self) {
+        let store = Arc::clone(&self.data);
+        self.send_box(move |siv| {
             let view_meta = ViewMeta::Dialog {
                 id: store.inc_counter(),
                 name: "Debug".to_string(),
@@ -404,51 +429,49 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
         });
     }
 
-    fn replace_table_items(&self, id: usize) {
-        let mut store = self.lock_unwrap();
+    fn dispatch_replace_table_items(&self, id: usize) {
+        let extracted = {
+            let mut store = self.data.lock_unwrap();
+            if let Some(view_meta) = store.view_stack.get(id) {
+                Some((
+                    view_meta.read_unwrap().get_unique_name(),
+                    store.get_filtered_resources(view_meta.read_unwrap().deref()),
+                ))
+            } else {
+                warn!(
+                    "Could not find a view with id={id}, {}",
+                    store.view_stack.stack.len()
+                );
+                None
+            }
+        };
 
-        if let Some(view_meta) = store.view_stack.get(id) {
-            let view_meta = view_meta.read_unwrap();
-            let resources = store.get_filtered_resources(view_meta.deref());
-            store.sink.call_on_name(
-                &view_meta.get_unique_name(),
+        if let Some((view_name, resources)) = extracted {
+            self.call_on_name(
+                &view_name,
                 move |table: &mut TableView<EvaluatedResource, usize>| table.set_items(resources),
             );
-        } else {
-            warn!(
-                "Could not find a view with id={id}, {}",
-                store.view_stack.stack.len()
-            );
-        };
+        }
     }
 
-    fn update_list_views_for_gvk(&self, gvk: &GroupVersionKind) {
-        let (affected_views, sink) = {
-            let store = self.lock_unwrap();
-            (store.view_stack.find_all(gvk), store.sink.clone())
-        };
+    fn call_on_name<V, F, R>(&self, name: &str, callback: F)
+    where
+        V: View,
+        F: Send + FnOnce(&mut V) -> R + 'static,
+    {
+        let sink = self.data.lock_unwrap().sink.clone();
+        self.num_callbacks
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        sink.call_on_name_sync(self.sender.clone(), name, callback);
+    }
 
-        if affected_views.is_empty() {
-            warn!("No views found for gvk={}", gvk.full_name());
-        }
-
-        for view_meta in affected_views {
-            let name = view_meta.read_unwrap().get_unique_name();
-            let store = Arc::clone(self);
-            sink.call_on_name(
-                &name,
-                move |table: &mut TableView<EvaluatedResource, usize>| {
-                    let store = store.lock_unwrap();
-                    let view_meta = view_meta.read_unwrap();
-                    let evaluated_resources = store.get_filtered_resources(view_meta.deref());
-
-                    info!(
-                        "Rendering full view for {} local resources",
-                        evaluated_resources.len()
-                    );
-                    table.set_items(evaluated_resources);
-                },
-            );
-        }
+    fn send_box<F>(&self, callback: F)
+    where
+        F: FnOnce(&mut Cursive) + Send + 'static,
+    {
+        let sink = self.data.lock_unwrap().sink.clone();
+        self.num_callbacks
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        sink.send_box_sync(self.sender.clone(), callback);
     }
 }
