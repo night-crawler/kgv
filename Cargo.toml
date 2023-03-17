@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cursive_table_view = "0.14"
+cursive_table_view = { version = "0.14.0", git = "https://github.com/smallB007/cursive_table_view.git", rev = "c408e7e296d6b04cd340f7c5526f11347c66a5a1" }
 rand = "0.8"
 kube = { version = "0.80.0", features = ["runtime", "derive"] }
 k8s-openapi = { version = "0.17.0", features = ["v1_26"] }

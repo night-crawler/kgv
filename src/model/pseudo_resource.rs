@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use k8s_openapi::serde_json;
+use k8s_openapi::serde_json::Value;
 use kube::api::GroupVersionKind;
-use serde_yaml::Error;
 
 use crate::model::dynamic_object::DynamicObjectWrapper;
 use crate::model::resource::resource_view::ResourceView;
@@ -69,8 +70,11 @@ impl PseudoResource {
 }
 
 impl SerializeExt for PseudoResource {
-    fn to_yaml(&self) -> Result<String, Error> {
-        serde_yaml::to_string(&self.resource)
+    fn to_yaml(&self) -> Result<String, serde_yaml::Error> {
+        let s = serde_yaml::to_string(&self.resource)?;
+        let mut data: HashMap<&str, Value> = serde_yaml::from_str(&s)?;
+        data.remove("__meta");
+        serde_yaml::to_string(&data)
     }
 
     fn to_json(&self) -> Result<String, serde_json::Error> {

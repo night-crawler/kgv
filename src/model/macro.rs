@@ -56,20 +56,6 @@ macro_rules! mk_resource_enum {
             }
         }
 
-        // full_unique_name
-        impl $name {
-            pub fn full_unique_name(&self) -> String {
-                use $crate::traits::ext::gvk::GvkExt;
-                use $crate::traits::ext::gvk::GvkNameExt;
-
-                let gvk = self.gvk().full_name();
-                format!(
-                    "{}::{}/{}",
-                    gvk, self.namespace(), self.name()
-                )
-            }
-        }
-
         // age()
         impl $name {
             pub fn age(&self) -> chrono::Duration {

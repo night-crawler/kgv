@@ -13,9 +13,9 @@ where
     T: TableViewItem<H> + Clone + 'static,
     H: Eq + std::hash::Hash + Copy + 'static,
 {
-    fn set_named_on_submit(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static);
+    fn set_on_submit_named(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static);
 
-    fn set_named_on_select(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static);
+    fn set_on_select_named(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static);
 }
 
 impl<T, H> TableCallBacks<T, H> for TableView<T, H>
@@ -24,7 +24,7 @@ where
     H: Eq + std::hash::Hash + Copy + 'static,
 {
     //noinspection DuplicatedCode
-    fn set_named_on_submit(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static) {
+    fn set_on_submit_named(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static) {
         let name = name.to_string();
         self.set_on_submit(move |siv, _, index| {
             if let Some(item) = siv.get_table_item(&name, index) {
@@ -36,7 +36,7 @@ where
     }
 
     //noinspection DuplicatedCode
-    fn set_named_on_select(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static) {
+    fn set_on_select_named(&mut self, name: &str, callback: impl Fn(&mut Cursive, T) + 'static) {
         let name = name.to_string();
         self.set_on_select(move |siv, _, index| {
             if let Some(item) = siv.get_table_item(&name, index) {

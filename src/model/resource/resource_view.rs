@@ -41,3 +41,12 @@ impl ResourceView {
         gvk
     }
 }
+
+impl ResourceView {
+    pub fn full_unique_name(&self) -> String {
+        use crate::traits::ext::gvk::GvkNameExt;
+
+        let gvk = self.gvk().full_name();
+        format!("{}::{}/{}", gvk, self.namespace(), self.name())
+    }
+}

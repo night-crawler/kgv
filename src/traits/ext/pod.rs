@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use k8s_openapi::api::core::v1::{ContainerStatus, Pod};
-
 use crate::model::pod::pod_container_view::PodContainerView;
+
 
 pub trait PodExt {
     fn get_pod_containers(&self) -> Option<Vec<PodContainerView>>;

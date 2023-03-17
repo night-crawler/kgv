@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use cursive::reexports::log::error;
+use cursive::reexports::log::{error, warn};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
@@ -105,10 +105,12 @@ impl Evaluator {
         resource: ResourceView,
         columns: &[Column],
     ) -> Result<EvaluatedResource, KgvError> {
-        let map = self.to_rhai_object(&resource)?;
-
         let mut scope = Scope::new();
-        scope.push("resource", map);
+        scope.push("resource", self.to_rhai_object(&resource)?);
+        if let ResourceView::PseudoResouce(resource) = &resource {
+            scope.push("source", self.to_rhai_object(&resource.source)?);
+            warn!("SOURCE!");
+        }
 
         let values = self.pool.install(|| {
             let engine = self.watcher.value();

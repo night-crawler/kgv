@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cursive::reexports::log::info;
+use cursive::reexports::log::warn;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
 use rhai::{exported_module, Engine};
 
@@ -22,7 +22,7 @@ pub fn build_engine(paths: &[PathBuf]) -> Engine {
         )
         .on_debug(|x, src, pos| {
             let src = src.unwrap_or("unknown");
-            info!("ENGINE: {src} at {pos:?}: {x}");
+            warn!("ENGINE: {src} at {pos:?}: {x}");
         })
         .set_module_resolver(collection_resolver);
 

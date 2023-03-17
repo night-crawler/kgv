@@ -1,13 +1,14 @@
+use std::cmp::Ordering;
 use std::sync::Arc;
 
 use cursive::direction::Orientation;
 use cursive::traits::*;
-use cursive::views::{DummyView, LinearLayout, Panel};
+use cursive::views::{LinearLayout, Panel};
 use cursive_table_view::TableView;
 use kube::core::GroupVersionKind;
 
 use crate::model::resource::resource_view::EvaluatedResource;
-use crate::reexports::{Mutex, RwLock};
+use crate::reexports::Mutex;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
@@ -32,13 +33,19 @@ impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
         let mut table: TableView<EvaluatedResource, usize> = TableView::new();
 
         for (index, column) in column_handles.iter().enumerate() {
-            table = table.column(index, &column.display_name, |c| {
-                if column.width != 0 {
-                    c.width(column.width)
-                } else {
-                    c
-                }
-            });
+            table = table.column(
+                index,
+                &column.display_name,
+                |c| {
+                    if column.width != 0 {
+                        c.width(column.width)
+                    } else {
+                        c
+                    }
+                    .ordering(Ordering::Less)
+                },
+                true,
+            );
         }
 
         table
@@ -96,7 +103,7 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
 
     let mut table = store.build_list_view_table(&selected_gvk);
     {
-        table.set_named_on_submit(
+        table.set_on_submit_named(
             &view_meta.get_unique_name(),
             move |_, evaluated_resource| {
                 to_backend_sender.send_unwrap(ToBackendSignal::RequestDetails(
@@ -109,7 +116,7 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
 
     {
         let store = Arc::clone(&store);
-        table.set_named_on_select(&view_meta.get_unique_name(), move |_, item| {
+        table.set_on_select_named(&view_meta.get_unique_name(), move |_, item| {
             store.lock_unwrap().selected_resource = Some(item)
         });
     }
@@ -121,11 +128,7 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
         .with_name(view_meta.get_panel_name());
 
     main_layout.add_child(filter_layout.full_width());
-    main_layout.add_child(DummyView {}.full_width());
     main_layout.add_child(table_panel);
 
-    ViewWithMeta {
-        inner: Box::new(main_layout),
-        meta: Arc::new(RwLock::new(view_meta)),
-    }
+    ViewWithMeta::new(main_layout, view_meta)
 }

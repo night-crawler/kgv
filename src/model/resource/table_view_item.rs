@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use cursive::reexports::log::info;
+use cursive::reexports::log::{error, info};
 use cursive_table_view::{TableView, TableViewItem};
 
 use crate::model::resource::resource_view::EvaluatedResource;
@@ -8,14 +8,19 @@ use crate::traits::ext::table_view::TableViewExt;
 
 impl TableViewItem<usize> for EvaluatedResource {
     fn to_column(&self, column: usize) -> String {
-        self.values[column].to_string()
+        if let Some (eval_result) = self.values.get(column) {
+            eval_result.to_string()
+        } else {
+            error!("No column at index: {}", column);
+             "-".to_string()
+        }
     }
 
     fn cmp(&self, other: &Self, column: usize) -> Ordering
     where
         Self: Sized,
     {
-        self.values[column].cmp(&other.values[column])
+        self.values.get(column).cmp(&other.values.get(column))
     }
 }
 

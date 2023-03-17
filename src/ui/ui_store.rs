@@ -34,7 +34,7 @@ use crate::ui::resource_manager::ResourceManager;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::ui::view_meta::{Filter, ViewMeta};
 use crate::ui::view_stack::ViewStack;
-use crate::util::panics::ResultExt;
+use crate::util::panics::{OptionExt, ResultExt};
 use crate::util::view_with_data::ViewWithMeta;
 
 pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
@@ -89,11 +89,17 @@ impl UiStore {
 
 pub trait UiStoreDispatcherExt {
     fn inc_counter(&self) -> usize;
+    fn register_view(&self, view_meta: &ViewWithMeta<ViewMeta>);
 }
 
 impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
     fn inc_counter(&self) -> usize {
         self.lock_unwrap().inc_counter()
+    }
+
+    fn register_view(&self, view: &ViewWithMeta<ViewMeta>) {
+        let meta = Arc::clone(&view.meta);
+        self.lock_unwrap().view_stack.push(meta)
     }
 }
 
@@ -148,7 +154,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             self.call_on_name(
                 &name,
                 move |table: &mut TableView<EvaluatedResource, usize>| {
-                    let store = store.lock_unwrap();
+                    let mut store = store.lock_unwrap();
                     let view_meta = view_meta.read_unwrap();
                     let evaluated_resources = store.get_filtered_resources(view_meta.deref());
 
@@ -157,6 +163,9 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
                         evaluated_resources.len()
                     );
                     table.set_items(evaluated_resources);
+                    table.set_selected_row(0);
+                    let item_index = table.item().unwrap_or_log();
+                    store.selected_resource = table.borrow_item(item_index).cloned();
                 },
             );
         }
@@ -228,10 +237,16 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             drop(store);
             drop(view_guard);
 
+            let store = Arc::clone(&self.data);
             self.call_on_name(
                 &view_name,
                 move |table: &mut TableView<EvaluatedResource, usize>| {
-                    table.add_or_update_resource(evaluated_resource);
+                    if table.is_empty() {
+                        table.add_or_update_resource(evaluated_resource.clone());
+                        store.lock_unwrap().selected_resource = Some(evaluated_resource);
+                    } else {
+                        table.add_or_update_resource(evaluated_resource);
+                    }
                 },
             );
         }
@@ -314,6 +329,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             let view_name = view_meta.read_unwrap().get_unique_name();
             store.lock_unwrap().view_stack.push(view_meta);
             siv.add_fullscreen_layer(layout);
+            siv.focus_name(&view_name).unwrap_or_log();
             info!("Registered view: {view_name}");
         });
     }
@@ -333,8 +349,9 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
     }
 
     fn dispatch_ctrl_y(self) {
-        let yaml = {
+        let (yaml, title) = {
             let store = self.data.lock_unwrap();
+
             let evaluated_resource = if let Some(resource) = store.selected_resource.as_ref() {
                 resource.clone()
             } else {
@@ -343,13 +360,19 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             };
 
             let yaml = evaluated_resource.resource.to_yaml().unwrap_or_log();
+            let highlighted_yaml = store.highlighter.highlight(&yaml, "yaml").unwrap_or_log();
 
-            store.highlighter.highlight(&yaml, "yaml").unwrap_or_log()
+            (
+                highlighted_yaml,
+                evaluated_resource.resource.full_unique_name(),
+            )
         };
 
-        self.send_box(|siv| {
-            let c = build_code_view(yaml);
-            siv.add_layer(c);
+        let store = Arc::clone(&self.data);
+        self.send_box(move |siv| {
+            let view = build_code_view(Arc::clone(&store), title, yaml);
+            store.register_view(&view);
+            siv.add_layer(view);
         })
     }
 
@@ -414,6 +437,8 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             return;
         }
 
+        drop(store);
+
         self.send_box(|siv| siv.quit());
     }
 
@@ -422,12 +447,12 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
         self.send_box(move |siv| {
             let view_meta = ViewMeta::Dialog {
                 id: store.inc_counter(),
-                name: "Debug".to_string(),
+                name: "Debug Log".to_string(),
             };
             let logger = FlexiLoggerView::scrollable();
             let logger = ViewWithMeta::new(logger, view_meta);
             store.lock_unwrap().view_stack.push(logger.meta.clone());
-            siv.add_fullscreen_layer(Dialog::around(logger));
+            siv.add_fullscreen_layer(Dialog::around(logger).title("Debug Log"));
         });
     }
 
