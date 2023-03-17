@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use cursive::reexports::log::warn;
+use itertools::Itertools;
 
 use k8s_openapi::serde_json;
 use k8s_openapi::serde_json::Value;
@@ -8,6 +10,8 @@ use kube::api::GroupVersionKind;
 use crate::model::dynamic_object::DynamicObjectWrapper;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::SerializeExt;
+
+pub const PSEUDO_RESOURCE_JOIN_SEQ: &str = "/";
 
 #[derive(Debug)]
 pub struct PseudoResource {
@@ -47,9 +51,16 @@ impl PseudoResource {
         let uid = self
             .source
             .uid()
-            .unwrap_or_else(|| self.source.full_unique_name());
-
-        format!("{uid}#{}#{}", self.extractor_name, self.id).into()
+            .unwrap_or_else(|| {
+                warn!("Resource without uid: {}", self.source.full_unique_name());
+                self.source.full_unique_name()
+            });
+        let parts = [
+            &uid,
+            &self.extractor_name,
+            &self.id,
+        ];
+        Some(parts.iter().join(PSEUDO_RESOURCE_JOIN_SEQ))
     }
 
     pub fn name(&self) -> String {

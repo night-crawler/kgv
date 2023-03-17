@@ -9,6 +9,7 @@ use kube::ResourceExt;
 use crate::eval::eval_result::EvalResult;
 use crate::traits::ext::gvk::GvkExt;
 use crate::{extract_age, extract_status, mk_resource_enum};
+use crate::model::pseudo_resource::PSEUDO_RESOURCE_JOIN_SEQ;
 
 mk_resource_enum!(
     ResourceView,
@@ -37,7 +38,7 @@ impl ResourceView {
     pub fn to_pseudo_gvk(&self, extractor_name: &str) -> GroupVersionKind {
         let mut gvk = self.gvk();
         let parts = [&gvk.kind, extractor_name, &self.name()];
-        gvk.kind = parts.join("#");
+        gvk.kind = parts.join(PSEUDO_RESOURCE_JOIN_SEQ);
         gvk
     }
 }
@@ -47,6 +48,6 @@ impl ResourceView {
         use crate::traits::ext::gvk::GvkNameExt;
 
         let gvk = self.gvk().full_name();
-        format!("{}::{}/{}", gvk, self.namespace(), self.name())
+        format!("{}/{}/{}", gvk, self.namespace(), self.name())
     }
 }

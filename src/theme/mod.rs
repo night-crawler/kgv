@@ -8,10 +8,17 @@ pub fn get_theme() -> Theme {
 
             let mut palette = Palette::default();
 
-            palette[View] = Black.dark();
             palette[Background] = Black.dark();
+            palette[Shadow] = Black.light();
+            palette[View] = Black.dark();
+
             palette[Primary] = White.dark();
-            palette[TitlePrimary] = Red.dark();
+            palette[Secondary] = Black.light();
+            palette[Tertiary] = Black.light();
+
+            palette[TitlePrimary] = Cyan.light();
+            palette[TitleSecondary] = Yellow.light();
+
             palette[Highlight] = Red.dark();
             palette[HighlightInactive] = Black.dark();
             palette[HighlightText] = White.dark();
