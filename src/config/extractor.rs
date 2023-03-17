@@ -15,10 +15,16 @@ use crate::util::fs::scan_files;
 use crate::util::paths::resolve_path;
 use crate::util::ui::ago;
 
+#[derive(Debug)]
+pub enum DetailType {
+    Table(String),
+    Template(DetailsTemplate),
+}
+
 #[derive(Debug, Default)]
 pub struct ExtractorConfig {
     pub columns_map: HashMap<GroupVersionKind, Arc<Vec<Column>>>,
-    pub templates_map: HashMap<GroupVersionKind, Arc<DetailsTemplate>>,
+    pub detail_types_map: HashMap<GroupVersionKind, Arc<DetailType>>,
     pub pseudo_resources_map: HashMap<GroupVersionKind, Arc<Vec<PseudoResourceConf>>>,
 }
 
@@ -47,8 +53,15 @@ impl ExtractorConfig {
             let gvk = resource_config_props.resource.clone();
 
             if let Some(details) = detail_config {
-                let (template_path, template) = parse_detail_templates(&path, details);
-                instance.register_detail_template(gvk.clone(), template, &template_path);
+                let (origin, detail_type) = match details {
+                    DetailsConfigProps::Template(template_details) => {
+                        DetailType::from_template_config(&path, template_details)
+                    }
+                    DetailsConfigProps::Table(extractor_name) => {
+                        (path.clone(), DetailType::Table(extractor_name))
+                    }
+                };
+                instance.register_detail_type(gvk.clone(), detail_type, &origin);
             }
 
             instance.register_gvk_columns(gvk.clone(), columns, &path);
@@ -116,14 +129,18 @@ impl ExtractorConfig {
         }
     }
 
-    fn register_detail_template(
+    fn register_detail_type(
         &mut self,
         gvk: GroupVersionKind,
-        template: DetailsTemplate,
+        detail_type: DetailType,
         origin: &Path,
     ) {
         let gvk_full_name = gvk.full_name();
-        if self.templates_map.insert(gvk, template.into()).is_some() {
+        if self
+            .detail_types_map
+            .insert(gvk, detail_type.into())
+            .is_some()
+        {
             warn!(
                 "{}: Replaced detail template from {}",
                 gvk_full_name,
@@ -137,6 +154,8 @@ impl ExtractorConfig {
             );
         }
     }
+
+
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -189,8 +208,14 @@ struct ResourceConfigProps {
     #[serde(default)]
     pseudo_resources: Vec<PseudoResourceExtractorConfigPros>,
 
-    details: Option<DetailsTemplateConfigProps>,
+    details: Option<DetailsConfigProps>,
     columns: Vec<ColumnConfigProps>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+enum DetailsConfigProps {
+    Template(DetailsTemplateConfigProps),
+    Table(String),
 }
 
 impl TryFrom<&PathBuf> for ResourceConfigProps {
@@ -367,23 +392,25 @@ fn parse_pseudo_resources(
     pseudo_resources
 }
 
-fn parse_detail_templates(
-    path: &Path,
-    details: DetailsTemplateConfigProps,
-) -> (PathBuf, DetailsTemplate) {
-    let template_path = resolve_path(path, &details.template);
-    let template = DetailsTemplate {
-        template: template_path.clone(),
-        helpers: details
-            .helpers
-            .into_iter()
-            .map(|mut helper| {
-                helper.path = resolve_path(&template_path, &helper.path);
-                helper
-            })
-            .collect(),
-    };
-    (template_path, template)
+impl DetailType {
+    fn from_template_config(
+        path: &Path,
+        details: DetailsTemplateConfigProps,
+    ) -> (PathBuf, DetailType) {
+        let template_path = resolve_path(path, &details.template);
+        let template = DetailsTemplate {
+            template: template_path.clone(),
+            helpers: details
+                .helpers
+                .into_iter()
+                .map(|mut helper| {
+                    helper.path = resolve_path(&template_path, &helper.path);
+                    helper
+                })
+                .collect(),
+        };
+        (template_path, Self::Template(template))
+    }
 }
 
 #[cfg(test)]
@@ -410,10 +437,10 @@ mod tests {
 
         let resource = ResourceConfigProps {
             resource: Pod::gvk_for_type(),
-            details: Some(DetailsTemplateConfigProps {
+            details: Some(DetailsConfigProps::Template(DetailsTemplateConfigProps {
                 template: Default::default(),
                 helpers: vec![],
-            }),
+            })),
             pseudo_resources: Vec::new(),
             imports: vec![r##"import "pod" as pod;"##.to_string()],
             columns: vec![
@@ -445,7 +472,7 @@ mod tests {
         let data = serde_yaml::to_string(&resource).unwrap();
         println!("{}", data);
 
-        std::fs::write(&extractor_path, data).unwrap();
+        std::fs::write(extractor_path, data).unwrap();
 
         let deserialized = ExtractorConfig::new(&[extractor_dir.into_path()]);
         assert_eq!(deserialized.columns_map.len(), 1);

@@ -1,34 +1,30 @@
-use cursive::theme::{BorderStyle, Palette, Theme};
+use cursive::theme::{BorderStyle, Color, Palette, Theme};
 
 pub fn get_theme() -> Theme {
     Theme {
         palette: {
-            use cursive::theme::BaseColor::*;
             use cursive::theme::PaletteColor::*;
 
             let mut palette = Palette::default();
 
-            palette[Background] = Black.dark();
-            palette[Shadow] = Black.light();
-            palette[View] = Black.dark();
+            palette[Background] = Color::parse("#282a36").unwrap();
+            palette[Shadow] = Color::parse("#000000").unwrap();
+            palette[View] = Color::parse("#44475a").unwrap();
+            palette[Primary] = Color::parse("#f8f8f2").unwrap();
+            palette[Secondary] = Color::parse("#6272a4").unwrap();
+            palette[Tertiary] = Color::parse("#f1fa8c").unwrap();
+            palette[TitlePrimary] = Color::parse("#50fa7b").unwrap();
+            palette[TitleSecondary] = Color::parse("#ff79c6").unwrap();
+            palette[Highlight] = Color::parse("#8be9fd").unwrap();
+            palette[HighlightInactive] = Color::parse("#6272a4").unwrap();
+            palette[HighlightText] = Color::parse("#282a36").unwrap();
 
-            palette[Primary] = White.dark();
-            palette[Secondary] = Black.light();
-            palette[Tertiary] = Black.light();
-
-            palette[TitlePrimary] = Cyan.light();
-            palette[TitleSecondary] = Yellow.light();
-
-            palette[Highlight] = Red.dark();
-            palette[HighlightInactive] = Black.dark();
-            palette[HighlightText] = White.dark();
-
-            {
-                use cursive::theme::Effect::*;
-                use cursive::theme::PaletteStyle::*;
-                use cursive::theme::Style;
-                palette[Highlight] = Style::from(Red.light()).combine(Bold);
-            }
+            // {
+            //     use cursive::theme::Effect::*;
+            //     use cursive::theme::PaletteStyle::*;
+            //     use cursive::theme::Style;
+            //     palette[Highlight] = Style::from(Yellow.dark()).combine(Bold);
+            // }
 
             palette
         },

@@ -8,14 +8,15 @@ use cursive_flexi_logger_view::FlexiLoggerView;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
-use crate::eval::engine_factory::build_engine;
 
+use crate::config::extractor::DetailType;
+use crate::eval::engine_factory::build_engine;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::traits::ext::cursive::SivExt;
 use crate::traits::ext::evaluated_resource::EvaluatedResourceExt;
+use crate::traits::ext::gvk::GvkExt;
 use crate::traits::ext::gvk::GvkNameExt;
-use crate::traits::ext::gvk::{GvkExt, PseudoGvkBuilderExt};
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
 use crate::traits::ext::pod::PodExt;
@@ -198,7 +199,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             if let Some(view_meta) = store.view_stack.get(id) {
                 view_meta.write_unwrap().set_namespace(namespace)
             } else {
-                warn!("Could not set namespace filter {namespace} a filter for {id}");
+                warn!("Could not set namespace filter {namespace} for {id}");
             }
         }
 
@@ -212,7 +213,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             if let Some(view_meta) = store.view_stack.get(id) {
                 view_meta.write_unwrap().set_name(name)
             } else {
-                warn!("Could not set name filter {name} a filter for {id}");
+                warn!("Could not set name filter {name} for {id}");
             }
         }
         self.dispatcher
@@ -220,17 +221,32 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
     }
 
     fn dispatch_show_details(self, resource: ResourceView) {
-        match resource {
-            ResourceView::Pod(pod) => {
-                let gvk = pod.build_pseudo_gvk("container");
+        let gvk = resource.gvk();
+        let detail_type = if let Some(detail_type) = self
+            .data
+            .lock_unwrap()
+            .resource_manager
+            .get_detail_type(&gvk)
+        {
+            detail_type
+        } else {
+            return;
+        };
+
+        match detail_type.deref() {
+            DetailType::Table(extractor_name) => {
+                let pseudo_gvk = resource.to_pseudo_gvk(extractor_name);
                 self.dispatcher
-                    .dispatch_sync(ToUiSignal::ShowGvk(gvk.clone()));
+                    .dispatch_sync(ToUiSignal::ShowGvk(pseudo_gvk.clone()));
                 self.dispatcher
-                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk));
+                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(pseudo_gvk));
             }
-            resource => {
+            DetailType::Template(details_template) => {
                 let store = self.data.lock_unwrap();
-                let html = match store.detail_view_renderer.render_html(&resource) {
+                let html = match store
+                    .detail_view_renderer
+                    .render_html(&resource, details_template)
+                {
                     Ok(html) => html,
                     Err(err) => {
                         error!(

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use cursive::backends::termion::termion::raw::IntoRawMode;
-use cursive::CursiveRunnable;
 use cursive::reexports::log::error;
+use cursive::CursiveRunnable;
 use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kanal::Sender;
 use kube::api::GroupVersionKind;
@@ -41,7 +41,6 @@ pub mod theme;
 pub mod traits;
 pub mod ui;
 pub mod util;
-
 
 fn main() -> Result<()> {
     better_panic::install();
@@ -90,7 +89,7 @@ fn main() -> Result<()> {
     let engine_watcher = LazyWatcher::new(kgv_configuration.module_dirs, build_engine)?;
     let engine_watcher = Arc::new(engine_watcher);
 
-    let detail_view_renderer = DetailViewRenderer::new(&engine_watcher, &extractor_config_watcher);
+    let detail_view_renderer = DetailViewRenderer::new(&engine_watcher);
     let resource_manager = ResourceManager::new(
         Evaluator::new(4, &engine_watcher)?,
         &extractor_config_watcher,
@@ -117,7 +116,6 @@ fn main() -> Result<()> {
         store.clone(),
     ));
     dispatcher.spawn_n(4);
-
 
     enter_command_handler_loop(&mut ui, store)?;
 
