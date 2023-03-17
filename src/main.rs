@@ -61,6 +61,7 @@ fn main() -> Result<()> {
     let mut ui = CursiveRunnable::default();
     ui.setup_logger(kgv_configuration.logs_dir)?;
     ui.set_theme(get_theme());
+    ui.set_fps(1);
 
     let (from_client_sender, from_backend_receiver) = kanal::unbounded();
     let (to_backend_sender, from_ui_receiver) = kanal::unbounded();
@@ -116,6 +117,7 @@ fn main() -> Result<()> {
         store.clone(),
     ));
     dispatcher.spawn_n(4);
+
 
     enter_command_handler_loop(&mut ui, store)?;
 

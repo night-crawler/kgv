@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use cursive::reexports::log::{error, warn};
+use cursive::reexports::log::error;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
@@ -109,7 +109,6 @@ impl Evaluator {
         scope.push("resource", self.to_rhai_object(&resource)?);
         if let ResourceView::PseudoResouce(resource) = &resource {
             scope.push("source", self.to_rhai_object(&resource.source)?);
-            warn!("SOURCE!");
         }
 
         let values = self.pool.install(|| {
@@ -134,7 +133,7 @@ impl Evaluator {
             EmbeddedExtractor::Namespace => EvalResult::String(resource.namespace()),
             EmbeddedExtractor::Name => EvalResult::String(resource.name()),
             EmbeddedExtractor::Status => EvalResult::String(resource.status()),
-            EmbeddedExtractor::Age => EvalResult::Duration(resource.age()),
+            EmbeddedExtractor::Age => EvalResult::AgoSince(resource.creation_timestamp()),
         }
     }
 

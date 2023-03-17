@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
 
 use anyhow::Context;
+use chrono::Utc;
 use rhai::plugin::*;
 use strum_macros::AsRefStr;
 
 use crate::util::error::{EvalError, KgvError};
-use crate::util::ui::ago;
+use crate::util::ui::{ago, duration_since, string_ago};
 
 #[derive(Clone, Debug)]
 pub struct RhaiPseudoResource {
@@ -16,9 +17,10 @@ pub struct RhaiPseudoResource {
 #[derive(Clone, Debug, AsRefStr)]
 pub enum EvalResult {
     Error(String),
-    Duration(chrono::Duration),
+    AgoSince(chrono::DateTime<Utc>),
     String(String),
     Int(i64),
+    Ago(String),
     MaybeString(Result<String, EvalError>),
     Vec(Vec<Dynamic>),
 }
@@ -50,7 +52,7 @@ impl PartialEq<Self> for EvalResult {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Error(left), Self::Error(right)) => left == right,
-            (Self::Duration(left), Self::Duration(right)) => left == right,
+            (Self::AgoSince(left), Self::AgoSince(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
             (Self::Int(left), Self::Int(right)) => left == right,
             (Self::MaybeString(left), Self::MaybeString(right)) => match (left, right) {
@@ -66,13 +68,19 @@ impl PartialOrd<Self> for EvalResult {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             (Self::Error(left), Self::Error(right)) => left.partial_cmp(right),
-            (Self::Duration(left), Self::Duration(right)) => left.partial_cmp(right),
+            (Self::AgoSince(left), Self::AgoSince(right)) => left.partial_cmp(right),
             (Self::String(left), Self::String(right)) => left.partial_cmp(right),
             (Self::Int(left), Self::Int(right)) => left.partial_cmp(right),
             (Self::MaybeString(left), Self::MaybeString(right)) => match (left, right) {
                 (Ok(left_string), Ok(right_string)) => left_string.partial_cmp(right_string),
                 _ => None,
             },
+            (Self::Ago(left), Self::Ago(right)) => {
+                match (duration_since(left), duration_since(right)) {
+                    (Ok(left), Ok(right)) => left.partial_cmp(&right),
+                    _ => None,
+                }
+            }
             _ => None,
         }
     }
@@ -88,7 +96,10 @@ impl ToString for EvalResult {
     fn to_string(&self) -> String {
         match self {
             EvalResult::Error(err) => err.to_string(),
-            EvalResult::Duration(duration) => ago(*duration),
+            EvalResult::AgoSince(duration) => {
+                let now = Utc::now();
+                ago(now - *duration)
+            },
             EvalResult::String(str) => str.to_string(),
             EvalResult::Int(val) => val.to_string(),
             EvalResult::MaybeString(value) => match value {
@@ -96,6 +107,7 @@ impl ToString for EvalResult {
                 Err(err) => format!("{}", err),
             },
             EvalResult::Vec(v) => format!("{:?}", v),
+            EvalResult::Ago(ts) => string_ago(ts),
         }
     }
 }
@@ -113,6 +125,11 @@ pub mod eval_result_module {
     #[allow(non_snake_case)]
     pub fn MaybeString(value: Result<String, EvalError>) -> EvalResult {
         EvalResult::MaybeString(value)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn Ago(value: String) -> EvalResult {
+        EvalResult::Ago(value)
     }
 }
 

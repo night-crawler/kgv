@@ -1,6 +1,7 @@
 use crate::ui::dispatcher::{Dispatch, DispatchContext};
 use crate::ui::signals::ToUiSignal;
-use crate::ui::ui_store::{DispatchContextExt, UiStore};
+use crate::ui::ui_store::UiStore;
+use crate::ui::ui_store_dispatch::DispatchContextExt;
 
 impl Dispatch<UiStore, ToUiSignal> for ToUiSignal {
     fn dispatch(self, context: DispatchContext<UiStore, ToUiSignal>) {
@@ -54,6 +55,9 @@ impl Dispatch<UiStore, ToUiSignal> for ToUiSignal {
                         context.dispatcher.dispatch_sync(signal);
                     }
                 }
+            }
+            ToUiSignal::CtrlPPressed => {
+                context.dispatch_ctrl_p();
             }
         }
     }

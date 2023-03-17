@@ -1,16 +1,23 @@
 use std::path::PathBuf;
 
 use cursive::reexports::log::warn;
+use itertools::Itertools;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
-use rhai::{exported_module, Engine};
+use rhai::{exported_module, Engine, Array};
 
 use crate::eval::eval_result::{EvalResult, PseudoResource, RhaiPseudoResource};
 use crate::util::ui::string_ago;
+
+fn join(array: Array, delimiter: &str) -> String {
+    array.iter().map(|item| item.to_string())
+        .join(delimiter)
+}
 
 pub fn build_engine(paths: &[PathBuf]) -> Engine {
     let mut engine = Engine::new();
     let collection_resolver = prepare_resolvers(paths);
     engine
+        .register_fn("join", join)
         .register_fn("compute_age", string_ago)
         .register_fn("PseudoResource", PseudoResource)
         .set_max_expr_depths(64, 64)

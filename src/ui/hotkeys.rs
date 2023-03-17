@@ -27,6 +27,12 @@ pub fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSig
     }
     {
         let ui_to_ui_sender = ui_to_ui_sender.clone();
+        ui.add_global_callback(event::Event::CtrlChar('p'), move |_| {
+            ui_to_ui_sender.send_unwrap(ToUiSignal::CtrlPPressed);
+        });
+    }
+    {
+        let ui_to_ui_sender = ui_to_ui_sender.clone();
         ui.add_global_callback(event::Key::F5, move |_| {
             ui_to_ui_sender.send_unwrap(ToUiSignal::F5Pressed);
         });

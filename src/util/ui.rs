@@ -1,19 +1,29 @@
 use std::collections::BTreeMap;
 
 use cruet::Inflector;
+use cursive::reexports::log::error;
 use cursive::traits::Nameable;
 use cursive::views::{EditView, NamedView};
 use cursive::Cursive;
 use kube::api::GroupVersionKind;
 
 use crate::util::k8s::gvk_sort_key;
-use crate::util::panics::{OptionExt, ResultExt};
+use crate::util::panics::OptionExt;
+
+pub fn duration_since(iso_date: &str) -> Result<chrono::Duration, chrono::ParseError> {
+    let ts = chrono::DateTime::parse_from_rfc3339(iso_date)?;
+    let now = chrono::Utc::now();
+    Ok(now.signed_duration_since(ts))
+}
 
 pub fn string_ago(iso_date: &str) -> String {
-    let date = chrono::DateTime::parse_from_rfc3339(iso_date).unwrap_or_log();
-    let now = chrono::Utc::now();
-    let duration = now.signed_duration_since(date);
-    ago(duration)
+    match duration_since(iso_date) {
+        Ok(duration) => ago(duration),
+        Err(err) => {
+            error!("Error parsing timestamp {iso_date}: {err}");
+            "E:TS".to_string()
+        }
+    }
 }
 
 pub fn ago(duration: chrono::Duration) -> String {

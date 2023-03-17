@@ -36,6 +36,7 @@ pub enum ToUiSignal {
 
     CtrlSPressed,
     CtrlYPressed,
+    CtrlPPressed,
     ExecuteCurrent,
     F5Pressed,
     EscPressed,

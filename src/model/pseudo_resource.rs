@@ -67,6 +67,10 @@ impl PseudoResource {
     pub fn gvk(&self) -> GroupVersionKind {
         self.source.to_pseudo_gvk(&self.extractor_name)
     }
+
+    pub fn creation_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+        self.source.creation_timestamp()
+    }
 }
 
 impl SerializeExt for PseudoResource {

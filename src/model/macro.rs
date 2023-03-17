@@ -67,6 +67,20 @@ macro_rules! mk_resource_enum {
                     Self::PseudoResouce(r) => r.age(),
                 }
             }
+
+            pub fn creation_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+                match self {
+                    $(
+                        Self::$opt_name(r) => r.creation_timestamp().unwrap_or_else(|| {
+                            k8s_openapi::apimachinery::pkg::apis::meta::v1::Time(chrono::Utc::now())
+                        }).0,
+                    )+
+                    Self::DynamicObject(r) => r.creation_timestamp().unwrap_or_else(|| {
+                        k8s_openapi::apimachinery::pkg::apis::meta::v1::Time(chrono::Utc::now())
+                    }).0,
+                    Self::PseudoResouce(r) => r.creation_timestamp()
+                }
+            }
         }
 
         // serialize to yaml ()
