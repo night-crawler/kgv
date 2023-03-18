@@ -6,6 +6,7 @@ pub mod detail_view;
 pub mod gvk_list_view;
 pub mod menu;
 pub mod pod_detail;
+pub mod window_switcher;
 
 pub enum ViewType {
     ListView(GroupVersionKind, Instant),

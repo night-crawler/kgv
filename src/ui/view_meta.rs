@@ -8,6 +8,12 @@ pub struct Filter {
     pub name: String,
 }
 
+impl Filter {
+    pub fn is_empty(&self) -> bool {
+        self.namespace.is_empty() && self.name.is_empty()
+    }
+}
+
 #[derive(Debug, Hash)]
 pub enum ViewMeta {
     List {
@@ -18,29 +24,52 @@ pub enum ViewMeta {
     Detail {
         id: usize,
         gvk: GroupVersionKind,
-        uid: String,
-    },
-    PodDetail {
-        id: usize,
+        name: String,
         uid: String,
     },
     Dialog {
         id: usize,
         name: String,
     },
+    WindowSwitcher {
+        id: usize,
+    },
 }
 
 impl ViewMeta {
+    pub fn title(&self) -> String {
+        match self {
+            ViewMeta::List { id, gvk, filter } => {
+                let mut repr = format!("[{id}] {}", gvk.full_name());
+                if !filter.is_empty() {
+                    repr.push_str(" (");
+                    if !filter.namespace.is_empty() {
+                        repr.push_str(&format!("namespace = {}", filter.namespace));
+                    }
+                    if !filter.name.is_empty() {
+                        repr.push_str(&format!("name = {}", filter.name));
+                    }
+                    repr.push(')');
+                }
+                repr
+            }
+            ViewMeta::Detail { id, gvk, name, .. } => {
+                format!("[{id}] {} {name}", gvk.full_name())
+            }
+            ViewMeta::Dialog { id, name } => format!("[{id}] {name}"),
+            ViewMeta::WindowSwitcher { id } => format!("[{id}] Window Switcher"),
+        }
+    }
     pub fn get_unique_name(&self) -> String {
         match self {
             ViewMeta::List { id, gvk, filter: _ } => {
                 format!("gvk-list-{id}-{}-table", gvk.full_name())
             }
-            ViewMeta::Detail { id, gvk, uid } => {
+            ViewMeta::Detail { id, gvk, uid, .. } => {
                 format!("gvk-details-{id}-{}-{uid}", gvk.full_name())
             }
-            ViewMeta::PodDetail { id, uid } => format!("pod-detail-{id}-{uid}"),
             ViewMeta::Dialog { id, name } => format!("dialog-{id}-{name}"),
+            ViewMeta::WindowSwitcher { id } => format!("window-switcher-list-{id}"),
         }
     }
 
@@ -70,8 +99,8 @@ impl ViewMeta {
         match self {
             ViewMeta::List { id, .. }
             | ViewMeta::Detail { id, .. }
-            | ViewMeta::PodDetail { id, .. }
-            | ViewMeta::Dialog { id, .. } => *id,
+            | ViewMeta::Dialog { id, .. }
+            | ViewMeta::WindowSwitcher { id } => *id,
         }
     }
 

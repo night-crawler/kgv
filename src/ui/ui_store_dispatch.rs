@@ -2,6 +2,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use cursive::reexports::log::{error, info, warn};
+use cursive::traits::Nameable;
 use cursive::views::Dialog;
 use cursive::{Cursive, View};
 use cursive_flexi_logger_view::FlexiLoggerView;
@@ -26,6 +27,7 @@ use crate::ui::components::code_view::build_code_view;
 use crate::ui::components::detail_view::build_detail_view;
 use crate::ui::components::gvk_list_view::build_gvk_list_view_layout;
 use crate::ui::components::menu::build_menu;
+use crate::ui::components::window_switcher::build_window_switcher;
 use crate::ui::dispatcher::DispatchContext;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
@@ -49,7 +51,10 @@ pub trait DispatchContextExt {
 
     fn dispatch_show_details(self, resource: ResourceView);
     fn dispatch_show_gvk(self, gvk: GroupVersionKind);
+    fn dispatch_show_window(self, id: usize);
+    fn dispatch_remove_window_switcher(self);
 
+    fn dispatch_alt_plus(self);
     fn dispatch_ctrl_s(self);
     fn dispatch_ctrl_y(self);
     fn dispatch_ctrl_p(self);
@@ -73,7 +78,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
     fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind) {
         let affected_views = {
             let store = self.data.lock_unwrap();
-            store.view_stack.find_all(&gvk)
+            store.view_stack.find_list_views(&gvk)
         };
 
         if affected_views.is_empty() {
@@ -141,7 +146,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
         let (affected_views, evaluated_resource) = {
             let mut store = self.data.lock_unwrap();
             (
-                store.view_stack.find_all(&gvk),
+                store.view_stack.find_list_views(&gvk),
                 store.resource_manager.replace(resource),
             )
         };
@@ -195,7 +200,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
 
     fn dispatch_apply_namespace_filter(self, id: usize, namespace: String) {
         {
-            let mut store = self.data.lock_unwrap();
+            let store = self.data.lock_unwrap();
             if let Some(view_meta) = store.view_stack.get(id) {
                 view_meta.write_unwrap().set_namespace(namespace)
             } else {
@@ -209,7 +214,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
 
     fn dispatch_apply_name_filter(self, id: usize, name: String) {
         {
-            let mut store = self.data.lock_unwrap();
+            let store = self.data.lock_unwrap();
             if let Some(view_meta) = store.view_stack.get(id) {
                 view_meta.write_unwrap().set_name(name)
             } else {
@@ -256,13 +261,15 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
                     }
                 };
                 drop(store);
+                let store = Arc::clone(&self.data);
 
                 self.send_box(move |siv| {
-                    let layout = build_detail_view(resource, html);
-                    siv.add_fullscreen_layer(layout);
+                    let view = build_detail_view(Arc::clone(&store), resource, html);
+                    store.register_view(&view);
+                    siv.add_fullscreen_layer(view);
                 });
             }
-        }
+        };
     }
 
     fn dispatch_show_gvk(self, gvk: GroupVersionKind) {
@@ -277,6 +284,58 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
             siv.add_fullscreen_layer(layout);
             siv.focus_name(&view_name).unwrap_or_log();
             info!("Registered view: {view_name}");
+        });
+    }
+
+    fn dispatch_show_window(self, meta_id: usize) {
+        let store = Arc::clone(&self.data);
+
+        self.dispatcher
+            .dispatch_sync(ToUiSignal::RemoveWindowSwitcher);
+
+        self.send_box(move |siv| {
+            let mut store = store.lock_unwrap();
+
+            if let Some(meta) = store.view_stack.get(meta_id) {
+                let name = meta.read_unwrap().get_unique_name();
+                if let Some(pos) = siv.screen_mut().find_layer_from_name(&name) {
+                    siv.screen_mut().move_to_front(pos);
+                    if let Err(err) = store.view_stack.move_to_front(meta_id) {
+                        error!("Could not to bring view {meta_id} to front: {err}");
+                    }
+                } else {
+                    error!("Could not find a view with name={name} (id={meta_id})");
+                }
+            }
+        });
+    }
+
+    fn dispatch_remove_window_switcher(self) {
+        let switchers = self.data.lock_unwrap().view_stack.find_window_switchers();
+        let store = Arc::clone(&self.data);
+        self.send_box(move |siv| {
+            for meta in switchers.iter() {
+                let name = meta.read_unwrap().get_unique_name();
+                if let Some(pos) = siv.screen_mut().find_layer_from_name(&name) {
+                    siv.screen_mut().remove_layer(pos);
+                }
+            }
+            store.lock_unwrap().view_stack.remove_window_switchers();
+        });
+    }
+
+    fn dispatch_alt_plus(self) {
+        let store = Arc::clone(&self.data);
+
+        self.dispatcher
+            .dispatch_sync(ToUiSignal::RemoveWindowSwitcher);
+
+        self.send_box(move |siv| {
+            let switcher = build_window_switcher(Arc::clone(&store));
+            let name = switcher.meta.read_unwrap().get_unique_name();
+            store.register_view(&switcher);
+            siv.add_layer(switcher);
+            siv.focus_name(&name).unwrap_or_log();
         });
     }
 
@@ -355,8 +414,8 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
                     return;
                 }
                 ViewMeta::Detail { .. } => {}
-                ViewMeta::PodDetail { .. } => {}
                 ViewMeta::Dialog { .. } => {}
+                ViewMeta::WindowSwitcher { .. } => {}
             }
         }
         error!("F5 not implemented for the current view")
@@ -416,7 +475,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
                 id: store.inc_counter(),
                 name: "Debug Log".to_string(),
             };
-            let logger = FlexiLoggerView::scrollable();
+            let logger = FlexiLoggerView::scrollable().with_name(view_meta.get_unique_name());
             let logger = ViewWithMeta::new(logger, view_meta);
             store.lock_unwrap().view_stack.push(logger.meta.clone());
             siv.add_fullscreen_layer(Dialog::around(logger).title("Debug Log"));
@@ -425,7 +484,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
 
     fn dispatch_replace_table_items(&self, id: usize) {
         let extracted = {
-            let mut store = self.data.lock_unwrap();
+            let store = self.data.lock_unwrap();
             if let Some(view_meta) = store.view_stack.get(id) {
                 let view_meta = view_meta.read_unwrap();
                 let name = view_meta.get_unique_name();

@@ -31,10 +31,13 @@ pub enum ToUiSignal {
 
     UpdateListViewForGvk(GroupVersionKind),
     ReplaceTableItems(usize),
+    ShowWindow(usize),
+    RemoveWindowSwitcher,
 
     Chain(Vec<Box<ToUiChainDispatch>>),
 
     CtrlSPressed,
+    CtrlPlusPressed,
     CtrlYPressed,
     CtrlPPressed,
     ExecuteCurrent,

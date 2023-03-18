@@ -59,6 +59,15 @@ impl Dispatch<UiStore, ToUiSignal> for ToUiSignal {
             ToUiSignal::CtrlPPressed => {
                 context.dispatch_ctrl_p();
             }
+            ToUiSignal::CtrlPlusPressed => {
+                context.dispatch_alt_plus();
+            }
+            ToUiSignal::ShowWindow(id) => {
+                context.dispatch_show_window(id);
+            }
+            ToUiSignal::RemoveWindowSwitcher => {
+                context.dispatch_remove_window_switcher();
+            }
         }
     }
 }

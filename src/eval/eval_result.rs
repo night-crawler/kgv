@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 
-use anyhow::Context;
 use chrono::Utc;
 use rhai::plugin::*;
 use strum_macros::AsRefStr;
@@ -29,20 +28,20 @@ impl TryFrom<Dynamic> for EvalResult {
     type Error = KgvError;
 
     fn try_from(value: Dynamic) -> Result<Self, <EvalResult as TryFrom<Dynamic>>::Error> {
+        let type_name = value.type_name();
         if value.is_string() {
-            let x = value.into_string()?;
-            return Ok(EvalResult::String(x));
+            let value = value.into_string()?;
+            return Ok(EvalResult::String(value));
         } else if value.is_int() {
             return Ok(EvalResult::Int(value.as_int()?));
         } else if value.is_array() {
             let array = value.into_typed_array::<Dynamic>()?;
-
             return Ok(EvalResult::Vec(array));
         }
 
-        Ok(value
+        value
             .try_cast::<EvalResult>()
-            .context("Type conversion error")?)
+            .ok_or_else(|| KgvError::TypeConversionError(type_name.to_string()))
     }
 }
 
@@ -99,7 +98,7 @@ impl ToString for EvalResult {
             EvalResult::AgoSince(duration) => {
                 let now = Utc::now();
                 ago(now - *duration)
-            },
+            }
             EvalResult::String(str) => str.to_string(),
             EvalResult::Int(val) => val.to_string(),
             EvalResult::MaybeString(value) => match value {

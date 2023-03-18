@@ -13,7 +13,7 @@ use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
 use crate::traits::ext::table_view::TableCallBacks;
-use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::ui::signals::ToUiSignal;
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::{Filter, ViewMeta};
 use crate::util::ui::build_edit_view;
@@ -53,11 +53,10 @@ impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
 }
 
 pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
-    let (to_ui_sender, to_backend_sender, selected_gvk, counter) = {
+    let (to_ui_sender, selected_gvk, counter) = {
         let mut store = store.lock_unwrap();
         (
             store.to_ui_sender.clone(),
-            store.to_backend_sender.clone(),
             store.selected_gvk.clone(),
             store.inc_counter(),
         )
@@ -106,9 +105,6 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
         table.set_on_submit_named(
             &view_meta.get_unique_name(),
             move |_, evaluated_resource| {
-                to_backend_sender.send_unwrap(ToBackendSignal::RequestDetails(
-                    evaluated_resource.resource.clone(),
-                ));
                 to_ui_sender.send_unwrap(ToUiSignal::ShowDetails(evaluated_resource.resource));
             },
         );

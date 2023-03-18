@@ -106,10 +106,11 @@ pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionK
     grouped
 }
 
-pub fn build_edit_view<S, F>(name: S, initial: S, on_edit: F) -> NamedView<EditView>
+pub fn build_edit_view<S1, S2, F>(name: S1, initial: S2, on_edit: F) -> NamedView<EditView>
 where
     F: Fn(&mut Cursive, &str, usize) + 'static,
-    S: Into<String>,
+    S1: Into<String>,
+    S2: Into<String>,
 {
     EditView::new()
         .content(initial)

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::Cursive;
@@ -8,6 +8,7 @@ use crate::model::pod::pod_container_view::PodContainerView;
 use crate::model::resource::resource_view::EvaluatedResource;
 use crate::reexports::Mutex;
 use crate::traits::ext::mutex::MutexExt;
+use crate::traits::ext::rw_lock::RwLockExt;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::resource_manager::ResourceManager;
@@ -63,6 +64,19 @@ impl UiStore {
             .filter(|r| self.should_display_resource(filter, r))
             .cloned()
             .collect()
+    }
+
+    pub fn get_filtered_windows(&self, text: &str) -> Vec<(String, Arc<RwLock<ViewMeta>>)> {
+        self
+            .view_stack
+            .stack
+            .iter()
+            .map(|view_meta| {
+                let title = view_meta.read_unwrap().title();
+                (title, Arc::clone(view_meta))
+            })
+            .filter(|(title, _)| title.contains(text))
+            .collect::<Vec<_>>()
     }
 }
 
