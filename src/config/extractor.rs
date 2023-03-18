@@ -15,17 +15,24 @@ use crate::util::fs::scan_files;
 use crate::util::paths::resolve_path;
 use crate::util::ui::ago;
 
-#[derive(Debug)]
-pub enum DetailType {
-    Table(String),
-    Template(DetailsTemplate),
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub enum ActionType {
+    ShowDetailsTable(String),
+    ShowDetailsTemplate,
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub enum EventHandlerType {
+    Submit { action: ActionType },
+    Delete { action: ActionType },
 }
 
 #[derive(Debug, Default)]
 pub struct ExtractorConfig {
     pub columns_map: HashMap<GroupVersionKind, Arc<Vec<Column>>>,
-    pub detail_types_map: HashMap<GroupVersionKind, Arc<DetailType>>,
+    pub detail_templates_map: HashMap<GroupVersionKind, Arc<DetailsTemplate>>,
     pub pseudo_resources_map: HashMap<GroupVersionKind, Arc<Vec<PseudoResourceConf>>>,
+    pub event_handler_types_map: HashMap<GroupVersionKind, Arc<Vec<EventHandlerType>>>,
 }
 
 impl ExtractorConfig {
@@ -53,19 +60,13 @@ impl ExtractorConfig {
             let gvk = resource_config_props.resource.clone();
 
             if let Some(details) = detail_config {
-                let (origin, detail_type) = match details {
-                    DetailsConfigProps::Template(template_details) => {
-                        DetailType::from_template_config(&path, template_details)
-                    }
-                    DetailsConfigProps::Table(extractor_name) => {
-                        (path.clone(), DetailType::Table(extractor_name))
-                    }
-                };
-                instance.register_detail_type(gvk.clone(), detail_type, &origin);
+                let (template_path, template) = parse_detail_templates(&path, details);
+                instance.register_detail_template(gvk.clone(), template, &template_path);
             }
 
             instance.register_gvk_columns(gvk.clone(), columns, &path);
             instance.register_gvk_pseudo_resource_extractors(gvk.clone(), pseudo_resources, &path);
+            instance.register_event_handler_type(gvk.clone(), resource_config_props.events, &path);
         }
 
         let elapsed = chrono::Duration::from_std(now.elapsed())
@@ -86,21 +87,23 @@ impl ExtractorConfig {
         instance
     }
 
-    fn register_gvk_columns(&mut self, gvk: GroupVersionKind, columns: Vec<Column>, origin: &Path) {
+    fn register<V>(
+        name: &str,
+        container: &mut HashMap<GroupVersionKind, Arc<V>>,
+        gvk: GroupVersionKind,
+        value: V,
+        origin: &Path,
+    ) {
         let gvk_full_name = gvk.full_name();
-        if self.columns_map.insert(gvk, columns.into()).is_some() {
-            warn!(
-                "{}: Replaced columns from {}",
-                gvk_full_name,
-                origin.display()
-            );
+        if container.insert(gvk, value.into()).is_some() {
+            warn!("{gvk_full_name}: Replaced {name} from {}", origin.display());
         } else {
-            info!(
-                "{}: Loaded columns from {}",
-                gvk_full_name,
-                origin.display()
-            );
+            info!("{gvk_full_name}: Loaded {name} from {}", origin.display());
         }
+    }
+
+    fn register_gvk_columns(&mut self, gvk: GroupVersionKind, columns: Vec<Column>, origin: &Path) {
+        Self::register("columns", &mut self.columns_map, gvk, columns, origin);
     }
 
     fn register_gvk_pseudo_resource_extractors(
@@ -109,53 +112,44 @@ impl ExtractorConfig {
         pseudo_resources: Vec<PseudoResourceConf>,
         origin: &Path,
     ) {
-        let gvk_full_name = gvk.full_name();
-        if self
-            .pseudo_resources_map
-            .insert(gvk, pseudo_resources.into())
-            .is_some()
-        {
-            warn!(
-                "{}: Replaced pseudo resources from {}",
-                gvk_full_name,
-                origin.display()
-            );
-        } else {
-            info!(
-                "{}: Imported pseudo resources from {}",
-                gvk_full_name,
-                origin.display()
-            );
-        }
+        Self::register(
+            "pseudo resources",
+            &mut self.pseudo_resources_map,
+            gvk,
+            pseudo_resources,
+            origin,
+        );
     }
 
-    fn register_detail_type(
+    fn register_detail_template(
         &mut self,
         gvk: GroupVersionKind,
-        detail_type: DetailType,
+        template: DetailsTemplate,
         origin: &Path,
     ) {
-        let gvk_full_name = gvk.full_name();
-        if self
-            .detail_types_map
-            .insert(gvk, detail_type.into())
-            .is_some()
-        {
-            warn!(
-                "{}: Replaced detail template from {}",
-                gvk_full_name,
-                origin.display()
-            );
-        } else {
-            info!(
-                "{}: Loaded detail template from {}",
-                gvk_full_name,
-                origin.display()
-            );
-        }
+        Self::register(
+            "detail template",
+            &mut self.detail_templates_map,
+            gvk,
+            template,
+            origin,
+        );
     }
 
-
+    fn register_event_handler_type(
+        &mut self,
+        gvk: GroupVersionKind,
+        events: Vec<EventHandlerType>,
+        origin: &Path,
+    ) {
+        Self::register(
+            "even handler types",
+            &mut self.event_handler_types_map,
+            gvk,
+            events,
+            origin,
+        );
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -208,14 +202,12 @@ struct ResourceConfigProps {
     #[serde(default)]
     pseudo_resources: Vec<PseudoResourceExtractorConfigPros>,
 
-    details: Option<DetailsConfigProps>,
-    columns: Vec<ColumnConfigProps>,
-}
+    details: Option<DetailsTemplateConfigProps>,
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-enum DetailsConfigProps {
-    Template(DetailsTemplateConfigProps),
-    Table(String),
+    #[serde(default)]
+    events: Vec<EventHandlerType>,
+
+    columns: Vec<ColumnConfigProps>,
 }
 
 impl TryFrom<&PathBuf> for ResourceConfigProps {
@@ -392,25 +384,23 @@ fn parse_pseudo_resources(
     pseudo_resources
 }
 
-impl DetailType {
-    fn from_template_config(
-        path: &Path,
-        details: DetailsTemplateConfigProps,
-    ) -> (PathBuf, DetailType) {
-        let template_path = resolve_path(path, &details.template);
-        let template = DetailsTemplate {
-            template: template_path.clone(),
-            helpers: details
-                .helpers
-                .into_iter()
-                .map(|mut helper| {
-                    helper.path = resolve_path(&template_path, &helper.path);
-                    helper
-                })
-                .collect(),
-        };
-        (template_path, Self::Template(template))
-    }
+fn parse_detail_templates(
+    path: &Path,
+    details: DetailsTemplateConfigProps,
+) -> (PathBuf, DetailsTemplate) {
+    let template_path = resolve_path(path, &details.template);
+    let template = DetailsTemplate {
+        template: template_path.clone(),
+        helpers: details
+            .helpers
+            .into_iter()
+            .map(|mut helper| {
+                helper.path = resolve_path(&template_path, &helper.path);
+                helper
+            })
+            .collect(),
+    };
+    (template_path, template)
 }
 
 #[cfg(test)]
@@ -437,11 +427,22 @@ mod tests {
 
         let resource = ResourceConfigProps {
             resource: Pod::gvk_for_type(),
-            details: Some(DetailsConfigProps::Template(DetailsTemplateConfigProps {
+            details: Some(DetailsTemplateConfigProps {
                 template: Default::default(),
                 helpers: vec![],
-            })),
-            pseudo_resources: Vec::new(),
+            }),
+            events: vec![
+                EventHandlerType::Submit {
+                    action: ActionType::ShowDetailsTable("sample".into()),
+                },
+                EventHandlerType::Submit {
+                    action: ActionType::ShowDetailsTemplate,
+                },
+            ],
+            pseudo_resources: vec![PseudoResourceExtractorConfigPros {
+                name: "sample".to_string(),
+                script_content: "sample".to_string(),
+            }],
             imports: vec![r##"import "pod" as pod;"##.to_string()],
             columns: vec![
                 ColumnConfigProps {

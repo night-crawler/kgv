@@ -9,9 +9,6 @@ pub enum EvalError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum KgvError {
-    #[error("Rendering template on a non-template detail type: {0}")]
-    DetailTypeTemplateError(String),
-
     #[error("Compile Error for {0} {1}: {2} {3}")]
     ContentCompileError(String, String, String, anyhow::Error),
 
@@ -38,9 +35,6 @@ pub enum KgvError {
 
     #[error("Static string error: {0}")]
     StrError(&'static str),
-
-    #[error("Render error: {0}")]
-    HtmlRenderError(#[from] handlebars::RenderError),
 }
 
 impl From<&'static str> for KgvError {

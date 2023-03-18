@@ -9,7 +9,7 @@ use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
 
-use crate::config::extractor::DetailType;
+use crate::config::extractor::ActionType;
 use crate::eval::engine_factory::build_engine;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
@@ -222,31 +222,30 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
 
     fn dispatch_show_details(self, resource: ResourceView) {
         let gvk = resource.gvk();
-        let detail_type = if let Some(detail_type) = self
+
+        let action_type = self
             .data
             .lock_unwrap()
             .resource_manager
-            .get_detail_type(&gvk)
-        {
-            detail_type
+            .get_submit_handler_type(&gvk);
+        let action_type = if let Some(action_type) = action_type {
+            action_type
         } else {
+            warn!("No event type handler for gvk {}", gvk.full_name());
             return;
         };
 
-        match detail_type.deref() {
-            DetailType::Table(extractor_name) => {
-                let pseudo_gvk = resource.to_pseudo_gvk(extractor_name);
+        match action_type {
+            ActionType::ShowDetailsTable(extractor_name) => {
+                let gvk = resource.to_pseudo_gvk(&extractor_name);
                 self.dispatcher
-                    .dispatch_sync(ToUiSignal::ShowGvk(pseudo_gvk.clone()));
+                    .dispatch_sync(ToUiSignal::ShowGvk(gvk.clone()));
                 self.dispatcher
-                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(pseudo_gvk));
+                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk));
             }
-            DetailType::Template(details_template) => {
+            ActionType::ShowDetailsTemplate => {
                 let store = self.data.lock_unwrap();
-                let html = match store
-                    .detail_view_renderer
-                    .render_html(&resource, details_template)
-                {
+                let html = match store.detail_view_renderer.render_html(&resource) {
                     Ok(html) => html,
                     Err(err) => {
                         error!(

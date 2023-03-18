@@ -1,34 +1,40 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use cursive::reexports::log::error;
 use handlebars::Handlebars;
 use rhai::Engine;
 
-use crate::config::extractor::DetailsTemplate;
+use crate::config::extractor::ExtractorConfig;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::SerializeExt;
 use crate::traits::ext::gvk::{GvkExt, GvkNameExt};
-use crate::util::error::KgvError;
 use crate::util::watcher::LazyWatcher;
 
 pub struct DetailViewRenderer {
     engine_watcher: Arc<LazyWatcher<Engine>>,
+    extractor_config_watcher: Arc<LazyWatcher<ExtractorConfig>>,
 }
 
 impl DetailViewRenderer {
-    pub fn new(engine_watcher: &Arc<LazyWatcher<Engine>>) -> Self {
+    pub fn new(
+        engine_watcher: &Arc<LazyWatcher<Engine>>,
+        extractor_config_watcher: &Arc<LazyWatcher<ExtractorConfig>>,
+    ) -> Self {
         Self {
             engine_watcher: Arc::clone(engine_watcher),
+            extractor_config_watcher: Arc::clone(extractor_config_watcher),
         }
     }
 
-    pub fn render_html(
-        &self,
-        resource: &ResourceView,
-        details_template: &DetailsTemplate,
-    ) -> Result<String, KgvError> {
+    pub fn render_html(&self, resource: &ResourceView) -> anyhow::Result<String> {
         let gvk = resource.gvk();
         let gvk_full_name = gvk.full_name();
+
+        let extractor_config = self.extractor_config_watcher.value();
+        let details_template = extractor_config.detail_templates_map.get(&gvk).context(format!(
+            "A template for GVK {gvk_full_name} is not registered"
+        ))?;
 
         let engine = self.engine_watcher.build();
         let json = resource.to_json()?;

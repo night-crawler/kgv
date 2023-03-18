@@ -4,7 +4,9 @@ use std::sync::Arc;
 use cursive::reexports::log::{error, info, warn};
 use kube::api::GroupVersionKind;
 
-use crate::config::extractor::{Column, DetailType, EmbeddedExtractor, EvaluatorType, ExtractorConfig};
+use crate::config::extractor::{
+    ActionType, Column, EmbeddedExtractor, EvaluatorType, EventHandlerType, ExtractorConfig,
+};
 use crate::eval::eval_result::EvalResult;
 use crate::eval::evaluator::Evaluator;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
@@ -160,8 +162,18 @@ impl ResourceManager {
             .into_iter()
             .flatten()
     }
-    
-    pub fn get_detail_type(&self, gvk: &GroupVersionKind) -> Option<Arc<DetailType>> {
-        self.config_watcher.value().detail_types_map.get(gvk).cloned()
+
+    pub fn get_submit_handler_type(&self, gvk: &GroupVersionKind) -> Option<ActionType> {
+        self.config_watcher
+            .value()
+            .event_handler_types_map
+            .get(gvk)
+            .cloned()
+            .iter()
+            .flat_map(|handlers| handlers.iter())
+            .find_map(|event_handler_type| match event_handler_type {
+                EventHandlerType::Submit { action } => Some(action.clone()),
+                _ => None,
+            })
     }
 }
