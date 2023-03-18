@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use cursive::reexports::log::{error, info};
 use cursive::CursiveRunnable;
-use crate::reexports::Mutex;
 
+use crate::reexports::Mutex;
 use crate::traits::ext::mutex::MutexExt;
 use crate::ui::backend::init_cursive_backend;
 use crate::ui::ui_store::UiStore;

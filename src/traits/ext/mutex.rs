@@ -1,9 +1,8 @@
 use cursive::reexports::log::{debug, error};
+
 use crate::reexports::{Mutex, MutexGuard};
 use crate::util::error::KgvError;
-
 use crate::util::panics::ResultExt;
-
 
 pub trait MutexExt<T> {
     fn lock_unwrap(&self) -> MutexGuard<'_, T>;

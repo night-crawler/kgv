@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
-use anyhow::Context;
 
+use anyhow::Context;
 use cursive::reexports::ahash::HashMap;
 use kube::api::GroupVersionKind;
 
@@ -43,9 +43,8 @@ impl ViewStack {
     }
 
     pub fn remove_window_switchers(&mut self) {
-        self.stack.retain(|meta| {
-            !matches!(meta.read_unwrap().deref(), ViewMeta::WindowSwitcher { .. })
-        });
+        self.stack
+            .retain(|meta| !matches!(meta.read_unwrap().deref(), ViewMeta::WindowSwitcher { .. }));
     }
 
     pub fn get(&self, view_id: usize) -> Option<Arc<RwLock<ViewMeta>>> {
@@ -53,9 +52,11 @@ impl ViewStack {
     }
 
     pub fn move_to_front(&mut self, view_id: usize) -> anyhow::Result<()> {
-        let pos = self.stack.iter().position(|item| {
-            item.read_unwrap().get_id() == view_id
-        }).with_context(|| format!("View with id={view_id} was not found"))?;
+        let pos = self
+            .stack
+            .iter()
+            .position(|item| item.read_unwrap().get_id() == view_id)
+            .with_context(|| format!("View with id={view_id} was not found"))?;
         let last = self.stack.len() - 1;
         self.stack.swap(pos, last);
         Ok(())

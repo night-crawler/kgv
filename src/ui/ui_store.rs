@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::Cursive;
@@ -6,7 +6,7 @@ use kube::api::GroupVersionKind;
 
 use crate::model::pod::pod_container_view::PodContainerView;
 use crate::model::resource::resource_view::EvaluatedResource;
-use crate::reexports::Mutex;
+use crate::reexports::{Mutex, RwLock};
 use crate::traits::ext::mutex::MutexExt;
 use crate::traits::ext::rw_lock::RwLockExt;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
@@ -67,8 +67,7 @@ impl UiStore {
     }
 
     pub fn get_filtered_windows(&self, text: &str) -> Vec<(String, Arc<RwLock<ViewMeta>>)> {
-        self
-            .view_stack
+        self.view_stack
             .stack
             .iter()
             .map(|view_meta| {

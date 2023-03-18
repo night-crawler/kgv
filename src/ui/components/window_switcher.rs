@@ -49,11 +49,9 @@ pub fn build_window_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMet
     let mut select_view: SelectView<Arc<RwLock<ViewMeta>>> = SelectView::new();
     let meta = Arc::new(RwLock::new(meta));
 
-    view_meta_list
-        .into_iter()
-        .for_each(|(title, view_meta)| {
-            select_view.add_item(title, view_meta);
-        });
+    view_meta_list.into_iter().for_each(|(title, view_meta)| {
+        select_view.add_item(title, view_meta);
+    });
 
     select_view.set_on_submit(move |_, item: &Arc<RwLock<ViewMeta>>| {
         let id = item.read_unwrap().get_id();

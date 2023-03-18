@@ -32,9 +32,12 @@ impl DetailViewRenderer {
         let gvk_full_name = gvk.full_name();
 
         let extractor_config = self.extractor_config_watcher.value();
-        let details_template = extractor_config.detail_templates_map.get(&gvk).context(format!(
-            "A template for GVK {gvk_full_name} is not registered"
-        ))?;
+        let details_template = extractor_config
+            .detail_templates_map
+            .get(&gvk)
+            .context(format!(
+                "A template for GVK {gvk_full_name} is not registered"
+            ))?;
 
         let engine = self.engine_watcher.build();
         let json = resource.to_json()?;

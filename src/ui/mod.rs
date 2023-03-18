@@ -11,6 +11,6 @@ pub mod signals;
 pub mod traits;
 pub mod ui_signal_dispatch;
 pub mod ui_store;
+pub mod ui_store_dispatch;
 pub mod view_meta;
 pub mod view_stack;
-pub mod ui_store_dispatch;

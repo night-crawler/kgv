@@ -3,7 +3,6 @@ use strum_macros::AsRefStr;
 
 use crate::model::resource::resource_view::ResourceView;
 use crate::ui::dispatcher::DispatchContext;
-
 use crate::ui::ui_store::UiStore;
 
 #[derive(Debug)]

@@ -1,5 +1,6 @@
-use kube::api::GroupVersionKind;
 use std::time::Instant;
+
+use kube::api::GroupVersionKind;
 
 pub mod code_view;
 pub mod detail_view;

@@ -1,5 +1,6 @@
-use crate::model::resource::resource_view::ResourceView;
 use k8s_openapi::serde_json;
+
+use crate::model::resource::resource_view::ResourceView;
 
 pub trait SpecViewAdapter {
     fn items(&self) -> Vec<ResourceView>;

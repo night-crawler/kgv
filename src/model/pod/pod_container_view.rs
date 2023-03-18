@@ -1,7 +1,8 @@
-use crate::traits::ext::container_port::ContainerPortExt;
-use crate::traits::ext::container_state::ContainerStateExt;
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Container, ContainerStatus};
+
+use crate::traits::ext::container_port::ContainerPortExt;
+use crate::traits::ext::container_state::ContainerStateExt;
 
 #[derive(Clone, PartialEq)]
 pub struct PodContainerView {

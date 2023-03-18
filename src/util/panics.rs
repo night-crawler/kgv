@@ -1,7 +1,8 @@
 use std::io::Write;
 
-use crate::util::paths::KGV_HOME_DIR;
 use cursive::reexports::log::error;
+
+use crate::util::paths::KGV_HOME_DIR;
 
 pub trait OptionExt<T> {
     fn unwrap_or_log(self) -> T;

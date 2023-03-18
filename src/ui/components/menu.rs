@@ -3,8 +3,8 @@ use std::sync::Arc;
 use cursive::menu;
 use cursive::views::Menubar;
 use kube::api::GroupVersionKind;
-use crate::reexports::Mutex;
 
+use crate::reexports::Mutex;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;

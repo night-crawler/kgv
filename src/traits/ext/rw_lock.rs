@@ -1,6 +1,6 @@
 use util::panics::ResultExt;
-use crate::reexports::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+use crate::reexports::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::util;
 
 pub trait RwLockExt<T> {

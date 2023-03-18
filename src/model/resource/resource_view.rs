@@ -7,9 +7,9 @@ use kube::api::GroupVersionKind;
 use kube::ResourceExt;
 
 use crate::eval::eval_result::EvalResult;
+use crate::model::pseudo_resource::PSEUDO_RESOURCE_JOIN_SEQ;
 use crate::traits::ext::gvk::GvkExt;
 use crate::{extract_age, extract_status, mk_resource_enum};
-use crate::model::pseudo_resource::PSEUDO_RESOURCE_JOIN_SEQ;
 
 mk_resource_enum!(
     ResourceView,

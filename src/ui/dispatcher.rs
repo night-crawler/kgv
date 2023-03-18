@@ -3,8 +3,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use cursive::reexports::log::{error, info};
-use crate::reexports::Mutex;
 
+use crate::reexports::Mutex;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::util::panics::ResultExt;
 

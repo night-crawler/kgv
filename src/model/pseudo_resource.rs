@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+
 use cursive::reexports::log::warn;
 use itertools::Itertools;
-
 use k8s_openapi::serde_json;
 use k8s_openapi::serde_json::Value;
 use kube::api::GroupVersionKind;
@@ -48,18 +48,11 @@ impl PseudoResource {
     }
 
     pub fn uid(&self) -> Option<String> {
-        let uid = self
-            .source
-            .uid()
-            .unwrap_or_else(|| {
-                warn!("Resource without uid: {}", self.source.full_unique_name());
-                self.source.full_unique_name()
-            });
-        let parts = [
-            &uid,
-            &self.extractor_name,
-            &self.id,
-        ];
+        let uid = self.source.uid().unwrap_or_else(|| {
+            warn!("Resource without uid: {}", self.source.full_unique_name());
+            self.source.full_unique_name()
+        });
+        let parts = [&uid, &self.extractor_name, &self.id];
         Some(parts.iter().join(PSEUDO_RESOURCE_JOIN_SEQ))
     }
 

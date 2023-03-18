@@ -2,11 +2,12 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use cursive::reexports::log::error;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+
 use crate::reexports::{Mutex, RwLock};
 use crate::traits::ext::mutex::MutexExt;
 use crate::traits::ext::rw_lock::RwLockExt;
-use cursive::reexports::log::error;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
 type Builder<T> = dyn FnMut(&[PathBuf]) -> T + Send + Sync;
 

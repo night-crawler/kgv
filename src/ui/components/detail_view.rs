@@ -16,7 +16,6 @@ pub fn build_detail_view(
     resource: ResourceView,
     html: String,
 ) -> ViewWithMeta<ViewMeta> {
-
     let mut view = cursive_markup::MarkupView::html(&html);
     view.on_link_focus(|_, url| {
         info!("Focused a link: {url}");

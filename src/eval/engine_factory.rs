@@ -3,14 +3,13 @@ use std::path::PathBuf;
 use cursive::reexports::log::warn;
 use itertools::Itertools;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
-use rhai::{exported_module, Engine, Array};
+use rhai::{exported_module, Array, Engine};
 
 use crate::eval::eval_result::{EvalResult, PseudoResource, RhaiPseudoResource};
 use crate::util::ui::string_ago;
 
 fn join(array: Array, delimiter: &str) -> String {
-    array.iter().map(|item| item.to_string())
-        .join(delimiter)
+    array.iter().map(|item| item.to_string()).join(delimiter)
 }
 
 pub fn build_engine(paths: &[PathBuf]) -> Engine {

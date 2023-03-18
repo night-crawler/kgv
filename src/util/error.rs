@@ -161,4 +161,3 @@ impl<T> LogErrorOptionExt<T> for Option<T> {
         }
     }
 }
-

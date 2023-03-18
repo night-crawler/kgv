@@ -1,9 +1,11 @@
+use std::fmt::Debug;
+
 use itertools::Itertools;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::Metadata;
 use kube::api::GroupVersionKind;
 use kube::ResourceExt;
-use std::fmt::Debug;
+
 use crate::model::pseudo_resource::PSEUDO_RESOURCE_JOIN_SEQ;
 
 pub trait GvkNameExt {
@@ -102,8 +104,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use k8s_openapi::api::core::v1::Pod;
+
+    use super::*;
 
     #[test]
     fn test_pseudo_trait() {

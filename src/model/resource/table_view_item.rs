@@ -8,11 +8,11 @@ use crate::traits::ext::table_view::TableViewExt;
 
 impl TableViewItem<usize> for EvaluatedResource {
     fn to_column(&self, column: usize) -> String {
-        if let Some (eval_result) = self.values.get(column) {
+        if let Some(eval_result) = self.values.get(column) {
             eval_result.to_string()
         } else {
             error!("No column at index: {}", column);
-             "-".to_string()
+            "-".to_string()
         }
     }
 
