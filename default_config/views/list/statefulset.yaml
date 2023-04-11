@@ -1,0 +1,59 @@
+resource:
+  group: apps
+  version: v1
+  kind: StatefulSet
+imports:
+  - import "commons" as commons;
+  - import "statefulset" as ss;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/statefulset.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: replicas
+    display_name: Repl/Rdy/Cur/Upd
+    width: 15
+    evaluator: !ScriptContent
+      content: ss::status_replicas(resource)
+
+  - name: revision
+    display_name: Revision
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.status?.currentRevision ?? "-"
+
+  - name: collision_count
+    display_name: Collision
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.collisionCount ?? "-"
+
+  - name: status
+    display_name: Status
+    width: 5
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

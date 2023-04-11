@@ -145,10 +145,12 @@ impl ResourceManager {
         (evaluated_resource, pseudo_resources)
     }
 
-    pub fn replace_all(&mut self, resources: Vec<ResourceView>) {
-        resources.into_iter().for_each(|resource| {
-            self.replace(resource);
-        });
+    pub fn reevaluate_all_for_gvk(&mut self, gvk: &GroupVersionKind) {
+         if let Some(resource_map) = self.resources_by_gvk.remove(gvk) {
+             for (_, resource) in resource_map.into_iter() {
+                 self.replace(resource.resource);
+             }
+         }
     }
 
     pub fn get_columns(&self, gvk: &GroupVersionKind) -> Arc<Vec<Column>> {

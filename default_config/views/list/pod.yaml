@@ -21,8 +21,8 @@ columns:
   - name: name
     display_name: Name
     width: 0
-    evaluator: !ScriptContent
-      content: "commons::name(resource)"
+    evaluator: !Embedded
+      name: Name
 
   - name: ready
     display_name: Ready

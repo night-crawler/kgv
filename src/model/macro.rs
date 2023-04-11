@@ -142,11 +142,6 @@ macro_rules! mk_resource_enum {
             }
         )+
 
-        $(
-            impl $crate::model::traits::MarkerTraitForStaticCases for $crate::reexports::k8s::$opt_name {}
-        )+
-
-
         pub async fn register_any_gvk(registry: &mut $crate::backend::reflector_registry::ReflectorRegistry, gvk: kube::api::GroupVersionKind) {
             use k8s_openapi::Resource;
             use $crate::util::panics::ResultExt;

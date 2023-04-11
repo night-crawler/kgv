@@ -14,7 +14,6 @@ use crate::backend::log_manager::LogManager;
 use crate::backend::reflector_registry::ReflectorRegistry;
 use crate::backend::remove_manager::RemoveManager;
 use crate::model::resource::resource_view::{register_any_gvk, ResourceView};
-use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kube_config::KubeConfigExt;
 use crate::ui::signals::{ToBackendSignal, ToUiSignal};
 use crate::util::k8s::discover_gvk;
@@ -153,7 +152,7 @@ impl K8sBackend {
 
     pub fn spawn_from_ui_receiver_task(&mut self) {
         let receiver = self.from_ui_receiver.clone_async();
-        let sender = self.to_ui_sender.clone_async();
+        // let sender = self.to_ui_sender.clone_async();
         let registry = Arc::clone(&self.registry);
         let remove_manager = Arc::clone(&self.remove_manager);
         let log_manager = Arc::clone(&self.log_manager);
@@ -166,12 +165,6 @@ impl K8sBackend {
                 match signal {
                     ToBackendSignal::RequestRegisterGvk(gvk) => {
                         register_any_gvk(reg.deref_mut(), gvk).await;
-                    }
-                    ToBackendSignal::RequestGvkItems(gvk) => {
-                        info!("Requested resources for GVK: {}", gvk.full_name());
-                        let resources = reg.get_resources(&gvk);
-                        let signal = ToUiSignal::ResponseGvkItems(gvk, resources);
-                        sender.send(signal).await.unwrap_or_log();
                     }
                     ToBackendSignal::RequestDetails(_) => {}
                     ToBackendSignal::Remove(resource) => {

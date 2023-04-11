@@ -21,6 +21,12 @@ columns:
     evaluator: !Embedded
       name: Namespace
 
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
   - name: type
     display_name: Type
     width: 10

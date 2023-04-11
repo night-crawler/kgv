@@ -75,7 +75,7 @@ fn main() -> Result<()> {
 
     register_hotkeys(&mut ui, ui_to_ui_sender.clone());
 
-    send_init_signals(&to_backend_sender, &ui_to_ui_sender);
+    // send_init_signals(&to_backend_sender, &ui_to_ui_sender);
 
     let extractor_config_watcher = LazyWatcher::new(kgv_configuration.extractor_dirs, |paths| {
         ExtractorConfig::new(paths)
@@ -118,7 +118,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn send_init_signals(
+pub fn send_init_signals(
     to_backend_sender: &Sender<ToBackendSignal>,
     ui_to_ui_sender: &Sender<ToUiSignal>,
 ) {

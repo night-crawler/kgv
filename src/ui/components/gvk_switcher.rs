@@ -116,7 +116,7 @@ pub fn build_gvk_show_chain(
     ToUiSignal::new_chain()
         .chain(|_| Some(ToUiSignal::ShowGvk(gvk1)))
         .chain(move |_| {
-            to_backend_sender.send_unwrap(ToBackendSignal::RequestGvkItems(gvk2));
-            None
+            to_backend_sender.send_unwrap(ToBackendSignal::RequestRegisterGvk(gvk2.clone()));
+            Some(ToUiSignal::UpdateListViewForGvk(gvk2, false))
         })
 }

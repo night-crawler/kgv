@@ -3,7 +3,6 @@ resource:
   version: v1
   kind: DaemonSet
 imports:
-  - import "daemonset" as ds;
   - import "commons" as commons;
 events:
   - !Submit
@@ -25,8 +24,8 @@ columns:
   - name: name
     display_name: Name
     width: 0
-    evaluator: !ScriptContent
-      content: "commons::name(resource)"
+    evaluator: !Embedded
+      name: Name
 
   - name: cur_scheduled
     display_name: CurSched
@@ -70,11 +69,11 @@ columns:
     evaluator: !ScriptContent
       content: resource?.status?.updatedNumberScheduled ?? "-"
 
-  - name: ready_del
-    display_name: State
-    width: 8
-    evaluator: !ScriptContent
-      content: ds::state(resource)
+  - name: status
+    display_name: Status
+    width: 5
+    evaluator: !Embedded
+      name: Status
 
   - name: age
     display_name: Age

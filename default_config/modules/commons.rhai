@@ -34,6 +34,14 @@ fn is_deleted(resource) {
     resource?.metadata?.deletionTimestamp != ()
 }
 
+fn state(resource) {
+    if cm::is_deleted(resource) {
+        "Deleted"
+    } else {
+        "Active"
+    }
+}
+
 fn compute_values_max_len(map) {
     let max_len = 0;
     for key in map.keys() {

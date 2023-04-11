@@ -45,12 +45,7 @@ use crate::util::panics::ResultExt;
 use crate::util::view_with_data::ViewWithMeta;
 
 pub trait DispatchContextExt {
-    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind) -> anyhow::Result<()>;
-    fn dispatch_response_gvk_items(
-        self,
-        next_gvk: GroupVersionKind,
-        resources: Option<Vec<ResourceView>>,
-    ) -> anyhow::Result<()>;
+    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind, reevaluate: bool) -> anyhow::Result<()>;
     fn dispatch_response_resource_deleted(self, resource: ResourceView) -> anyhow::Result<()>;
     fn dispatch_response_log_data(
         self,
@@ -145,16 +140,20 @@ pub trait DispatchContextExt {
 }
 
 impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
-    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind) -> anyhow::Result<()> {
-        let mut affected_views = {
-            self.data
-                .lock_sync()?
-                .view_stack
+    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind, reevaluate: bool) -> anyhow::Result<()> {
+        let mut affected_views = self.data.locking(|mut store| {
+            let affected_views = store.view_stack
                 .find_all_by_gvk(&gvk)
                 .into_iter()
                 .filter(|meta| matches!(meta.read_unwrap().deref(), ViewMeta::List { .. }))
-                .peekable()
-        };
+                .peekable();
+
+            if reevaluate {
+                store.resource_manager.reevaluate_all_for_gvk(&gvk);
+            }
+
+            Ok(affected_views)
+        })?;
 
         if affected_views.peek().is_none() {
             warn!("No views found for gvk={}", gvk.full_name());
@@ -180,36 +179,6 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
                 },
             );
         }
-
-        Ok(())
-    }
-
-    fn dispatch_response_gvk_items(
-        self,
-        next_gvk: GroupVersionKind,
-        resources: Option<Vec<ResourceView>>,
-    ) -> anyhow::Result<()> {
-        self.data.locking(|store| {
-            let next_gvk = next_gvk.clone();
-            if let Some(resources) = resources {
-                info!(
-                    "Received {} resources for GVK: {}",
-                    resources.len(),
-                    next_gvk.full_name()
-                );
-                // store.resource_manager.replace_all(resources);
-            } else {
-                warn!("Empty resources for GVK: {}", next_gvk.full_name());
-                store
-                    .to_backend_sender
-                    .send(ToBackendSignal::RequestRegisterGvk(next_gvk))?
-            }
-
-            Ok(())
-        })?;
-
-        self.dispatcher
-            .dispatch_sync(ToUiSignal::UpdateListViewForGvk(next_gvk));
 
         Ok(())
     }
@@ -522,7 +491,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
                 self.dispatcher
                     .dispatch_sync(ToUiSignal::ShowGvk(gvk.clone()));
                 self.dispatcher
-                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk));
+                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk, false));
             }
             ActionType::ShowDetailsTemplate => {
                 let store = self.data.lock_sync()?;
@@ -699,7 +668,7 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
         match view_meta.deref() {
             ViewMeta::List { gvk, .. } => {
                 self.dispatcher
-                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk.clone()));
+                    .dispatch_sync(ToUiSignal::UpdateListViewForGvk(gvk.clone(), true));
                 return Ok(());
             }
             ViewMeta::Details { .. } => {}
