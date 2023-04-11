@@ -14,8 +14,6 @@ details:
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai
-    - name: join
-      path: ./helpers/join.rhai
 
 columns:
   - name: namespace
