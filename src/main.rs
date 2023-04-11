@@ -19,6 +19,7 @@ use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::ui::command_handler_loop::enter_command_handler_loop;
+use crate::ui::components::gvk_switcher::build_gvk_show_chain;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::dispatcher::Dispatcher;
 use crate::ui::hotkeys::register_hotkeys;
@@ -123,13 +124,6 @@ pub fn send_init_signals(
     ui_to_ui_sender: &Sender<ToUiSignal>,
 ) {
     let to_backend_sender = to_backend_sender.clone();
-
-    let signal = ToUiSignal::new_chain()
-        .chain(|_| Some(ToUiSignal::ShowGvk(Pod::gvk_for_type())))
-        .chain(move |_| {
-            to_backend_sender.send_unwrap(ToBackendSignal::RequestRegisterGvk(Pod::gvk_for_type()));
-            None
-        });
-
+    let signal = build_gvk_show_chain(to_backend_sender, &Pod::gvk_for_type());
     ui_to_ui_sender.send_unwrap(signal);
 }

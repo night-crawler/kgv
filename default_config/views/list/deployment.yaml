@@ -38,13 +38,13 @@ columns:
     display_name: Updated
     width: 10
     evaluator: !ScriptContent
-      content: resource?.status?.updatedReplicas
+      content: resource?.status?.updatedReplicas ?? "-"
 
   - name: available
     display_name: Available
     width: 15
     evaluator: !ScriptContent
-      content: resource?.status?.availableReplicas ?? 0
+      content: resource?.status?.availableReplicas ?? "-"
 
   - name: age
     display_name: Age
