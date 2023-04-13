@@ -1,0 +1,40 @@
+resource:
+  group: admissionregistration.k8s.io
+  version: v1
+  kind: MutatingWebhookConfiguration
+imports:
+  - import "commons" as commons;
+  - import "webhooks.rhai" as mw;
+
+events:
+  - !Submit
+    action: !ShowDetailsTable "mutating-webhook"
+
+pseudo_resources:
+  - name: "mutating-webhook"
+    script_content: "mw::extract_webhooks(resource)"
+
+columns:
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: webhooks
+    display_name: Webhooks
+    width: 10
+    evaluator: !ScriptContent
+      content: (resource?.webhooks ?? []).len()
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age
