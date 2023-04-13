@@ -1,15 +1,16 @@
 resource:
-  group: notification.toolkit.fluxcd.io
+  group: networking.istio.io
   version: v1beta1
-  kind: Alert
+  kind: Gateway
 imports:
   - import "commons" as commons;
+  - import "istio" as istio;
 events:
   - !Submit
     action: ShowDetailsTemplate
 
 details:
-  template: ../detail/flux.alert.hbs
+  template: ../detail/istio.gateway.hbs
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai
@@ -27,23 +28,23 @@ columns:
     evaluator: !Embedded
       name: Name
 
-  - name: severity
-    display_name: Severity
+  - name: selector
+    display_name: Selector
+    width: 40
+    evaluator: !ScriptContent
+      content: commons::display_map(resource?.spec?.selector)
+
+  - name: servers
+    display_name: Servers
     width: 10
     evaluator: !ScriptContent
-      content: resource?.spec?.eventSeverity ?? "-"
+      content: (resource?.spec?.servers ?? []).len()
 
-  - name: providerRef
-    display_name: Provider Ref
-    width: 0
+  - name: hosts
+    display_name: Hosts
+    width: 10
     evaluator: !ScriptContent
-      content: resource?.spec?.providerRef?.name ?? "-"
-
-  - name: ready
-    display_name: Ready
-    width: 5
-    evaluator: !ScriptContent
-      content: commons::ready_conditions_count(resource?.status?.conditions)
+      content: istio::count_hosts(resource)
 
   - name: status
     display_name: Status

@@ -122,6 +122,9 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
 
     fn to_yaml(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
         let param = h.param(0).unwrap();
+        if param.is_value_missing() {
+            return Ok(());
+        }
         let value = param.value();
         let serialized = serde_yaml::to_string(value).unwrap();
         out.write(&serialized)?;

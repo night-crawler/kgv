@@ -1,7 +1,7 @@
 resource:
-  group: notification.toolkit.fluxcd.io
+  group: security.istio.io
   version: v1beta1
-  kind: Alert
+  kind: PeerAuthentication
 imports:
   - import "commons" as commons;
 events:
@@ -9,7 +9,7 @@ events:
     action: ShowDetailsTemplate
 
 details:
-  template: ../detail/flux.alert.hbs
+  template: ../detail/istio.peerauthentication.hbs
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai
@@ -27,23 +27,23 @@ columns:
     evaluator: !Embedded
       name: Name
 
-  - name: severity
-    display_name: Severity
-    width: 10
-    evaluator: !ScriptContent
-      content: resource?.spec?.eventSeverity ?? "-"
-
-  - name: providerRef
-    display_name: Provider Ref
+  - name: selector
+    display_name: Selector
     width: 0
     evaluator: !ScriptContent
-      content: resource?.spec?.providerRef?.name ?? "-"
+      content: commons::display_map(resource?.spec?.selector)
 
-  - name: ready
-    display_name: Ready
-    width: 5
+  - name: mtls_mode
+    display_name: mTLS Mode
+    width: 10
     evaluator: !ScriptContent
-      content: commons::ready_conditions_count(resource?.status?.conditions)
+      content: resource?.spec?.mtls?.mode ?? "-"
+
+  - name: port_level_mtls
+    display_name: Port Level mTLS
+    width: 30
+    evaluator: !ScriptContent
+      content: commons::display_map(resource?.spec?.portLevelMtls)
 
   - name: status
     display_name: Status

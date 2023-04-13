@@ -120,3 +120,25 @@ fn ready_conditions_count(conditions) {
 
     `${ready}/${count}`
 }
+
+fn display_map(map) {
+    if map == () {
+        return "";
+    }
+
+    let parts = [];
+
+    for key in map.keys() {
+        let value = map[key];
+        value = if value.type_of() == "map" {
+            display_map(value)
+        } else if value.type_of() == "array" {
+            value.join(",")
+        } else {
+            `${value}`
+        };
+        parts.push(`${key}:${value}`);
+    }
+
+    parts.join(",")
+}

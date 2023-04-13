@@ -1,15 +1,16 @@
 resource:
-  group: notification.toolkit.fluxcd.io
+  group: networking.istio.io
   version: v1beta1
-  kind: Alert
+  kind: VirtualService
 imports:
   - import "commons" as commons;
+  - import "istio" as istio;
 events:
   - !Submit
     action: ShowDetailsTemplate
 
 details:
-  template: ../detail/flux.alert.hbs
+  template: ../detail/istio.virtualservice.hbs
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai
@@ -27,23 +28,23 @@ columns:
     evaluator: !Embedded
       name: Name
 
-  - name: severity
-    display_name: Severity
-    width: 10
-    evaluator: !ScriptContent
-      content: resource?.spec?.eventSeverity ?? "-"
-
-  - name: providerRef
-    display_name: Provider Ref
+  - name: hosts
+    display_name: Hosts
     width: 0
     evaluator: !ScriptContent
-      content: resource?.spec?.providerRef?.name ?? "-"
+      content: (resource?.spec?.hosts ?? []).join(",")
 
-  - name: ready
-    display_name: Ready
-    width: 5
+  - name: gateways
+    display_name: Gateways
+    width: 0
     evaluator: !ScriptContent
-      content: commons::ready_conditions_count(resource?.status?.conditions)
+      content: (resource?.spec?.gateways ?? []).join(",")
+
+  - name: http_routes
+    display_name: HTTP Routes
+    width: 10
+    evaluator: !ScriptContent
+      content: (resource?.spec?.http ?? []).len()
 
   - name: status
     display_name: Status

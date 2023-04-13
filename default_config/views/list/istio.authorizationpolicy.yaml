@@ -1,7 +1,7 @@
 resource:
-  group: notification.toolkit.fluxcd.io
+  group: security.istio.io
   version: v1beta1
-  kind: Alert
+  kind: AuthorizationPolicy
 imports:
   - import "commons" as commons;
 events:
@@ -9,7 +9,7 @@ events:
     action: ShowDetailsTemplate
 
 details:
-  template: ../detail/flux.alert.hbs
+  template: ../detail/istio.authorizationpolicy.hbs
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai
@@ -27,23 +27,23 @@ columns:
     evaluator: !Embedded
       name: Name
 
-  - name: severity
-    display_name: Severity
+  - name: action
+    display_name: Action
     width: 10
     evaluator: !ScriptContent
-      content: resource?.spec?.eventSeverity ?? "-"
+      content: resource?.spec?.action ?? "-"
 
-  - name: providerRef
-    display_name: Provider Ref
-    width: 0
+  - name: provider
+    display_name: Provider
+    width: 20
     evaluator: !ScriptContent
-      content: resource?.spec?.providerRef?.name ?? "-"
+      content: resource?.spec?.provider?.name ?? "-"
 
-  - name: ready
-    display_name: Ready
-    width: 5
+  - name: rules
+    display_name: Rules
+    width: 6
     evaluator: !ScriptContent
-      content: commons::ready_conditions_count(resource?.status?.conditions)
+      content: (resource?.spec?.rules ?? []).len()
 
   - name: status
     display_name: Status

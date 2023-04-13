@@ -125,5 +125,5 @@ pub fn send_init_signals(
 ) {
     let to_backend_sender = to_backend_sender.clone();
     let signal = build_gvk_show_chain(to_backend_sender, &Pod::gvk_for_type());
-    ui_to_ui_sender.send_unwrap(signal);
+    // ui_to_ui_sender.send_unwrap(signal);
 }

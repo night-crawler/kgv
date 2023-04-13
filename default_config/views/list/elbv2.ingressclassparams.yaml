@@ -1,7 +1,7 @@
 resource:
-  group: ''
-  version: v1
-  kind: Secret
+  group: elbv2.k8s.aws
+  version: v1beta1
+  kind: IngressClassParams
 imports:
   - import "commons" as commons;
 events:
@@ -9,35 +9,17 @@ events:
     action: ShowDetailsTemplate
 
 details:
-  template: ../detail/secret.hbs
+  template: ../detail/elbv2.ingressclassparams.hbs
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai
 
 columns:
-  - name: namespace
-    display_name: Namespace
-    width: 15
-    evaluator: !Embedded
-      name: Namespace
-
   - name: name
     display_name: Name
     width: 0
     evaluator: !Embedded
       name: Name
-
-  - name: type
-    display_name: Type
-    width: 0
-    evaluator: !ScriptContent
-      content: resource?.type ?? "-"
-
-  - name: len
-    display_name: Len
-    width: 7
-    evaluator: !ScriptContent
-      content: resource?.data?.keys()?.len() ?? "0"
 
   - name: status
     display_name: Status
