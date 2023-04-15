@@ -1,0 +1,39 @@
+resource:
+  group: rbac.authorization.k8s.io
+  version: v1
+  kind: ClusterRole
+imports:
+  - import "commons" as commons;
+  - import "clusterrole" as cr;
+
+pseudo_resources:
+  - name: "rule"
+    script_content: "cr::extract_rules(resource)"
+events:
+  - !Submit
+    action: !ShowDetailsTable "rule"
+
+columns:
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: rules
+    display_name: Rules
+    width: 10
+    evaluator: !ScriptContent
+      content: (resource?.rules ?? []).len()
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

@@ -1,14 +1,14 @@
 <h2>Status</h2>
 
 <ul>
-  <li><em>Name</em>: {{ this.metadata.name }}</li>
-  {{# if this.status.phase }}
-    <li><em>Phase</em>: {{ this.status.phase }}</li>
-  {{/ if }}
-  <li><em>Age</em>: {{ age this.metadata.creationTimestamp }}</li>
-  <li><em>Resource Version</em>: {{ this.metadata.resourceVersion }}</li>
-  <li><em>UID</em>: {{ this.metadata.uid }}</li>
-  <li><em>Generation</em>: {{ this.metadata.generation }}</li>
+    <li><em>Name</em>: {{ this.metadata.name }}</li>
+    {{# if this.status.phase }}
+        <li><em>Phase</em>: {{ this.status.phase }}</li>
+    {{/ if }}
+    <li><em>Age</em>: {{ age this.metadata.creationTimestamp }}</li>
+    <li><em>Resource Version</em>: {{ this.metadata.resourceVersion }}</li>
+    <li><em>UID</em>: {{ this.metadata.uid }}</li>
+    <li><em>Generation</em>: {{ this.metadata.generation }}</li>
 </ul>
 
 {{> header }}

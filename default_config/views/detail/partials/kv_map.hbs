@@ -1,43 +1,43 @@
 {{# if kv_map }}
-  <h2>{{ name }}</h2>
+    <h2>{{ name }}</h2>
 
-  <table>
+    <table>
 
-    {{# if (will_table_fit_screen kv_map) }}
-      <tr>
-        <th><em><strong>Name</strong></em></th>
-        <th><strong><em>Value</em></strong></th>
-      </tr>
-      {{# each kv_map }}
-        <tr>
-          <td>{{ @key }}</td>
-          <td>
-            {{# if ../hide_data }}
-              <a href="text-dialog:{{ urlencode (pretty_any this) }}">{{ this }}</a>
-            {{ else }}
-              <pre>{{ pretty_any this }}</pre>
-            {{/ if }}
-          </td>
-        </tr>
-      {{/ each }}
-    {{ else }}
-      {{# each kv_map }}
-        <tr>
-          <td><strong><em>Name</em></strong>: {{ @key }}</td>
-        </tr>
-        <tr>
-          <td>
-            {{# if ../hide_data }}
-              <a href="text-dialog:{{ urlencode (pretty_any this) }}">{{ this }}</a>
-            {{ else }}
-              <pre>{{ pretty_any this }}</pre>
-            {{/ if }}
-          </td>
-        </tr>
-      {{/ each }}
-    {{/ if }}
+        {{# if (will_table_fit_screen kv_map) }}
+            <tr>
+                <th><em><strong>Name</strong></em></th>
+                <th><strong><em>Value</em></strong></th>
+            </tr>
+            {{# each kv_map }}
+                <tr>
+                    <td>{{ @key }}</td>
+                    <td>
+                        {{# if ../hide_data }}
+                            <a href="text-dialog:{{ urlencode (pretty_any this) }}">{{ this }}</a>
+                        {{ else }}
+                            <pre>{{ pretty_any this }}</pre>
+                        {{/ if }}
+                    </td>
+                </tr>
+            {{/ each }}
+        {{ else }}
+            {{# each kv_map }}
+                <tr>
+                    <td><strong><em>Name</em></strong>: {{ @key }}</td>
+                </tr>
+                <tr>
+                    <td>
+                        {{# if ../hide_data }}
+                            <a href="text-dialog:{{ urlencode (pretty_any this) }}">{{ this }}</a>
+                        {{ else }}
+                            <pre>{{ pretty_any this }}</pre>
+                        {{/ if }}
+                    </td>
+                </tr>
+            {{/ each }}
+        {{/ if }}
 
-  </table>
+    </table>
 
 
 {{/ if }}

@@ -1,0 +1,84 @@
+resource:
+  group: rbac.authorization.k8s.io
+  version: v1
+  kind: ClusterRole/rule
+imports:
+  - import "clusterrole" as cr;
+columns:
+  - name: api_groups
+    display_name: API Groups
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.api_groups ?? ""
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !ScriptContent
+      content: cr::url_or_resource(resource)
+
+  - name: resource_name
+    display_name: Resource Name
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.resource_name ?? ""
+
+  - name: get
+    display_name: Get
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.get)
+
+  - name: list
+    display_name: Lst
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.list)
+
+  - name: watch
+    display_name: Wat
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.watch)
+
+  - name: create
+    display_name: Crt
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.create)
+
+  - name: patch
+    display_name: Pat
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.patch)
+
+  - name: update
+    display_name: Upd
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.update)
+
+  - name: delete
+    display_name: Del
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.delete)
+
+  - name: deletecollection
+    display_name: Dls
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.deletecollection)
+
+  - name: approve
+    display_name: Apr
+    width: 3
+    evaluator: !ScriptContent
+      content: cr::repr_bool(resource?.approve)
+
+  - name: age
+    display_name: Age
+    width: 4
+    evaluator: !Embedded
+      name: Age

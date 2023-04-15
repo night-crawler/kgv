@@ -4,6 +4,7 @@ resource:
   kind: "Pod/container"
 imports:
   - import "container" as container;
+  - import "pod" as pod;
 columns:
   - name: name
     display_name: Name
@@ -65,11 +66,11 @@ columns:
     evaluator: !ScriptContent
       content: "container::last_action(resource, source)"
 
-  - name: status
-    display_name: Status
+  - name: phase
+    display_name: Phase
     width: 6
-    evaluator: !Embedded
-      name: Status
+    evaluator: !ScriptContent
+      content: "pod::phase(source)"
 
   - name: age
     display_name: Age

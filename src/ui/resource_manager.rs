@@ -214,6 +214,12 @@ impl ResourceManager {
             .into_iter()
             .flatten()
             .filter(|resource| {
+                // user must be able to see pseudo resources even if they are deleted
+                // (i.e. from the pod view when pod was deleted, containers should still be visible
+                let is_pseudo = matches!(resource.resource, ResourceView::PseudoResource(_));
+                if is_pseudo {
+                    return true;
+                }
                 let key = resource.resource.uid_or_name();
                 !self.tombstones.contains_key(&key)
             })

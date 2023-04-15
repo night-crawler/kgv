@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: secret-reader
+rules:
+  - apiGroups: [ "", "v1", "v2", "v3" ]
+    resources: [ "r1", "r2", "r3", "r4", "r5/sub" ]
+    verbs: [ "get", "watch", "list", "deletecollection" ]
+    resourceNames:
+      - "a-resource-name"
+      - "b-resource-name"
+  - verbs: [ "get", "watch", "list" ]
+    nonResourceURLs:
+      - /healthz
+      - /livez
+      - /readyz
+  - apiGroups: [ "", "q1", "q2", "q3" ]
+    resources: [ "z1", "z2", "z3", "z4", "z/sub" ]
+    verbs: [ "get", "watch", "list", "deletecollection" ]

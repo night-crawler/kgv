@@ -10,7 +10,7 @@ events:
     action: ShowDetailsTemplate
 
 details:
-  template: ../detail/istio.gateway.hbs
+  template: ../detail/spec_only.hbs
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai

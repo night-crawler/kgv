@@ -1,68 +1,68 @@
 {{#* inline "header" }}
-  <h2>Node Info</h2>
-  {{# with this.status.nodeInfo }}
-    <ul>
-      <li><em>Architecture</em>: {{ architecture }}</li>
-      <li><em>Boot Id</em>: {{ bootID }}</li>
-      <li><em>Container Runtime Version</em>: {{ containerRuntimeVersion }}</li>
-      <li><em>Kernel Version</em>: {{ kernelVersion }}</li>
-      <li><em>Kube Proxy Version</em>: {{ kubeProxyVersion }}</li>
-      <li><em>Kubelet Version</em>: {{ kubeletVersion }}</li>
-      <li><em>Machine Id</em>: {{ machineID }}</li>
-      <li><em>Operating System</em>: {{ operatingSystem }}</li>
-      <li><em>Os Image</em>: {{ osImage }}</li>
-      <li><em>System Uuid</em>: {{ systemUUID }}</li>
-    </ul>
-  {{/ with }}
+    <h2>Node Info</h2>
+    {{# with this.status.nodeInfo }}
+        <ul>
+            <li><em>Architecture</em>: {{ architecture }}</li>
+            <li><em>Boot Id</em>: {{ bootID }}</li>
+            <li><em>Container Runtime Version</em>: {{ containerRuntimeVersion }}</li>
+            <li><em>Kernel Version</em>: {{ kernelVersion }}</li>
+            <li><em>Kube Proxy Version</em>: {{ kubeProxyVersion }}</li>
+            <li><em>Kubelet Version</em>: {{ kubeletVersion }}</li>
+            <li><em>Machine Id</em>: {{ machineID }}</li>
+            <li><em>Operating System</em>: {{ operatingSystem }}</li>
+            <li><em>Os Image</em>: {{ osImage }}</li>
+            <li><em>System Uuid</em>: {{ systemUUID }}</li>
+        </ul>
+    {{/ with }}
 {{/ inline }}
 
 {{#* inline "content" }}
-  <h2>Spec</h2>
-  <pre>{{ to_yaml this.spec }}</pre>
+    <h2>Spec</h2>
+    <pre>{{ to_yaml this.spec }}</pre>
 {{/ inline }}
 
 {{#* inline "footer" }}
-  <h2>Addresses</h2>
-  <table>
-    {{# each this.status.addresses }}
-      <thead>
-      <tr>
-        <th>Type</th>
-        <th>Address</th>
-      </tr>
-      </thead>
-      <tr>
-        <td>{{ type }}</td>
-        <td>{{ address }}</td>
-      </tr>
+    <h2>Addresses</h2>
+    <table>
+        {{# each this.status.addresses }}
+            <thead>
+            <tr>
+                <th>Type</th>
+                <th>Address</th>
+            </tr>
+            </thead>
+            <tr>
+                <td>{{ type }}</td>
+                <td>{{ address }}</td>
+            </tr>
 
-    {{/each}}
-  </table>
+        {{/each}}
+    </table>
 
-  <h2>Images</h2>
-  <table>
-    {{# each this.status.images }}
-      <thead>
-      <tr>
-        <th>Size</th>
-        <th>Address</th>
-      </tr>
-      </thead>
-      <tr>
-        <td>{{ sizeBytes }} Bytes</td>
-        <td>
-          <ul>
-            {{# each names }}
-              <li>
-                {{ this }}
-              </li>
-            {{/ each }}
-          </ul>
-        </td>
-      </tr>
+    <h2>Images</h2>
+    <table>
+        {{# each this.status.images }}
+            <thead>
+            <tr>
+                <th>Size</th>
+                <th>Address</th>
+            </tr>
+            </thead>
+            <tr>
+                <td>{{ sizeBytes }} Bytes</td>
+                <td>
+                    <ul>
+                        {{# each names }}
+                            <li>
+                                {{ this }}
+                            </li>
+                        {{/ each }}
+                    </ul>
+                </td>
+            </tr>
 
-    {{/each}}
-  </table>
+        {{/each}}
+    </table>
 
 {{/ inline }}
 

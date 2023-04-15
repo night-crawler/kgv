@@ -17,7 +17,7 @@ fn ready(resource) {
 
 fn restarts(resource) {
     let count = 0;
-    let container_statuses = resource.status?.containerStatuses ?? [];
+    let container_statuses = (resource.status?.containerStatuses ?? []) + (resource.status?.initContainerStatuses ?? []);
     for container_status in container_statuses {
         count += container_status.restartCount ?? 0;
     }

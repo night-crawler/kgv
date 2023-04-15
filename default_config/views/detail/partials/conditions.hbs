@@ -1,25 +1,25 @@
 {{# if conditions }}
-<h2>{{ name }}</h2>
-  <table>
-    <thead>
-    <tr>
-      <th>Status</th>
-      <th>Type</th>
-      <th>Reason</th>
-      <th>Message</th>
-      <th>Observed Generation</th>
-      <th>Last Transition Timestamp</th>
-    </tr>
-    </thead>
-    {{# each conditions }}
-      <tr>
-        <td>{{ this.status }}</td>
-        <td>{{ this.type }}</td>
-        <td>{{ this.reason }}</td>
-        <td>{{ this.message }}</td>
-        <td>{{ this.observedGeneration }}</td>
-        <td>{{ age this.lastTransitionTime }}</td>
-      </tr>
-    {{/ each }}
-  </table>
+    <h2>{{ name }}</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>Status</th>
+            <th>Type</th>
+            <th>Reason</th>
+            <th>Message</th>
+            <th>Observed Generation</th>
+            <th>Last Transition Timestamp</th>
+        </tr>
+        </thead>
+        {{# each conditions }}
+            <tr>
+                <td>{{ this.status }}</td>
+                <td>{{ this.type }}</td>
+                <td>{{ this.reason }}</td>
+                <td>{{ this.message }}</td>
+                <td>{{ this.observedGeneration }}</td>
+                <td>{{ age this.lastTransitionTime }}</td>
+            </tr>
+        {{/ each }}
+    </table>
 {{/ if }}
