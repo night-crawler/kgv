@@ -1,0 +1,49 @@
+resource:
+  group: admissionregistration.k8s.io
+  version: v1
+  kind: "ValidatingWebhookConfiguration/validating-webhook"
+imports:
+  - import "container" as container;
+
+columns:
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.name
+
+  - name: match_policy
+    display_name: Match Policy
+    width: 20
+    evaluator: !ScriptContent
+      content: resource?.matchPolicy ?? "-"
+
+  - name: side_effects
+    display_name: Side Effects
+    width: 20
+    evaluator: !ScriptContent
+      content: resource?.sideEffects ?? "-"
+
+  - name: timout
+    display_name: Timeout
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.timeoutSeconds ?? "-"
+
+  - name: failure_policy
+    display_name: Failure Policy
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.failurePolicy ?? "-"
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 4
+    evaluator: !Embedded
+      name: Age

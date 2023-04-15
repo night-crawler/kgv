@@ -1,0 +1,59 @@
+resource:
+  group: autoscaling
+  version: v1
+  kind: HorizontalPodAutoscaler
+imports:
+  - import "commons" as commons;
+  - import "autoscale" as hpa;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/autoscale.hpa.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: target
+    display_name: Target
+    width: 0
+    evaluator: !ScriptContent
+      content: hpa::scale_target(resource)
+
+  - name: replicas
+    display_name: Replicas
+    width: 11
+    evaluator: !ScriptContent
+      content: hpa::replicas(resource)
+
+  - name: cpu
+    display_name: CPU
+    width: 5
+    evaluator: !ScriptContent
+      content: resource?.spec?.targetCPUUtilizationPercentage ?? "-"
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

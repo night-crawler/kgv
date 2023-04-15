@@ -6,6 +6,8 @@
             <li><em>IP Families</em>: {{ join ipFamilies ", " }}</li>
             <li><em>Cluster IP</em>: {{ clusterIP }}</li>
             <li><em>Cluster IPs</em>: {{ join clusterIPs ", " }}</li>
+            <li><em>External IPs</em>: {{ join externalIPs ", " }}</li>
+            <li><em>External Name</em>: {{ externalName }}</li>
         </ul>
     {{/ with }}
 {{/ inline }}

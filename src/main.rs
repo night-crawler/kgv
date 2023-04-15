@@ -19,6 +19,7 @@ use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::ui::command_handler_loop::enter_command_handler_loop;
+use crate::ui::components::gvk_switcher::build_gvk_show_chain;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::dispatcher::Dispatcher;
 use crate::ui::hotkeys::register_hotkeys;
@@ -75,7 +76,7 @@ fn main() -> Result<()> {
 
     register_hotkeys(&mut ui, ui_to_ui_sender.clone());
 
-    send_init_signals(&to_backend_sender, &ui_to_ui_sender);
+    // send_init_signals(&to_backend_sender, &ui_to_ui_sender);
 
     let extractor_config_watcher = LazyWatcher::new(kgv_configuration.extractor_dirs, |paths| {
         ExtractorConfig::new(paths)
@@ -118,18 +119,11 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn send_init_signals(
+pub fn send_init_signals(
     to_backend_sender: &Sender<ToBackendSignal>,
     ui_to_ui_sender: &Sender<ToUiSignal>,
 ) {
     let to_backend_sender = to_backend_sender.clone();
-
-    let signal = ToUiSignal::new_chain()
-        .chain(|_| Some(ToUiSignal::ShowGvk(Pod::gvk_for_type())))
-        .chain(move |_| {
-            to_backend_sender.send_unwrap(ToBackendSignal::RequestRegisterGvk(Pod::gvk_for_type()));
-            None
-        });
-
-    ui_to_ui_sender.send_unwrap(signal);
+    let signal = build_gvk_show_chain(to_backend_sender, &Pod::gvk_for_type());
+    // ui_to_ui_sender.send_unwrap(signal);
 }

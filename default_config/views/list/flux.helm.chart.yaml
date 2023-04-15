@@ -31,7 +31,7 @@ columns:
     display_name: Chart
     width: 0
     evaluator: !ScriptContent
-      content: resource?.chart? ?? "-"
+      content: resource?.chart ?? "-"
 
   - name: interval
     display_name: Ivl
@@ -56,6 +56,12 @@ columns:
     width: 5
     evaluator: !ScriptContent
       content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
 
   - name: age
     display_name: Age

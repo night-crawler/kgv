@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -82,7 +83,7 @@ impl ResourceManager {
             if let Some(evaluated_resource) = map.get(&key) {
                 let existing_version = evaluated_resource.resource.resource_version();
                 let new_version = resource.resource_version();
-                if existing_version > new_version {
+                if compare_resource_versions(&existing_version, &new_version) == Ordering::Greater {
                     error!("Race condition detected for resource {}; existing version: {:?}, new version: {:?}",
                         resource.full_unique_name(),
                         existing_version,
@@ -145,10 +146,12 @@ impl ResourceManager {
         (evaluated_resource, pseudo_resources)
     }
 
-    pub fn replace_all(&mut self, resources: Vec<ResourceView>) {
-        resources.into_iter().for_each(|resource| {
-            self.replace(resource);
-        });
+    pub fn reevaluate_all_for_gvk(&mut self, gvk: &GroupVersionKind) {
+        if let Some(resource_map) = self.resources_by_gvk.remove(gvk) {
+            for (_, resource) in resource_map.into_iter() {
+                self.replace(resource.resource);
+            }
+        }
     }
 
     pub fn get_columns(&self, gvk: &GroupVersionKind) -> Arc<Vec<Column>> {
@@ -238,4 +241,18 @@ impl ResourceManager {
         }
         None
     }
+}
+
+fn compare_resource_versions(left: &Option<String>, right: &Option<String>) -> Ordering {
+    if left.is_none() || right.is_none() {
+        return left.cmp(right);
+    }
+
+    let (left, right) = (left.as_ref().unwrap(), right.as_ref().unwrap());
+
+    if let (Ok(left), Ok(right)) = (left.parse::<usize>(), right.parse::<usize>()) {
+        return left.cmp(&right);
+    }
+
+    left.cmp(right)
 }

@@ -34,6 +34,14 @@ fn is_deleted(resource) {
     resource?.metadata?.deletionTimestamp != ()
 }
 
+fn state(resource) {
+    if cm::is_deleted(resource) {
+        "Deleted"
+    } else {
+        "Active"
+    }
+}
+
 fn compute_values_max_len(map) {
     let max_len = 0;
     for key in map.keys() {
@@ -111,4 +119,26 @@ fn ready_conditions_count(conditions) {
     }
 
     `${ready}/${count}`
+}
+
+fn display_map(map) {
+    if map == () {
+        return "";
+    }
+
+    let parts = [];
+
+    for key in map.keys() {
+        let value = map[key];
+        value = if value.type_of() == "map" {
+            display_map(value)
+        } else if value.type_of() == "array" {
+            value.join(",")
+        } else {
+            `${value}`
+        };
+        parts.push(`${key}:${value}`);
+    }
+
+    parts.join(",")
 }

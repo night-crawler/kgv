@@ -1,0 +1,58 @@
+resource:
+  group: security.istio.io
+  version: v1beta1
+  kind: AuthorizationPolicy
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/istio.authorizationpolicy.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: action
+    display_name: Action
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.action ?? "-"
+
+  - name: provider
+    display_name: Provider
+    width: 20
+    evaluator: !ScriptContent
+      content: resource?.spec?.provider?.name ?? "-"
+
+  - name: rules
+    display_name: Rules
+    width: 6
+    evaluator: !ScriptContent
+      content: (resource?.spec?.rules ?? []).len()
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

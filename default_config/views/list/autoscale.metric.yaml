@@ -1,0 +1,65 @@
+resource:
+  group: autoscaling.internal.knative.dev
+  version: v1alpha1
+  kind: Metric
+imports:
+  - import "commons" as commons;
+  - import "autoscale" as hpa;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/autoscale.metric.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: panic_window
+    display_name: Panic Window
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.spec?.panicWindow ?? "-"
+
+  - name: stable_window
+    display_name: Stable Window
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.spec?.stableWindow ?? "-"
+
+  - name: target
+    display_name: Scrape Target
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.scrapeTarget ?? "-"
+
+  - name: ready
+    display_name: Ready
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

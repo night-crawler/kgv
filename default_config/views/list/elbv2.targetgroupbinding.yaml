@@ -1,0 +1,58 @@
+resource:
+  group: elbv2.k8s.aws
+  version: v1beta1
+  kind: TargetGroupBinding
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/elbv2.targetgroupbinding.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: targetGroupARN
+    display_name: Target Group ARN
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.targetGroupARN ?? "-"
+
+  - name: targetType
+    display_name: Target Type
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.targetType ?? "-"
+
+  - name: service
+    display_name: Service
+    width: 15
+    evaluator: !ScriptContent
+      content: resource?.spec?.serviceRef?.name ?? "-"
+
+  - name: status
+    display_name: Status
+    width: 5
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

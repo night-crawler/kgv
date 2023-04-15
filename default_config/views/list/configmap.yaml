@@ -34,6 +34,12 @@ columns:
     evaluator: !ScriptContent
       content: "cm::len(resource)"
 
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
   - name: age
     display_name: Age
     width: 5

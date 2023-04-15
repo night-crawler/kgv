@@ -10,7 +10,6 @@ use crate::ui::ui_store::UiStore;
 pub enum ToBackendSignal {
     Remove(ResourceView),
     RequestRegisterGvk(GroupVersionKind),
-    RequestGvkItems(GroupVersionKind),
     RequestLogsSubscribe(LogRequest),
     RequestLogsUnsubscribe(usize),
 
@@ -26,7 +25,6 @@ pub enum ToUiSignal {
     ResponseResourceUpdated(ResourceView),
     ResponseResourceDeleted(ResourceView),
     ResponseDiscoveredGvks(Vec<GroupVersionKind>),
-    ResponseGvkItems(GroupVersionKind, Option<Vec<ResourceView>>),
 
     LogsApplyHighlight(usize, String),
     LogsApplySinceMinutes(usize, usize),
@@ -40,7 +38,7 @@ pub enum ToUiSignal {
     ShowGvk(GroupVersionKind),
     ShowDetails(ResourceView),
 
-    UpdateListViewForGvk(GroupVersionKind),
+    UpdateListViewForGvk(GroupVersionKind, bool),
     ReplaceTableItems(usize),
     ShowWindow(usize),
 

@@ -1,0 +1,59 @@
+resource:
+  group: networking.istio.io
+  version: v1beta1
+  kind: Gateway
+imports:
+  - import "commons" as commons;
+  - import "istio" as istio;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/istio.gateway.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: selector
+    display_name: Selector
+    width: 40
+    evaluator: !ScriptContent
+      content: commons::display_map(resource?.spec?.selector)
+
+  - name: servers
+    display_name: Servers
+    width: 10
+    evaluator: !ScriptContent
+      content: (resource?.spec?.servers ?? []).len()
+
+  - name: hosts
+    display_name: Hosts
+    width: 10
+    evaluator: !ScriptContent
+      content: istio::count_hosts(resource)
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

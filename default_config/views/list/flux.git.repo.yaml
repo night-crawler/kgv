@@ -57,6 +57,12 @@ columns:
     evaluator: !ScriptContent
       content: resource?.spec?.timeout ?? "-"
 
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
   - name: age
     display_name: Age
     width: 5

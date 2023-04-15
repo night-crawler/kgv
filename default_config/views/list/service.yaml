@@ -14,8 +14,6 @@ details:
   helpers:
     - name: will_table_fit_screen
       path: ./helpers/will_table_fit_screen.rhai
-    - name: join
-      path: ./helpers/join.rhai
 
 columns:
   - name: namespace
@@ -53,6 +51,12 @@ columns:
     width: 40
     evaluator: !ScriptContent
       content: commons::format_ports(resource?.spec?.ports)
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
 
   - name: age
     display_name: Age

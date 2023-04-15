@@ -1,0 +1,22 @@
+{{#* inline "header" }}
+    {{# with this.status }}
+        <ul>
+            <li><em>Available Replicas</em>: {{ availableReplicas }}</li>
+            <li><em>Collision Count</em>: {{ collisionCount }}</li>
+            <li><em>Current Replicas</em>: {{ currentReplicas }}</li>
+            <li><em>Current Revision</em>: {{ currentRevision }}</li>
+            <li><em>Observed Generation</em>: {{ observedGeneration }}</li>
+            <li><em>Ready Replicas</em>: {{ readyReplicas }}</li>
+            <li><em>Replicas</em>: {{ replicas }}</li>
+            <li><em>Update Revision</em>: {{ updateRevision }}</li>
+            <li><em>Updated Replicas</em>: {{ updatedReplicas }}</li>
+        </ul>
+    {{/ with }}
+{{/ inline }}
+
+{{#* inline "content" }}
+    <h2>Spec</h2>
+    <pre>{{ to_yaml this.spec }}</pre>
+{{/ inline }}
+
+{{> base }}

@@ -1,0 +1,16 @@
+{{#* inline "header" }}
+    {{# with this.status }}
+        <ul>
+            <li><em>Stored Versions</em>:
+              {{> partials/plain_list list=this.storedVersions }}
+            </li>
+        </ul>
+    {{/ with }}
+{{/ inline }}
+
+{{#* inline "content" }}
+    <h2>Spec</h2>
+    <pre>{{ to_yaml this.spec }}</pre>
+{{/ inline }}
+
+{{> base }}

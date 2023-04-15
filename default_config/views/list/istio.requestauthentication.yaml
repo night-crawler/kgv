@@ -1,0 +1,52 @@
+resource:
+  group: security.istio.io
+  version: v1beta1
+  kind: RequestAuthentication
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/istio.requestauthentication.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: selector
+    display_name: Selector
+    width: 0
+    evaluator: !ScriptContent
+      content: commons::display_map(resource?.spec?.selector)
+
+  - name: jwt_rules
+    display_name: JWT Rules
+    width: 10
+    evaluator: !ScriptContent
+      content: (resource?.spec?.jwtRules ?? []).len()
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

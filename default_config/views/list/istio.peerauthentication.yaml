@@ -1,0 +1,58 @@
+resource:
+  group: security.istio.io
+  version: v1beta1
+  kind: PeerAuthentication
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/istio.peerauthentication.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: selector
+    display_name: Selector
+    width: 0
+    evaluator: !ScriptContent
+      content: commons::display_map(resource?.spec?.selector)
+
+  - name: mtls_mode
+    display_name: mTLS Mode
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.mtls?.mode ?? "-"
+
+  - name: port_level_mtls
+    display_name: Port Level mTLS
+    width: 30
+    evaluator: !ScriptContent
+      content: commons::display_map(resource?.spec?.portLevelMtls)
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

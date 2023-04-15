@@ -1,0 +1,52 @@
+resource:
+  group: extensions.istio.io
+  version: v1alpha1
+  kind: WasmPlugin
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/istio.wasmplugin.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: url
+    display_name: URL
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.url ?? "-"
+
+  - name: phase
+    display_name: Phase
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.phase ?? "-"
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

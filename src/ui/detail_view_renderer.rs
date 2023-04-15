@@ -5,6 +5,7 @@ use handlebars::{
     RenderContext,
 };
 use handlebars::Handlebars;
+use itertools::Itertools;
 use percent_encoding::{NON_ALPHANUMERIC, percent_encode};
 use rhai::Engine;
 
@@ -121,6 +122,9 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
 
     fn to_yaml(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
         let param = h.param(0).unwrap();
+        if param.is_value_missing() {
+            return Ok(());
+        }
         let value = param.value();
         let serialized = serde_yaml::to_string(value).unwrap();
         out.write(&serialized)?;
@@ -143,6 +147,17 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         Ok(())
     }
 
+    fn join(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+        let arr = h.param(0).unwrap();
+        let delim = h.param(1).unwrap().value().as_str().unwrap();
+        let arr = arr.value().as_array().map(|v| &v[..]).unwrap_or_default();
+
+        let joined = arr.iter().filter_map(|item| item.as_str()).join(delim);
+        out.write(&joined)?;
+        Ok(())
+    }
+
+    hbs.register_helper("join", Box::new(join));
     hbs.register_helper("pretty_any", Box::new(pretty_any));
     hbs.register_helper("to_yaml", Box::new(to_yaml));
     hbs.register_helper("age", Box::new(age));

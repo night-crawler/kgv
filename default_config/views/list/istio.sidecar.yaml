@@ -1,0 +1,47 @@
+resource:
+  group: networking.istio.io
+  version: v1beta1
+  kind: Sidecar
+imports:
+  - import "commons" as commons;
+  - import "istio" as istio;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/istio.sidecar.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: egress_hosts
+    display_name: Egress Hosts
+    width: 0
+    evaluator: !ScriptContent
+      content: istio::egress_hosts(resource)
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

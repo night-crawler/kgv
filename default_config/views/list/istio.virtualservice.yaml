@@ -1,0 +1,59 @@
+resource:
+  group: networking.istio.io
+  version: v1beta1
+  kind: VirtualService
+imports:
+  - import "commons" as commons;
+  - import "istio" as istio;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/istio.virtualservice.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: hosts
+    display_name: Hosts
+    width: 0
+    evaluator: !ScriptContent
+      content: (resource?.spec?.hosts ?? []).join(",")
+
+  - name: gateways
+    display_name: Gateways
+    width: 0
+    evaluator: !ScriptContent
+      content: (resource?.spec?.gateways ?? []).join(",")
+
+  - name: http_routes
+    display_name: HTTP Routes
+    width: 10
+    evaluator: !ScriptContent
+      content: (resource?.spec?.http ?? []).len()
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age

@@ -16,9 +16,6 @@ impl Dispatch<UiStore, ToUiSignal> for ToUiSignal {
             ToUiSignal::ResponseDiscoveredGvks(gvks) => {
                 context.dispatch_response_discovered_gvks(gvks)
             }
-            ToUiSignal::ResponseGvkItems(next_gvk, resources) => {
-                context.dispatch_response_gvk_items(next_gvk, resources)
-            }
             ToUiSignal::ApplyNamespaceFilter(id, ns) => {
                 context.dispatch_apply_namespace_filter(id, ns)
             }
@@ -31,8 +28,8 @@ impl Dispatch<UiStore, ToUiSignal> for ToUiSignal {
             ToUiSignal::F5Pressed => context.dispatch_refresh(),
             ToUiSignal::EscPressed => context.dispatch_pop_view(),
             ToUiSignal::ShowDebugLog => context.dispatch_show_debug_console(),
-            ToUiSignal::UpdateListViewForGvk(gvk) => {
-                context.dispatch_update_list_views_for_gvk(gvk)
+            ToUiSignal::UpdateListViewForGvk(gvk, reevaluate) => {
+                context.dispatch_update_list_views_for_gvk(gvk, reevaluate)
             }
             ToUiSignal::ReplaceTableItems(view_id) => context.dispatch_replace_table_items(view_id),
             ToUiSignal::Chain(items) => {
