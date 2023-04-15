@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use cursive::reexports::log::warn;
-use rhai::{Engine, exported_module};
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
+use rhai::{exported_module, Engine};
 
 use crate::eval::eval_result::{EvalResult, PseudoResource, RhaiPseudoResource};
 use crate::eval::helpers::*;
@@ -47,7 +47,7 @@ fn prepare_resolvers(paths: &[PathBuf]) -> ModuleResolversCollection {
 
 #[cfg(test)]
 mod tests {
-    use rhai::{AST, Scope};
+    use rhai::{Scope, AST};
 
     use super::*;
 
@@ -65,7 +65,7 @@ mod tests {
         }
         "##,
         )
-            .unwrap();
+        .unwrap();
 
         let ast: AST = engine
             .compile(

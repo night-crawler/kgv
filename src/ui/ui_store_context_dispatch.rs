@@ -45,7 +45,11 @@ use crate::util::panics::ResultExt;
 use crate::util::view_with_data::ViewWithMeta;
 
 pub trait DispatchContextExt {
-    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind, reevaluate: bool) -> anyhow::Result<()>;
+    fn dispatch_update_list_views_for_gvk(
+        self,
+        gvk: GroupVersionKind,
+        reevaluate: bool,
+    ) -> anyhow::Result<()>;
     fn dispatch_response_resource_deleted(self, resource: ResourceView) -> anyhow::Result<()>;
     fn dispatch_response_log_data(
         self,
@@ -140,9 +144,14 @@ pub trait DispatchContextExt {
 }
 
 impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
-    fn dispatch_update_list_views_for_gvk(self, gvk: GroupVersionKind, reevaluate: bool) -> anyhow::Result<()> {
+    fn dispatch_update_list_views_for_gvk(
+        self,
+        gvk: GroupVersionKind,
+        reevaluate: bool,
+    ) -> anyhow::Result<()> {
         let mut affected_views = self.data.locking(|mut store| {
-            let affected_views = store.view_stack
+            let affected_views = store
+                .view_stack
                 .find_all_by_gvk(&gvk)
                 .into_iter()
                 .filter(|meta| matches!(meta.read_unwrap().deref(), ViewMeta::List { .. }))
@@ -284,7 +293,10 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
         show_previous: bool,
     ) -> anyhow::Result<()> {
         let view = self.get_view_by_id(view_id)?;
-        view.write_sync()?.get_log_request_clearing_mut().log_params.previous = show_previous;
+        view.write_sync()?
+            .get_log_request_clearing_mut()
+            .log_params
+            .previous = show_previous;
 
         self.send_log_subscribe(view)
     }
@@ -649,7 +661,11 @@ impl<'a> DispatchContextExt for DispatchContext<'a, UiStore, ToUiSignal> {
         let file_name = format!("{}-{}.json", gvk.kind, name);
         let path = std::env::temp_dir().join(file_name);
 
-        info!("Saving resource sample file for {} to {}", resource.resource.full_unique_name(), path.display());
+        info!(
+            "Saving resource sample file for {} to {}",
+            resource.resource.full_unique_name(),
+            path.display()
+        );
 
         std::fs::write(path, json)?;
 

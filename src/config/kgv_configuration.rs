@@ -11,5 +11,5 @@ pub struct KgvConfiguration {
     pub num_tokio_backend_threads: usize,
     pub num_dispatcher_threads: usize,
     pub num_evaluator_threads: usize,
-    pub accept_invalid_certs: bool
+    pub accept_invalid_certs: bool,
 }

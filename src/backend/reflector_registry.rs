@@ -7,10 +7,10 @@ use futures::{StreamExt, TryStreamExt};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, Time};
 use k8s_openapi::Metadata;
 use kanal::AsyncSender;
-use kube::{Api, Client, discovery, Resource, ResourceExt};
 use kube::api::{DynamicObject, GroupVersionKind, ListParams};
-use kube::runtime::{watcher, WatchStreamExt};
 use kube::runtime::watcher::Event;
+use kube::runtime::{watcher, WatchStreamExt};
+use kube::{discovery, Api, Client, Resource, ResourceExt};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
@@ -26,8 +26,8 @@ pub struct ReflectorRegistry {
 }
 
 fn fix_deletion_timestamp<T>(gvk: &GroupVersionKind, event: Event<T>) -> Event<T>
-    where
-        T: Resource,
+where
+    T: Resource,
 {
     match event {
         Event::Deleted(mut obj) => {
@@ -59,16 +59,15 @@ impl ReflectorRegistry {
     }
 
     pub async fn register<T>(&mut self)
-        where
-            T: Metadata<Ty=ObjectMeta>
+    where
+        T: Metadata<Ty = ObjectMeta>
             + 'static
             + Clone
             + Debug
             + Send
             + Sync
-            + for<'de> k8s_openapi::serde::Deserialize<'de>
-        ,
-            ResourceView: From<Arc<T>>,
+            + for<'de> k8s_openapi::serde::Deserialize<'de>,
+        ResourceView: From<Arc<T>>,
     {
         let gvk = T::gvk_for_type();
 
@@ -146,7 +145,10 @@ impl ReflectorRegistry {
         let mut handles_map = self.handles_map.write().await;
         handles_map.insert(key.clone(), handle);
 
-        info!("Registered Dynamic Object resource reflector: {}", key.full_name());
+        info!(
+            "Registered Dynamic Object resource reflector: {}",
+            key.full_name()
+        );
 
         Ok(())
     }

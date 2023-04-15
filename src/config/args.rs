@@ -139,7 +139,7 @@ impl TryFrom<Args> for KgvConfiguration {
             num_tokio_backend_threads: value.num_tokio_backend_threads,
             num_evaluator_threads: value.num_evaluator_threads,
             accept_invalid_certs: value.accept_invalid_certs,
-            num_dispatcher_threads: value.num_dispatcher_threads
+            num_dispatcher_threads: value.num_dispatcher_threads,
         })
     }
 }

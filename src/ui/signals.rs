@@ -21,7 +21,11 @@ pub type ToUiChainDispatch =
 
 #[derive(AsRefStr)]
 pub enum ToUiSignal {
-    ResponseLogData { view_id: usize, seq_id: usize, data: Vec<u8> },
+    ResponseLogData {
+        view_id: usize,
+        seq_id: usize,
+        data: Vec<u8>,
+    },
     ResponseResourceUpdated(ResourceView),
     ResponseResourceDeleted(ResourceView),
     ResponseDiscoveredGvks(Vec<GroupVersionKind>),

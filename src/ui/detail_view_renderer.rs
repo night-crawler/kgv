@@ -1,12 +1,9 @@
 use std::sync::Arc;
 
-use handlebars::{
-    Context, Helper, HelperResult, JsonRender, Output,
-    RenderContext,
-};
 use handlebars::Handlebars;
+use handlebars::{Context, Helper, HelperResult, JsonRender, Output, RenderContext};
 use itertools::Itertools;
-use percent_encoding::{NON_ALPHANUMERIC, percent_encode};
+use percent_encoding::{percent_encode, NON_ALPHANUMERIC};
 use rhai::Engine;
 
 use crate::config::extractor::{DetailsTemplate, ExtractorConfig};
@@ -108,11 +105,16 @@ impl DetailViewRenderer {
     }
 }
 
-
 fn build_handlebars<'reg>() -> Handlebars<'reg> {
     let mut hbs = Handlebars::new();
 
-    fn pretty_any(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    fn pretty_any(
+        h: &Helper,
+        _: &Handlebars,
+        _: &Context,
+        _: &mut RenderContext,
+        out: &mut dyn Output,
+    ) -> HelperResult {
         let param = h.param(0).unwrap();
         let value = param.value().render();
         let prettified = crate::eval::helpers::pretty_any(&value);
@@ -120,7 +122,13 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         Ok(())
     }
 
-    fn to_yaml(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    fn to_yaml(
+        h: &Helper,
+        _: &Handlebars,
+        _: &Context,
+        _: &mut RenderContext,
+        out: &mut dyn Output,
+    ) -> HelperResult {
         let param = h.param(0).unwrap();
         if param.is_value_missing() {
             return Ok(());
@@ -131,7 +139,13 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         Ok(())
     }
 
-    fn age(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    fn age(
+        h: &Helper,
+        _: &Handlebars,
+        _: &Context,
+        _: &mut RenderContext,
+        out: &mut dyn Output,
+    ) -> HelperResult {
         let param = h.param(0).unwrap();
         let value = param.value().as_str().unwrap_or("");
         let age = compute_age(value);
@@ -139,7 +153,13 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         Ok(())
     }
 
-    fn urlencode(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    fn urlencode(
+        h: &Helper,
+        _: &Handlebars,
+        _: &Context,
+        _: &mut RenderContext,
+        out: &mut dyn Output,
+    ) -> HelperResult {
         let param = h.param(0).unwrap();
         let value = param.value().as_str().unwrap_or("error_wrong_argument");
         let result = percent_encode(value.as_bytes(), NON_ALPHANUMERIC).to_string();
@@ -147,7 +167,13 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         Ok(())
     }
 
-    fn join(h: &Helper, _: &Handlebars, _: &Context, _: &mut RenderContext, out: &mut dyn Output) -> HelperResult {
+    fn join(
+        h: &Helper,
+        _: &Handlebars,
+        _: &Context,
+        _: &mut RenderContext,
+        out: &mut dyn Output,
+    ) -> HelperResult {
         let arr = h.param(0).unwrap();
         let delim = h.param(1).unwrap().value().as_str().unwrap();
         let arr = arr.value().as_array().map(|v| &v[..]).unwrap_or_default();

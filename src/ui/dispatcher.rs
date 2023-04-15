@@ -103,10 +103,7 @@ where
             let signal_name = signal.as_ref().to_string();
 
             self.dispatch_sync(signal);
-            info!(
-                "Dispatching {signal_name} took {}",
-                ago_std(now.elapsed())
-            );
+            info!("Dispatching {signal_name} took {}", ago_std(now.elapsed()));
         }
     }
 

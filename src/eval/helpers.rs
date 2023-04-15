@@ -1,5 +1,5 @@
-use base64::Engine;
 use base64::engine::general_purpose;
+use base64::Engine;
 use cursive::reexports::log::error;
 use itertools::Itertools;
 use k8s_openapi::serde_json;
@@ -48,7 +48,6 @@ pub fn pretty_any(raw_string: &str) -> String {
 
     decoded
 }
-
 
 #[cfg(test)]
 mod tests {

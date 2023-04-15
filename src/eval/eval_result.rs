@@ -5,7 +5,7 @@ use rhai::plugin::*;
 use strum_macros::AsRefStr;
 
 use crate::util::error::{EvalError, KgvError};
-use crate::util::ui::{ago, duration_since, compute_age};
+use crate::util::ui::{ago, compute_age, duration_since};
 
 #[derive(Clone, Debug)]
 pub struct RhaiPseudoResource {

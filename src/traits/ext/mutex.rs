@@ -16,10 +16,7 @@ pub trait MutexExt<T> {
         f(guard)
     }
 
-    fn get_locking<R>(
-        &self,
-        f: impl FnOnce(MutexGuard<'_, T>) -> R,
-    ) -> R {
+    fn get_locking<R>(&self, f: impl FnOnce(MutexGuard<'_, T>) -> R) -> R {
         let guard = self.lock_unwrap();
         f(guard)
     }

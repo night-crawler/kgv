@@ -33,7 +33,12 @@ impl Highlighter {
         Ok(result)
     }
 
-    pub fn highlight_substring(&self, text: &str, needle: &str, syntax_extension: &str) -> anyhow::Result<StyledString> {
+    pub fn highlight_substring(
+        &self,
+        text: &str,
+        needle: &str,
+        syntax_extension: &str,
+    ) -> anyhow::Result<StyledString> {
         if needle.is_empty() {
             return self.highlight(text, syntax_extension);
         }
