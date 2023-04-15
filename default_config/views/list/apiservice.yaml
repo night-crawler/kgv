@@ -1,0 +1,64 @@
+resource:
+  group: apiregistration.k8s.io
+  version: v1
+  kind: APIService
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/apiservice.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: group
+    display_name: Group
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.group ?? "-"
+
+  - name: group
+    display_name: GPriority
+    width: 0
+    evaluator: !ScriptContent
+      content: resource?.spec?.groupPriorityMinimum ?? "-"
+
+  - name: version
+    display_name: Version
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.version ?? "-"
+
+  - name: version
+    display_name: VPriority
+    width: 10
+    evaluator: !ScriptContent
+      content: resource?.spec?.versionPriority ?? "-"
+
+  - name: ready
+    display_name: Ready
+    width: 5
+    evaluator: !ScriptContent
+      content: commons::ready_conditions_count(resource?.status?.conditions)
+
+  - name: status
+    display_name: Status
+    width: 6
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age
