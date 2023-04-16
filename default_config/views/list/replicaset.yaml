@@ -1,0 +1,64 @@
+resource:
+  group: apps
+  version: v1
+  kind: ReplicaSet
+imports:
+  - import "commons" as commons;
+events:
+  - !Submit
+    action: ShowDetailsTemplate
+
+details:
+  template: ../detail/replicaset.hbs
+  helpers:
+    - name: will_table_fit_screen
+      path: ./helpers/will_table_fit_screen.rhai
+
+columns:
+  - name: namespace
+    display_name: Namespace
+    width: 15
+    evaluator: !Embedded
+      name: Namespace
+
+  - name: name
+    display_name: Name
+    width: 0
+    evaluator: !Embedded
+      name: Name
+
+  - name: spec_replicas
+    display_name: Spec Replicas
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.spec?.replicas ?? "-"
+
+  - name: labeled
+    display_name: Labeled
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.fullyLabeledReplicas ?? "-"
+
+  - name: replicas
+    display_name: Replicas
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.replicas ?? "-"
+
+  - name: observed_generation
+    display_name: ObsGen
+    width: 7
+    evaluator: !ScriptContent
+      content: resource?.status?.observedGeneration ?? "-"
+
+  - name: status
+    display_name: Status
+    width: 5
+    evaluator: !Embedded
+      name: Status
+
+  - name: age
+    display_name: Age
+    width: 5
+    evaluator: !Embedded
+      name: Age
