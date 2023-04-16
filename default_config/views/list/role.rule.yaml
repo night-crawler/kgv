@@ -1,7 +1,7 @@
 resource:
   group: rbac.authorization.k8s.io
   version: v1
-  kind: ClusterRole/rule
+  kind: Role/rule
 imports:
   - import "roles" as roles;
 columns:

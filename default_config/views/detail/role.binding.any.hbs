@@ -1,0 +1,33 @@
+{{#* inline "header" }}
+    <h2>Role Ref</h2>
+    {{# with this.roleRef }}
+        <ul>
+            <li><em>API Group</em>: {{ apiGroup }}</li>
+            <li><em>Kind</em>: {{ kind }}</li>
+            <li><em>Name</em>: {{ name }}</li>
+        </ul>
+    {{/ with }}
+
+{{/ inline }}
+
+{{#* inline "content" }}
+    <h2>Subjects</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>API Group</th>
+            <th>Kind</th>
+            <th>Name</th>
+        </tr>
+        </thead>
+        {{# each this.subjects }}
+            <tr>
+                <td>{{ apiGroup }}</td>
+                <td>{{ kind }}</td>
+                <td>{{ name }}</td>
+            </tr>
+        {{/ each }}
+    </table>
+{{/ inline }}
+
+{{> base }}

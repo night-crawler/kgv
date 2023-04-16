@@ -1,7 +1,7 @@
 resource:
   group: rbac.authorization.k8s.io
   version: v1
-  kind: ClusterRole
+  kind: Role
 imports:
   - import "commons" as commons;
   - import "roles" as roles;

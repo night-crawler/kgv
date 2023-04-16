@@ -128,7 +128,7 @@ fn repr_bool(value) {
     }
 
     if value {
-        "✔"
+        " ✔"
     } else {
         ""
     }
@@ -140,4 +140,12 @@ fn url_or_resource(resource) {
     } else {
         resource.resource
     }
+}
+
+fn subjects(resource) {
+    let subjects = resource?.subjects ?? [];
+    if subjects.len() == 1 {
+        return subjects[0].name;
+    }
+    subjects.len()
 }

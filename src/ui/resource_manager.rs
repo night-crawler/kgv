@@ -193,6 +193,21 @@ impl ResourceManager {
             resource.full_unique_name()
         );
 
+        // Remove all children / pseudo resources for the current resource.
+        // If the current resource has no natural primary key (for example, we are extracting
+        // a list of rules from a ClusterRole that don't have a unique name), we need to either
+        // merge the previous state with the new one or remove the previous state completely.
+        // Merging is not possible because we don't know which rules were removed and which were
+        // reordered.
+        // Side-effects: if a resource is updated (and some rules are removed), they will silently
+        // disappear from the table after a refresh.
+        // Though, if there IS a natural key, we can mark non-existent resources in the new state
+        // as deleted and let them remain in the table.
+        for extractor in extractors.as_ref() {
+            let gvk = resource.build_pseudo_gvk(&extractor.name);
+            self.resources_by_gvk.remove(&gvk);
+        }
+
         let mut result = vec![];
         for pseudo_resource in pseudo_resources {
             let (resource, pseudo_resources) =
