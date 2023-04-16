@@ -16,9 +16,10 @@ pub enum ToBackendSignal {
     RequestDetails(ResourceView),
 }
 
-pub type ToUiChainDispatch =
-    dyn FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal> + Send + Sync + 'static;
-
+pub type ToUiChainDispatch = dyn FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal>
+    + Send
+    + Sync
+    + 'static;
 
 #[derive(AsRefStr)]
 pub enum FromBackendSignal {

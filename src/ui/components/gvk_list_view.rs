@@ -27,7 +27,10 @@ trait UiStoreComponentExt {
 impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
     fn build_list_view_table(&self, gvk: &GroupVersionKind) -> TableView<EvaluatedResource, usize> {
         let column_handles = {
-            self.lock_unwrap().resource_manager.read_unwrap().get_columns(gvk)
+            self.lock_unwrap()
+                .resource_manager
+                .read_unwrap()
+                .get_columns(gvk)
         };
 
         let mut table: TableView<EvaluatedResource, usize> = TableView::new();

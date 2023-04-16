@@ -15,7 +15,10 @@ use crate::util::ui::group_gvks;
 pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiStore>>) -> Menubar {
     let (to_backend_sender, to_ui_sender) = {
         let store = store.lock_unwrap();
-        (store.to_backend_sender.clone(), store.inter_ui_sender.clone())
+        (
+            store.to_backend_sender.clone(),
+            store.inter_ui_sender.clone(),
+        )
     };
 
     let mut menubar = Menubar::new();

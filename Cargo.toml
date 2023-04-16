@@ -5,39 +5,39 @@ edition = "2021"
 
 [dependencies]
 cursive_table_view = { version = "0.14.0", git = "https://github.com/smallB007/cursive_table_view.git", rev = "c408e7e296d6b04cd340f7c5526f11347c66a5a1" }
-rand = "0.8"
-kube = { version = "0.80.0", features = ["runtime", "derive"] }
-k8s-openapi = { version = "0.17.0", features = ["v1_26"] }
+rand = { default-features = false, version = "0.8" }
+kube = { version = "0.80.0", features = ["runtime", "client", "openssl-tls"], default-features = false }
+k8s-openapi = { version = "0.17.0", features = ["v1_26"], default-features = false }
 thiserror = "1"
 anyhow = "1"
-tokio = { version = "1.25", features = ["full"] }
+tokio = { version = "1.25", features = ["full"], default-features = false }
 kanal = "0.1.0-pre8"
-futures = "0.3"
+futures = { default-features = false, version = "0.3" }
 itertools = "0.10"
 cruet = "0.13"
-strum = "0.24"
+strum = { default-features = false, version = "0.24" }
 strum_macros = "0.24"
 lazy_static = "1.4"
-serde = "1"
+serde = { default-features = false, version = "1" }
 serde_yaml = "0.9"
-chrono = "0.4"
+chrono = { default-features = false, version = "0.4" }
 home = "0.5"
 cursive_buffered_backend = "0.6"
 cursive-markup = "0.3"
 cursive-flexi-logger-view = "0.5"
 cursive-syntect = "0.1"
 syntect = "5"
-flexi_logger = "0.22"
-handlebars = { version = "4.3", features = ["script_helper", "dir_source"] }
+flexi_logger = { default-features = false, version = "0.22", features = ["colors", "textfilter"] }
+handlebars = { version = "4.3", features = ["dir_source", "script_helper", "rhai"], default-features = false }
 #handlebars_misc_helpers = "0.13"
-rhai = { version = "1.12.0", features = ["no_custom_syntax", "unchecked"] }
+rhai = { version = "1.12.0", default-features = false, features = ["no_custom_syntax", "unchecked"] }
 rayon = "1.6"
 clap = { version = "4", features = ["derive", "color", "suggestions"] }
-notify = "5"
+notify = { features = ["crossbeam-channel"], default-features = false, version = "5" }
 tracing-mutex = "0.2"
 better-panic = "0.3"
-base64 = "0.21"
-percent-encoding = "2"
+base64 = { default-features = false, version = "0.21" }
+percent-encoding = { default-features = false, version = "2" }
 
 [dependencies.cursive]
 version = "0.20"

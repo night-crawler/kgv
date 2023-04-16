@@ -21,7 +21,7 @@ use crate::traits::ext::rw_lock::RwLockExt;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::resource_manager::ResourceManager;
-use crate::ui::signals::{ToBackendSignal, InterUiSignal};
+use crate::ui::signals::{InterUiSignal, ToBackendSignal};
 use crate::ui::view_meta::{ListViewFilter, ViewMeta};
 use crate::ui::view_stack::ViewStack;
 use crate::util::panics::ResultExt;

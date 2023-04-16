@@ -8,7 +8,7 @@ use crate::reexports::sync::{Mutex, RwLock};
 use crate::traits::ext::cursive::SivUtilExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
-use crate::ui::signals::{ToBackendSignal, InterUiSignal};
+use crate::ui::signals::{InterUiSignal, ToBackendSignal};
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::ViewMeta;
 use crate::util::ui::build_edit_view;
