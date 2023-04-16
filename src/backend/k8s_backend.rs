@@ -15,7 +15,7 @@ use crate::backend::reflector_registry::ReflectorRegistry;
 use crate::backend::remove_manager::RemoveManager;
 use crate::model::resource::resource_view::{register_any_gvk, ResourceView};
 use crate::traits::ext::kube_config::KubeConfigExt;
-use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::ui::signals::{FromBackendSignal, ToBackendSignal};
 use crate::util::k8s::discover_gvk;
 use crate::util::panics::ResultExt;
 
@@ -28,13 +28,13 @@ pub struct K8sBackend {
     log_manager: Arc<LogManager>,
     remove_manager: Arc<RemoveManager>,
 
-    to_ui_sender: kanal::Sender<ToUiSignal>,
+    from_backend_sender: kanal::Sender<FromBackendSignal>,
     from_ui_receiver: kanal::Receiver<ToBackendSignal>,
 }
 
 impl K8sBackend {
     pub fn new(
-        to_ui_sender: kanal::Sender<ToUiSignal>,
+        from_backend_sender: kanal::Sender<FromBackendSignal>,
         from_ui_receiver: kanal::Receiver<ToBackendSignal>,
         cache_dir: Option<PathBuf>,
         num_backend_threads: usize,
@@ -55,8 +55,8 @@ impl K8sBackend {
         let (resource_watcher_sender, resource_watcher_receiver) = kanal::unbounded_async();
         let registry = ReflectorRegistry::new(resource_watcher_sender, &client);
 
-        let remove_manager = RemoveManager::new(&client, to_ui_sender.clone_async());
-        let log_manager = LogManager::new(&client, to_ui_sender.clone_async());
+        let remove_manager = RemoveManager::new(&client, from_backend_sender.clone_async());
+        let log_manager = LogManager::new(&client, from_backend_sender.clone_async());
 
         let instance = Self {
             fs_cache: Arc::new(futures::lock::Mutex::new(fs_cache)),
@@ -64,7 +64,7 @@ impl K8sBackend {
             client,
             resource_watcher_receiver,
             registry: Arc::new(futures::lock::Mutex::new(registry)),
-            to_ui_sender,
+            from_backend_sender,
             from_ui_receiver,
             log_manager: Arc::new(log_manager),
             remove_manager: Arc::new(remove_manager),
@@ -96,14 +96,14 @@ impl K8sBackend {
     }
 
     pub fn spawn_discovery_task(&self) {
-        let sender = self.to_ui_sender.clone_async();
+        let sender = self.from_backend_sender.clone_async();
         let client = self.client.clone();
         let fs_cache = Arc::clone(&self.fs_cache);
         self.runtime.spawn(async move {
             if let Some(stored_gvks) = fs_cache.lock().await.get_gvks() {
                 info!("Loaded {} GVKs from cache", stored_gvks.len());
                 sender
-                    .send(ToUiSignal::ResponseDiscoveredGvks(stored_gvks))
+                    .send(FromBackendSignal::ResponseDiscoveredGvks(stored_gvks))
                     .await
                     .unwrap_or_log();
             }
@@ -120,7 +120,7 @@ impl K8sBackend {
                             error!("Failed to save cache: {}", err);
                         }
                         sender
-                            .send(ToUiSignal::ResponseDiscoveredGvks(gvks))
+                            .send(FromBackendSignal::ResponseDiscoveredGvks(gvks))
                             .await
                             .unwrap_or_log();
                     }
@@ -135,14 +135,14 @@ impl K8sBackend {
 
     pub fn spawn_watcher_exchange_task(&self) {
         let resource_watch_receiver = self.resource_watcher_receiver.clone();
-        let ui_signal_sender = self.to_ui_sender.clone_async();
+        let ui_signal_sender = self.from_backend_sender.clone_async();
 
         self.runtime.spawn(async move {
             let mut stream = resource_watch_receiver.stream();
 
             while let Some(resource_view) = stream.next().await {
                 ui_signal_sender
-                    .send(ToUiSignal::ResponseResourceUpdated(resource_view))
+                    .send(FromBackendSignal::ResponseResourceUpdated(resource_view))
                     .await
                     .unwrap_or_log();
             }

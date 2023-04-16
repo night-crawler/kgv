@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
 use crate::model::log_request::LogRequest;
-use crate::ui::signals::ToUiSignal;
+use crate::ui::signals::FromBackendSignal;
 use crate::util::panics::ResultExt;
 
 type SyncJoinHandleResult = JoinHandle<()>;
@@ -19,16 +19,19 @@ pub struct LogManager {
     client: Client,
     handles_map: Arc<RwLock<HashMap<usize, SyncJoinHandleResult>>>,
     requests_map: Arc<RwLock<HashMap<usize, Arc<LogRequest>>>>,
-    to_ui_sender: kanal::AsyncSender<ToUiSignal>,
+    from_backend_sender: kanal::AsyncSender<FromBackendSignal>,
 }
 
 impl LogManager {
-    pub fn new(client: &Client, to_ui_sender: kanal::AsyncSender<ToUiSignal>) -> Self {
+    pub fn new(
+        client: &Client,
+        from_backend_sender: kanal::AsyncSender<FromBackendSignal>,
+    ) -> Self {
         Self {
             client: client.clone(),
             requests_map: Arc::default(),
             handles_map: Arc::default(),
-            to_ui_sender,
+            from_backend_sender,
         }
     }
 
@@ -54,7 +57,7 @@ impl LogManager {
         let handle = {
             let handles_map = Arc::clone(&self.handles_map);
             let requests_map = Arc::clone(&self.requests_map);
-            let sender = self.to_ui_sender.clone();
+            let sender = self.from_backend_sender.clone();
             let request = request.clone();
 
             let counter = AtomicUsize::new(0);
@@ -65,7 +68,7 @@ impl LogManager {
                         Ok(Some(bytes)) => {
                             let seq_id = counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             sender
-                                .send(ToUiSignal::ResponseLogData {
+                                .send(FromBackendSignal::ResponseLogData {
                                     seq_id,
                                     view_id: request.id,
                                     data: bytes.to_vec(),

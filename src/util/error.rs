@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use cursive::reexports::log;
-use cursive::reexports::log::{logger, Level};
+use cursive::reexports::log::{logger, Level, error};
 use handlebars::TemplateError;
 use k8s_openapi::serde_json;
 use rhai::EvalAltResult;

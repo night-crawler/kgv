@@ -8,7 +8,7 @@ use crate::reexports::sync::{Mutex, RwLock};
 use crate::traits::ext::cursive::SivUtilExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
-use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::ui::signals::{ToBackendSignal, InterUiSignal};
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::ViewMeta;
 use crate::util::ui::build_edit_view;
@@ -18,7 +18,7 @@ pub fn build_gvk_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> 
     let (to_ui_sender, to_backend_sender, gvks, counter) = {
         let mut store = store.lock_unwrap();
         (
-            store.to_ui_sender.clone(),
+            store.inter_ui_sender.clone(),
             store.to_backend_sender.clone(),
             store.get_filtered_gvks(""),
             store.inc_counter(),
@@ -111,12 +111,12 @@ pub fn build_gvk_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> 
 pub fn build_gvk_show_chain(
     to_backend_sender: kanal::Sender<ToBackendSignal>,
     gvk: &GroupVersionKind,
-) -> ToUiSignal {
+) -> InterUiSignal {
     let (gvk1, gvk2) = (gvk.clone(), gvk.clone());
-    ToUiSignal::new_chain()
-        .chain(|_| Some(ToUiSignal::ShowGvk(gvk1)))
+    InterUiSignal::new_chain()
+        .chain(|_| Some(InterUiSignal::ShowGvk(gvk1)))
         .chain(move |_| {
             to_backend_sender.send_unwrap(ToBackendSignal::RequestRegisterGvk(gvk2.clone()));
-            Some(ToUiSignal::UpdateListViewForGvk(gvk2, false))
+            Some(InterUiSignal::UpdateListViewForGvk(gvk2, false))
         })
 }

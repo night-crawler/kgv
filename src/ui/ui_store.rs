@@ -21,7 +21,7 @@ use crate::traits::ext::rw_lock::RwLockExt;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::resource_manager::ResourceManager;
-use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::ui::signals::{ToBackendSignal, InterUiSignal};
 use crate::ui::view_meta::{ListViewFilter, ViewMeta};
 use crate::ui::view_stack::ViewStack;
 use crate::util::panics::ResultExt;
@@ -35,7 +35,7 @@ pub struct UiStore {
     pub view_stack: ViewStack,
 
     pub selected_gvk: GroupVersionKind,
-    pub to_ui_sender: kanal::Sender<ToUiSignal>,
+    pub inter_ui_sender: kanal::Sender<InterUiSignal>,
     pub to_backend_sender: kanal::Sender<ToBackendSignal>,
     pub sink: SinkSender,
 

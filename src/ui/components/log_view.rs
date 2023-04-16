@@ -14,7 +14,7 @@ use crate::reexports::sync::Mutex;
 use crate::traits::ext::cloning_callback::CloningCallbackExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
-use crate::ui::signals::ToUiSignal;
+use crate::ui::signals::InterUiSignal;
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::{LogFilter, ViewMeta};
 use crate::util::ui::build_edit_view;
@@ -26,7 +26,7 @@ pub fn build_log_view(
     store: Arc<Mutex<UiStore>>,
 ) -> anyhow::Result<ViewWithMeta<ViewMeta>> {
     let (to_ui_sender, counter) =
-        store.locking(|mut store| Ok((store.to_ui_sender.clone(), store.inc_counter())))?;
+        store.locking(|mut store| Ok((store.inter_ui_sender.clone(), store.inc_counter())))?;
 
     let log_params = LogParams {
         container: Some(container.name.clone()),
@@ -62,7 +62,7 @@ pub fn build_log_view(
 
     let filter_edit_view = to_ui_sender.cloning(|to_ui_sender| {
         build_edit_view(view_meta.get_edit_name("filter"), "", move |_, text, _| {
-            to_ui_sender.send_unwrap(ToUiSignal::LogsApplyHighlight(counter, text.into()));
+            to_ui_sender.send_unwrap(InterUiSignal::LogsApplyHighlight(counter, text.into()));
         })
     });
     let filter_edit_view_panel = Panel::new(filter_edit_view).title("Name").full_width();
@@ -73,7 +73,7 @@ pub fn build_log_view(
             "60",
             move |_, text, _| {
                 if let Ok(value) = text.parse::<usize>() {
-                    to_ui_sender.send_unwrap(ToUiSignal::LogsApplySinceMinutes(counter, value));
+                    to_ui_sender.send_unwrap(InterUiSignal::LogsApplySinceMinutes(counter, value));
                 } else {
                     error!("Failed to parse minutes: {}", text);
                 }
@@ -88,7 +88,7 @@ pub fn build_log_view(
             "1000",
             move |_, text, _| {
                 if let Ok(value) = text.parse::<usize>() {
-                    to_ui_sender.send_unwrap(ToUiSignal::LogsApplyTailLines(counter, value));
+                    to_ui_sender.send_unwrap(InterUiSignal::LogsApplyTailLines(counter, value));
                 } else {
                     error!("Failed to parse tail lines: {}", text);
                 }
@@ -100,7 +100,7 @@ pub fn build_log_view(
     let cb_timestamps = to_ui_sender.cloning(|to_ui_sender| {
         Checkbox::new()
             .on_change(move |_, checked| {
-                to_ui_sender.send_unwrap(ToUiSignal::LogsApplyTimestamps(counter, checked));
+                to_ui_sender.send_unwrap(InterUiSignal::LogsApplyTimestamps(counter, checked));
             })
             .checked()
             .with_name(view_meta.get_checkbox_name("timestamps"))
@@ -110,7 +110,7 @@ pub fn build_log_view(
     let cb_previous = to_ui_sender.cloning(|to_ui_sender| {
         Checkbox::new()
             .on_change(move |_, checked| {
-                to_ui_sender.send_unwrap(ToUiSignal::LogsApplyPrevious(counter, checked));
+                to_ui_sender.send_unwrap(InterUiSignal::LogsApplyPrevious(counter, checked));
             })
             .with_name(view_meta.get_checkbox_name("previous"))
     });

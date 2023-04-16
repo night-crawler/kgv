@@ -107,23 +107,19 @@ where
         }
     }
 
-    pub fn spawn(self: Arc<Self>) {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    fn spawn(self: Arc<Self>, thread_id: usize, thread_prefix: &str) {
         let dispatcher = Arc::clone(&self);
         std::thread::Builder::new()
-            .name(format!(
-                "dispatcher-{}",
-                COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            ))
+            .name(format!("{}-{}", thread_prefix, thread_id))
             .spawn(move || {
                 dispatcher.block();
             })
             .unwrap_or_log();
     }
 
-    pub fn spawn_n(self: Arc<Self>, n: usize) {
-        for _ in 0..n {
-            self.clone().spawn();
+    pub fn spawn_n(self: Arc<Self>, n: usize, thread_prefix: &str) {
+        for thread_id in 0..n {
+            self.clone().spawn(thread_id, thread_prefix);
         }
     }
 }

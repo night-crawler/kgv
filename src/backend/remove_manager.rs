@@ -10,18 +10,21 @@ use crate::model::dynamic_object::DynamicObjectWrapper;
 use crate::model::resource::resource_view::ResourceView;
 use crate::traits::ext::gvk::GvkExt;
 use crate::traits::ext::gvk::GvkNameExt;
-use crate::ui::signals::ToUiSignal;
+use crate::ui::signals::FromBackendSignal;
 
 pub struct RemoveManager {
     client: Client,
-    to_ui_sender: kanal::AsyncSender<ToUiSignal>,
+    from_backend_sender: kanal::AsyncSender<FromBackendSignal>,
 }
 
 impl RemoveManager {
-    pub fn new(client: &Client, to_ui_sender: kanal::AsyncSender<ToUiSignal>) -> Self {
+    pub fn new(
+        client: &Client,
+        from_backend_sender: kanal::AsyncSender<FromBackendSignal>,
+    ) -> Self {
         Self {
             client: client.clone(),
-            to_ui_sender,
+            from_backend_sender,
         }
     }
 
@@ -52,8 +55,8 @@ impl RemoveManager {
                 );
                 let wrapper = DynamicObjectWrapper(dynamic_object, gvk);
                 let deleted_resource = ResourceView::DynamicObject(wrapper.into());
-                self.to_ui_sender
-                    .send(ToUiSignal::ResponseResourceDeleted(deleted_resource))
+                self.from_backend_sender
+                    .send(FromBackendSignal::ResponseResourceDeleted(deleted_resource))
                     .await?;
             }
             Either::Right(status) => {

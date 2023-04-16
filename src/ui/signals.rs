@@ -17,10 +17,11 @@ pub enum ToBackendSignal {
 }
 
 pub type ToUiChainDispatch =
-    dyn FnOnce(DispatchContext<UiStore, ToUiSignal>) -> Option<ToUiSignal> + Send + Sync + 'static;
+    dyn FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal> + Send + Sync + 'static;
+
 
 #[derive(AsRefStr)]
-pub enum ToUiSignal {
+pub enum FromBackendSignal {
     ResponseLogData {
         view_id: usize,
         seq_id: usize,
@@ -29,7 +30,10 @@ pub enum ToUiSignal {
     ResponseResourceUpdated(ResourceView),
     ResponseResourceDeleted(ResourceView),
     ResponseDiscoveredGvks(Vec<GroupVersionKind>),
+}
 
+#[derive(AsRefStr)]
+pub enum InterUiSignal {
     LogsApplyHighlight(usize, String),
     LogsApplySinceMinutes(usize, usize),
     LogsApplyTailLines(usize, usize),
@@ -61,20 +65,20 @@ pub enum ToUiSignal {
     ShowDebugLog,
 }
 
-impl ToUiSignal {
+impl InterUiSignal {
     pub fn new_chain() -> Self {
-        ToUiSignal::Chain(vec![])
+        InterUiSignal::Chain(vec![])
     }
     pub fn chain(
         self,
-        cb: impl FnOnce(DispatchContext<UiStore, ToUiSignal>) -> Option<ToUiSignal>
+        cb: impl FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal>
             + Send
             + Sync
             + 'static,
     ) -> Self {
         let mut signal = self;
         match &mut signal {
-            ToUiSignal::Chain(ref mut items) => {
+            InterUiSignal::Chain(ref mut items) => {
                 items.push(Box::new(cb));
             }
             _ => panic!("Can only chain on ToUiSignal::Chain"),
