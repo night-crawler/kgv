@@ -7,7 +7,7 @@ use crate::reexports::sync::{Mutex, RwLock};
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
 use crate::traits::ext::rw_lock::RwLockExt;
-use crate::ui::signals::ToUiSignal;
+use crate::ui::signals::InterUiSignal;
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::ViewMeta;
 use crate::util::ui::build_edit_view;
@@ -19,7 +19,7 @@ pub fn build_window_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMet
         (
             store.get_filtered_windows(""),
             store.inc_counter(),
-            store.to_ui_sender.clone(),
+            store.inter_ui_sender.clone(),
         )
     };
     let count = view_meta_list.len();
@@ -56,7 +56,7 @@ pub fn build_window_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMet
 
     select_view.set_on_submit(move |_, item: &Arc<RwLock<ViewMeta>>| {
         let id = item.read_unwrap().get_id();
-        to_ui_sender.send_unwrap(ToUiSignal::ShowWindow(id));
+        to_ui_sender.send_unwrap(InterUiSignal::ShowWindow(id));
     });
 
     layout.add_child(edit);

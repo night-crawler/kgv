@@ -143,7 +143,7 @@ impl ExtractorConfig {
         origin: &Path,
     ) {
         Self::register(
-            "even handler types",
+            "event handler types",
             &mut self.event_handler_types_map,
             gvk,
             events,

@@ -14,6 +14,7 @@ use crate::config::kgv_configuration::KgvConfiguration;
 use crate::eval::engine_factory::build_engine;
 use crate::eval::evaluator::Evaluator;
 use crate::reexports::sync::Mutex;
+use crate::reexports::sync::RwLock;
 use crate::theme::get_theme;
 use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
@@ -24,7 +25,7 @@ use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::dispatcher::Dispatcher;
 use crate::ui::hotkeys::register_hotkeys;
 use crate::ui::resource_manager::ResourceManager;
-use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::ui::signals::{InterUiSignal, ToBackendSignal};
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::ui::view_stack::ViewStack;
 use crate::util::watcher::LazyWatcher;
@@ -57,13 +58,12 @@ fn main() -> Result<()> {
     ui.set_theme(get_theme());
     ui.set_fps(1);
 
-    let (from_client_sender, from_backend_receiver) = kanal::unbounded();
+    let (from_backend_sender, from_backend_receiver) = kanal::unbounded();
     let (to_backend_sender, from_ui_receiver) = kanal::unbounded();
-
-    let ui_to_ui_sender = from_client_sender.clone();
+    let (inter_ui_sender, inter_ui_receiver) = kanal::unbounded();
 
     let mut backend = K8sBackend::new(
-        from_client_sender,
+        from_backend_sender.clone(),
         from_ui_receiver,
         kgv_configuration.cache_dir,
         kgv_configuration.num_tokio_backend_threads,
@@ -74,7 +74,7 @@ fn main() -> Result<()> {
     backend.spawn_discovery_task();
     backend.spawn_from_ui_receiver_task();
 
-    register_hotkeys(&mut ui, ui_to_ui_sender.clone());
+    register_hotkeys(&mut ui, inter_ui_sender.clone());
 
     // send_init_signals(&to_backend_sender, &ui_to_ui_sender);
 
@@ -97,21 +97,33 @@ fn main() -> Result<()> {
         view_stack: ViewStack::default(),
         highlighter: Arc::new(ui::highlighter::Highlighter::new("base16-eighties.dark")?),
         selected_gvk: GroupVersionKind::gvk("", "", ""),
-        to_ui_sender: ui_to_ui_sender.clone(),
+        inter_ui_sender: inter_ui_sender.clone(),
         to_backend_sender,
         sink: ui.cb_sink().clone(),
         interactive_command: None,
         gvks: vec![],
-        resource_manager,
+        resource_manager: Arc::new(RwLock::new(resource_manager)),
         detail_view_renderer,
     }));
 
-    let dispatcher = Arc::new(Dispatcher::new(
-        ui_to_ui_sender,
-        from_backend_receiver,
-        store.clone(),
-    ));
-    dispatcher.spawn_n(kgv_configuration.num_dispatcher_threads);
+    {
+        let dispatcher = Arc::new(Dispatcher::new(
+            from_backend_sender,
+            from_backend_receiver,
+            store.clone(),
+        ));
+        dispatcher.spawn_n(kgv_configuration.num_dispatcher_threads, "from-backend");
+    }
+
+    {
+        let dispatcher = Arc::new(Dispatcher::new(
+            inter_ui_sender,
+            inter_ui_receiver,
+            store.clone(),
+        ));
+        dispatcher.spawn_n(kgv_configuration.num_dispatcher_threads, "inter-ui");
+    }
+
     store.spawn_log_updater_thread();
 
     enter_command_handler_loop(&mut ui, store)?;
@@ -121,9 +133,9 @@ fn main() -> Result<()> {
 
 pub fn send_init_signals(
     to_backend_sender: &Sender<ToBackendSignal>,
-    ui_to_ui_sender: &Sender<ToUiSignal>,
+    ui_to_ui_sender: &Sender<InterUiSignal>,
 ) {
     let to_backend_sender = to_backend_sender.clone();
     let signal = build_gvk_show_chain(to_backend_sender, &Pod::gvk_for_type());
-    // ui_to_ui_sender.send_unwrap(signal);
+    ui_to_ui_sender.send_unwrap(signal);
 }

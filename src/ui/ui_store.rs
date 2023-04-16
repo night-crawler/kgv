@@ -21,7 +21,7 @@ use crate::traits::ext::rw_lock::RwLockExt;
 use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::resource_manager::ResourceManager;
-use crate::ui::signals::{ToBackendSignal, ToUiSignal};
+use crate::ui::signals::{InterUiSignal, ToBackendSignal};
 use crate::ui::view_meta::{ListViewFilter, ViewMeta};
 use crate::ui::view_stack::ViewStack;
 use crate::util::panics::ResultExt;
@@ -35,13 +35,13 @@ pub struct UiStore {
     pub view_stack: ViewStack,
 
     pub selected_gvk: GroupVersionKind,
-    pub to_ui_sender: kanal::Sender<ToUiSignal>,
+    pub inter_ui_sender: kanal::Sender<InterUiSignal>,
     pub to_backend_sender: kanal::Sender<ToBackendSignal>,
     pub sink: SinkSender,
 
     pub interactive_command: Option<InteractiveCommand>,
 
-    pub resource_manager: ResourceManager,
+    pub resource_manager: Arc<RwLock<ResourceManager>>,
 
     pub detail_view_renderer: DetailViewRenderer,
     pub gvks: Vec<GroupVersionKind>,
@@ -78,6 +78,7 @@ impl UiStore {
         let filter = view_meta.get_filter();
         let gvk = view_meta.get_gvk();
         self.resource_manager
+            .read_unwrap()
             .get_resources_iter(gvk)
             .filter(|r| self.should_display_resource(filter, r))
             .cloned()

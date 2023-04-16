@@ -3,53 +3,53 @@ use std::sync::Arc;
 use cursive::{event, Cursive};
 
 use crate::traits::ext::kanal_sender::KanalSenderExt;
-use crate::ui::signals::ToUiSignal;
+use crate::ui::signals::InterUiSignal;
 
-pub fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSignal>) {
+pub fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<InterUiSignal>) {
     ui.add_global_callback(event::Key::F10, |siv| siv.select_menubar());
 
     // I personally hate FnMut and this stuff here
-    let hotkeys: Vec<(event::Event, Arc<dyn Fn() -> ToUiSignal>)> = vec![
+    let hotkeys: Vec<(event::Event, Arc<dyn Fn() -> InterUiSignal>)> = vec![
         (
             event::Event::from('~'),
-            Arc::new(|| ToUiSignal::ShowDebugLog),
+            Arc::new(|| InterUiSignal::ShowDebugLog),
         ),
         (
             event::Event::from(event::Key::Esc),
-            Arc::new(|| ToUiSignal::EscPressed),
+            Arc::new(|| InterUiSignal::EscPressed),
         ),
         (
             event::Event::CtrlChar('s'),
-            Arc::new(|| ToUiSignal::CtrlSPressed),
+            Arc::new(|| InterUiSignal::CtrlSPressed),
         ),
         (
             event::Event::AltChar('='),
-            Arc::new(|| ToUiSignal::AltPlusPressed),
+            Arc::new(|| InterUiSignal::AltPlusPressed),
         ),
         (
             event::Event::CtrlChar('p'),
-            Arc::new(|| ToUiSignal::CtrlPPressed),
+            Arc::new(|| InterUiSignal::CtrlPPressed),
         ),
         (
             event::Event::from(event::Key::F5),
-            Arc::new(|| ToUiSignal::F5Pressed),
+            Arc::new(|| InterUiSignal::F5Pressed),
         ),
         (
             event::Event::CtrlChar('y'),
-            Arc::new(|| ToUiSignal::CtrlYPressed),
+            Arc::new(|| InterUiSignal::CtrlYPressed),
         ),
         (
             // how is it 7?
             event::Event::CtrlChar('7'),
-            Arc::new(|| ToUiSignal::CtrlSlashPressed),
+            Arc::new(|| InterUiSignal::CtrlSlashPressed),
         ),
         (
             event::Event::CtrlChar('k'),
-            Arc::new(|| ToUiSignal::CtrlKPressed),
+            Arc::new(|| InterUiSignal::CtrlKPressed),
         ),
         (
             event::Event::CtrlChar('l'),
-            Arc::new(|| ToUiSignal::CtrlLPressed),
+            Arc::new(|| InterUiSignal::CtrlLPressed),
         ),
     ];
 
@@ -60,9 +60,9 @@ pub fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<ToUiSig
 
 fn register(
     ui: &mut Cursive,
-    ui_to_ui_sender: kanal::Sender<ToUiSignal>,
+    ui_to_ui_sender: kanal::Sender<InterUiSignal>,
     event: event::Event,
-    signal: Arc<dyn Fn() -> ToUiSignal>,
+    signal: Arc<dyn Fn() -> InterUiSignal>,
 ) {
     ui.add_global_callback(event, move |_| {
         ui_to_ui_sender.send_unwrap(signal());

@@ -12,8 +12,9 @@ use crate::reexports::sync::Mutex;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
+use crate::traits::ext::rw_lock::RwLockExt;
 use crate::traits::ext::table_view::TableCallBacks;
-use crate::ui::signals::ToUiSignal;
+use crate::ui::signals::InterUiSignal;
 use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::{ListViewFilter, ViewMeta};
 use crate::util::ui::build_edit_view;
@@ -26,8 +27,10 @@ trait UiStoreComponentExt {
 impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
     fn build_list_view_table(&self, gvk: &GroupVersionKind) -> TableView<EvaluatedResource, usize> {
         let column_handles = {
-            let store = self.lock_unwrap();
-            store.resource_manager.get_columns(gvk)
+            self.lock_unwrap()
+                .resource_manager
+                .read_unwrap()
+                .get_columns(gvk)
         };
 
         let mut table: TableView<EvaluatedResource, usize> = TableView::new();
@@ -56,7 +59,7 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
     let (to_ui_sender, selected_gvk, counter) = {
         let mut store = store.lock_unwrap();
         (
-            store.to_ui_sender.clone(),
+            store.inter_ui_sender.clone(),
             store.selected_gvk.clone(),
             store.inc_counter(),
         )
@@ -77,7 +80,7 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
             view_meta.get_edit_name("namespace"),
             "".to_string(),
             move |_, text, _| {
-                sender.send_unwrap(ToUiSignal::ApplyNamespaceFilter(counter, text.into()));
+                sender.send_unwrap(InterUiSignal::ApplyNamespaceFilter(counter, text.into()));
             },
         )
     };
@@ -88,7 +91,7 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
             view_meta.get_edit_name("name"),
             "".to_string(),
             move |_, text, _| {
-                to_ui_sender.send_unwrap(ToUiSignal::ApplyNameFilter(counter, text.into()))
+                to_ui_sender.send_unwrap(InterUiSignal::ApplyNameFilter(counter, text.into()))
             },
         )
     };
@@ -105,7 +108,7 @@ pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<Vi
         table.set_on_submit_named(
             &view_meta.get_unique_name(),
             move |_, evaluated_resource| {
-                to_ui_sender.send_unwrap(ToUiSignal::ShowDetails(evaluated_resource.resource));
+                to_ui_sender.send_unwrap(InterUiSignal::ShowDetails(evaluated_resource.resource));
             },
         );
     }
