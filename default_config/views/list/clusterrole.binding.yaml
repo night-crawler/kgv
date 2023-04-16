@@ -4,7 +4,7 @@ resource:
   kind: ClusterRoleBinding
 imports:
   - import "commons" as commons;
-  - import "clusterrole_binding" as crb;
+  - import "roles" as crb;
 
 events:
   - !Submit

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use cursive::reexports::log::warn;
 use rhai::module_resolvers::{FileModuleResolver, ModuleResolversCollection};
-use rhai::{exported_module, Engine};
+use rhai::{exported_module, Engine, OptimizationLevel};
 
 use crate::eval::eval_result::{EvalResult, PseudoResource, RhaiPseudoResource};
 use crate::eval::helpers::*;
@@ -12,12 +12,12 @@ pub fn build_engine(paths: &[PathBuf]) -> Engine {
     let mut engine = Engine::new();
     let collection_resolver = prepare_resolvers(paths);
     engine
+        .set_optimization_level(OptimizationLevel::Full)
         .register_fn("to_yaml", to_yaml)
         .register_fn("join", join)
         .register_fn("compute_age", compute_age)
         .register_fn("PseudoResource", PseudoResource)
         .register_fn("pretty_any", pretty_any)
-        .set_max_expr_depths(usize::MAX, usize::MAX)
         .register_type_with_name::<EvalResult>("Result")
         .register_type_with_name::<RhaiPseudoResource>("PseudoResource")
         .register_static_module(

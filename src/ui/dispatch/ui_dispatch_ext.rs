@@ -97,7 +97,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         gvk: GroupVersionKind,
         reevaluate: bool,
     ) -> anyhow::Result<()> {
-        let mut affected_views = self.data.locking(|mut store| {
+        let (mut affected_views, resource_manager) = self.data.locking(|store| {
             let affected_views = store
                 .view_stack
                 .find_all_by_gvk(&gvk)
@@ -105,12 +105,12 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
                 .filter(|meta| matches!(meta.read_unwrap().deref(), ViewMeta::List { .. }))
                 .peekable();
 
-            if reevaluate {
-                store.resource_manager.reevaluate_all_for_gvk(&gvk);
-            }
-
-            Ok(affected_views)
+            Ok((affected_views, Arc::clone(&store.resource_manager)))
         })?;
+
+        if reevaluate {
+            resource_manager.write_sync()?.reevaluate_all_for_gvk(&gvk);
+        }
 
         if affected_views.peek().is_none() {
             warn!("No views found for gvk={}", gvk.full_name());
@@ -243,8 +243,9 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
 
         let action_type = self
             .data
-            .lock_unwrap()
+            .lock_sync()?
             .resource_manager
+            .read_sync()?
             .get_submit_handler_type(&gvk)
             .to_log_warn(|| format!("No event type handler for gvk {}", gvk.full_name()))?;
 
@@ -600,6 +601,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
                 store
                     .lock_sync()?
                     .resource_manager
+                    .read_sync()?
                     .get_resource_by_uid(&uid)
                     .to_log_warn(|| {
                         format!("Could not find a resource with uid {uid} in {view_name}")

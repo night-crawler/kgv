@@ -14,6 +14,7 @@ use crate::config::kgv_configuration::KgvConfiguration;
 use crate::eval::engine_factory::build_engine;
 use crate::eval::evaluator::Evaluator;
 use crate::reexports::sync::Mutex;
+use crate::reexports::sync::RwLock;
 use crate::theme::get_theme;
 use crate::traits::ext::cursive::SivLogExt;
 use crate::traits::ext::gvk::GvkStaticExt;
@@ -24,7 +25,7 @@ use crate::ui::detail_view_renderer::DetailViewRenderer;
 use crate::ui::dispatcher::Dispatcher;
 use crate::ui::hotkeys::register_hotkeys;
 use crate::ui::resource_manager::ResourceManager;
-use crate::ui::signals::{ToBackendSignal, InterUiSignal};
+use crate::ui::signals::{InterUiSignal, ToBackendSignal};
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::ui::view_stack::ViewStack;
 use crate::util::watcher::LazyWatcher;
@@ -101,7 +102,7 @@ fn main() -> Result<()> {
         sink: ui.cb_sink().clone(),
         interactive_command: None,
         gvks: vec![],
-        resource_manager,
+        resource_manager: Arc::new(RwLock::new(resource_manager)),
         detail_view_renderer,
     }));
 

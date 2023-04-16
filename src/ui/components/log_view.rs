@@ -65,7 +65,7 @@ pub fn build_log_view(
             to_ui_sender.send_unwrap(InterUiSignal::LogsApplyHighlight(counter, text.into()));
         })
     });
-    let filter_edit_view_panel = Panel::new(filter_edit_view).title("Name").full_width();
+    let filter_edit_view_panel = Panel::new(filter_edit_view).title("Find").full_width();
 
     let since_minutes_edit_view = to_ui_sender.cloning(|to_ui_sender| {
         build_edit_view(

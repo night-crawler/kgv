@@ -12,6 +12,7 @@ use crate::reexports::sync::Mutex;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::traits::ext::mutex::MutexExt;
+use crate::traits::ext::rw_lock::RwLockExt;
 use crate::traits::ext::table_view::TableCallBacks;
 use crate::ui::signals::InterUiSignal;
 use crate::ui::ui_store::UiStore;
@@ -26,8 +27,7 @@ trait UiStoreComponentExt {
 impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
     fn build_list_view_table(&self, gvk: &GroupVersionKind) -> TableView<EvaluatedResource, usize> {
         let column_handles = {
-            let store = self.lock_unwrap();
-            store.resource_manager.get_columns(gvk)
+            self.lock_unwrap().resource_manager.read_unwrap().get_columns(gvk)
         };
 
         let mut table: TableView<EvaluatedResource, usize> = TableView::new();

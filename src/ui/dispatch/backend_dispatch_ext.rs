@@ -73,8 +73,8 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
             resource.full_unique_name()
         );
 
-        let all_resources = self.data.locking(|mut store| {
-            let (resource, mut pseudo) = store.resource_manager.replace(resource);
+        let all_resources = self.data.locking(|store| {
+            let (resource, mut pseudo) = store.resource_manager.write_sync()?.replace(resource);
             pseudo.push(resource);
             Ok(pseudo)
         })?;
@@ -92,6 +92,7 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
         self.data
             .lock_sync()?
             .resource_manager
+            .write_sync()?
             .replace(resource.clone());
 
         if affected_views.is_empty() {

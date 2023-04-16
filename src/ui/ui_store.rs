@@ -41,7 +41,7 @@ pub struct UiStore {
 
     pub interactive_command: Option<InteractiveCommand>,
 
-    pub resource_manager: ResourceManager,
+    pub resource_manager: Arc<RwLock<ResourceManager>>,
 
     pub detail_view_renderer: DetailViewRenderer,
     pub gvks: Vec<GroupVersionKind>,
@@ -78,6 +78,7 @@ impl UiStore {
         let filter = view_meta.get_filter();
         let gvk = view_meta.get_gvk();
         self.resource_manager
+            .read_unwrap()
             .get_resources_iter(gvk)
             .filter(|r| self.should_display_resource(filter, r))
             .cloned()
