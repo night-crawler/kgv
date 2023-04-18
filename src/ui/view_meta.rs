@@ -5,6 +5,7 @@ use strum_macros::AsRefStr;
 use crate::model::log_request::LogRequest;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::util::error::{LogError, LogErrorOptionExt, LogErrorResultExt};
+use crate::util::panics::OptionExt;
 
 #[derive(Debug, Default, Clone, Hash)]
 pub struct ListViewFilter {
@@ -123,7 +124,7 @@ impl ViewMeta {
                     "{}/{}/{}",
                     request.namespace,
                     request.pod_name,
-                    request.log_params.container.as_ref().unwrap()
+                    request.log_params.container.as_ref().unwrap_or_log()
                 );
                 if !filter.value.is_empty() {
                     repr.push_str(&format!(" (value = {})", filter.value));

@@ -13,6 +13,7 @@ use crate::model::pseudo_resource::PseudoResource;
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
 use crate::util::error::KgvError;
+use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
 pub struct Evaluator {
@@ -42,7 +43,7 @@ impl Evaluator {
         extractors: &[PseudoResourceConf],
     ) -> Vec<PseudoResource> {
         let mut scope = Scope::new();
-        scope.push("resource", self.to_rhai_object(resource).unwrap());
+        scope.push("resource", self.to_rhai_object(resource).unwrap_or_log());
 
         let pseudo_resources: Vec<(String, Vec<RhaiPseudoResource>)> = self.pool.install(|| {
             let engine = self.watcher.value();

@@ -33,7 +33,7 @@ handlebars = { version = "4.3", features = ["dir_source", "script_helper", "rhai
 rhai = { version = "1.12.0", default-features = false, features = ["no_custom_syntax", "unchecked"] }
 rayon = "1.6"
 clap = { version = "4", features = ["derive", "color", "suggestions"] }
-notify = { features = ["crossbeam-channel"], default-features = false, version = "5" }
+notify = { features = ["crossbeam-channel", "macos_fsevent"], default-features = false, version = "5" }
 tracing-mutex = "0.2"
 better-panic = "0.3"
 base64 = { default-features = false, version = "0.21" }

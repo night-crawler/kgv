@@ -1,9 +1,13 @@
-use base64::engine::general_purpose;
 use base64::Engine;
+use base64::engine::general_purpose;
 use cursive::reexports::log::error;
 use itertools::Itertools;
 use k8s_openapi::serde_json;
 use rhai::Array;
+
+fn is_printable(ch: char) -> bool {
+    !matches!(ch, '\u{0000}'..='\u{001F}' | '\u{007F}' | '\u{0080}'..='\u{009F}')
+}
 
 pub fn join(array: Array, delimiter: &str) -> String {
     array.iter().map(|item| item.to_string()).join(delimiter)
@@ -29,6 +33,11 @@ pub fn decode_b64(data: &str) -> String {
     ];
     for engine in ENGINES.iter() {
         if let Ok(Ok(decoded)) = engine.decode(data).map(String::from_utf8) {
+            // we risk converting `aws` to `k{vertical_tab}`
+            if !decoded.chars().all(is_printable) {
+                return data.to_string();
+            }
+
             return decoded;
         }
     }
@@ -37,6 +46,11 @@ pub fn decode_b64(data: &str) -> String {
 }
 
 pub fn pretty_any(raw_string: &str) -> String {
+    // skip nasty transformations if they are not needed
+    if raw_string.chars().all(|ch| ch.is_ascii_digit()) {
+        return raw_string.to_string();
+    }
+
     let decoded = decode_b64(raw_string);
 
     let parsed = serde_json::from_str::<serde_json::Value>(&decoded)
@@ -62,5 +76,10 @@ mod tests {
         let b64 = "eyJhIjogNDJ9";
         let result = pretty_any(b64);
         assert!(result.contains("42"));
+    }
+
+    #[test]
+    fn test_is_printable() {
+        assert_eq!(pretty_any("aws"), "aws");
     }
 }

@@ -1,3 +1,3 @@
 fn len(resource) {
-    resource?.data?.keys()?.len() ?? "0"
+    resource?.data?.keys()?.len() ?? 0
 }

@@ -11,6 +11,7 @@ use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::SerializeExt;
 use crate::traits::ext::gvk::{GvkExt, GvkNameExt};
 use crate::util::error::{LogError, LogErrorOptionExt, LogErrorResultExt};
+use crate::util::panics::{OptionExt, ResultExt};
 use crate::util::ui::compute_age;
 use crate::util::watcher::LazyWatcher;
 
@@ -115,7 +116,7 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         _: &mut RenderContext,
         out: &mut dyn Output,
     ) -> HelperResult {
-        let param = h.param(0).unwrap();
+        let param = h.param(0).unwrap_or_log();
         let value = param.value().render();
         let prettified = crate::eval::helpers::pretty_any(&value);
         out.write(&prettified)?;
@@ -129,12 +130,12 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         _: &mut RenderContext,
         out: &mut dyn Output,
     ) -> HelperResult {
-        let param = h.param(0).unwrap();
+        let param = h.param(0).unwrap_or_log();
         if param.is_value_missing() {
             return Ok(());
         }
         let value = param.value();
-        let serialized = serde_yaml::to_string(value).unwrap();
+        let serialized = serde_yaml::to_string(value).unwrap_or_log();
         out.write(&serialized)?;
         Ok(())
     }
@@ -146,7 +147,7 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         _: &mut RenderContext,
         out: &mut dyn Output,
     ) -> HelperResult {
-        let param = h.param(0).unwrap();
+        let param = h.param(0).unwrap_or_log();
         let value = param.value().as_str().unwrap_or("");
         let age = compute_age(value);
         out.write(&age)?;
@@ -160,7 +161,7 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         _: &mut RenderContext,
         out: &mut dyn Output,
     ) -> HelperResult {
-        let param = h.param(0).unwrap();
+        let param = h.param(0).unwrap_or_log();
         let value = param.value().as_str().unwrap_or("error_wrong_argument");
         let result = percent_encode(value.as_bytes(), NON_ALPHANUMERIC).to_string();
         out.write(&result)?;
@@ -174,8 +175,8 @@ fn build_handlebars<'reg>() -> Handlebars<'reg> {
         _: &mut RenderContext,
         out: &mut dyn Output,
     ) -> HelperResult {
-        let arr = h.param(0).unwrap();
-        let delim = h.param(1).unwrap().value().as_str().unwrap();
+        let arr = h.param(0).unwrap_or_log();
+        let delim = h.param(1).unwrap_or_log().value().as_str().unwrap_or_log();
         let arr = arr.value().as_array().map(|v| &v[..]).unwrap_or_default();
 
         let joined = arr.iter().filter_map(|item| item.as_str()).join(delim);
