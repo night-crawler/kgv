@@ -190,7 +190,7 @@ impl ViewMeta {
     pub fn set_name(&mut self, name: String) {
         match self {
             ViewMeta::List { filter, .. } => filter.name = name,
-            this => panic!("Setting namespace {name} on {:?}", this),
+            this => panic!("Setting name {name} on {:?}", this),
         }
     }
 
@@ -221,15 +221,31 @@ impl ViewMeta {
             this => panic!("{:?} does not have GVK", this),
         }
     }
+}
 
-    pub fn get_log_filter(&self) -> &LogFilter {
+
+pub trait ViewMetaLogExt {
+    fn get_log_filter(&self) -> &LogFilter;
+    fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter;
+    fn get_log_request(&self) -> &LogRequest;
+    fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest;
+    fn push_log_item(&mut self, item: LogItem);
+    fn set_log_since_seconds(&mut self, num_minutes: usize);
+    fn set_log_tail_lines(&mut self, num_lines: usize);
+    fn set_log_show_previous(&mut self, show_previous: bool);
+    fn set_log_search_text(&mut self, text: String);
+    fn set_log_show_timestamps(&mut self, show: bool);
+}
+
+impl ViewMetaLogExt for ViewMeta {
+     fn get_log_filter(&self) -> &LogFilter {
         match self {
             ViewMeta::Logs { filter, .. } => filter,
             this => panic!("{:?} is not Logs", this),
         }
     }
 
-    pub fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter {
+     fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter {
         match self {
             ViewMeta::Logs {
                 filter, next_index, ..
@@ -241,14 +257,14 @@ impl ViewMeta {
         }
     }
 
-    pub fn get_log_request(&self) -> &LogRequest {
+     fn get_log_request(&self) -> &LogRequest {
         match self {
             ViewMeta::Logs { request, .. } => request,
             this => panic!("{:?} is not Logs", this),
         }
     }
 
-    pub fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest {
+     fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest {
         match self {
             ViewMeta::Logs {
                 request,
@@ -264,7 +280,7 @@ impl ViewMeta {
         }
     }
 
-    pub fn push_log_item(&mut self, item: LogItem) {
+     fn push_log_item(&mut self, item: LogItem) {
         match self {
             ViewMeta::Logs { log_items, .. } => {
                 let seq_id = item.seq_id;
@@ -276,5 +292,42 @@ impl ViewMeta {
             }
             this => panic!("{:?} is not Logs", this),
         }
+    }
+
+    fn set_log_since_seconds(&mut self, num_minutes: usize) {
+        let num_seconds = Some((num_minutes + 60) as i64);
+        if self.get_log_request().log_params.since_seconds == num_seconds {
+            return;
+        }
+        self.get_log_request_clearing_mut().log_params.since_seconds = num_seconds;
+    }
+
+    fn set_log_tail_lines(&mut self, num_lines: usize) {
+        let num_lines = Some(num_lines as i64);
+        if self.get_log_request().log_params.tail_lines == num_lines {
+            return;
+        }
+        self.get_log_request_clearing_mut().log_params.tail_lines = num_lines;
+    }
+
+    fn set_log_show_previous(&mut self, show_previous: bool) {
+        if self.get_log_request().log_params.previous == show_previous {
+            return;
+        }
+        self.get_log_request_clearing_mut().log_params.previous = show_previous;
+    }
+
+    fn set_log_search_text(&mut self, text: String) {
+        if self.get_log_filter().value == text {
+            return;
+        }
+        self.get_log_filter_clearing_mut().value = text;
+    }
+
+    fn set_log_show_timestamps(&mut self, show: bool) {
+        if self.get_log_filter().show_timestamps == show {
+            return;
+        }
+        self.get_log_filter_clearing_mut().show_timestamps = show;
     }
 }

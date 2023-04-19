@@ -33,7 +33,7 @@ use crate::ui::dispatcher::DispatchContext;
 use crate::ui::interactive_command::InteractiveCommand;
 use crate::ui::signals::{InterUiSignal, ToBackendSignal};
 use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
-use crate::ui::view_meta::ViewMeta;
+use crate::ui::view_meta::{ViewMeta, ViewMetaLogExt};
 use crate::util::error::{LogError, LogErrorOptionExt, LogErrorResultExt};
 use crate::util::panics::ResultExt;
 use crate::util::view_with_data::ViewWithMeta;
@@ -142,8 +142,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
 
     fn dispatch_logs_apply_highlight(self, view_id: usize, text: String) -> anyhow::Result<()> {
         let view = self.get_view_by_id(view_id)?;
-        view.write_sync()?.get_log_filter_clearing_mut().value = text;
-
+        view.write_sync()?.set_log_search_text(text);
         Ok(())
     }
 
@@ -153,12 +152,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         num_minutes: usize,
     ) -> anyhow::Result<()> {
         let view = self.get_view_by_id(view_id)?;
-
-        view.write_sync()?
-            .get_log_request_clearing_mut()
-            .log_params
-            .since_seconds = Some((num_minutes * 60) as i64);
-
+        view.write_sync()?.set_log_since_seconds(num_minutes);
         self.send_log_subscribe(view)
     }
 
@@ -168,12 +162,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         num_lines: usize,
     ) -> anyhow::Result<()> {
         let view = self.get_view_by_id(view_id)?;
-
-        view.write_sync()?
-            .get_log_request_clearing_mut()
-            .log_params
-            .tail_lines = Some(num_lines as i64);
-
+        view.write_sync()?.set_log_tail_lines(num_lines);
         self.send_log_subscribe(view)
     }
 
@@ -183,11 +172,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         show_timestamps: bool,
     ) -> anyhow::Result<()> {
         let view = self.get_view_by_id(view_id)?;
-
-        view.write_sync()?
-            .get_log_filter_clearing_mut()
-            .show_timestamps = show_timestamps;
-
+        view.write_sync()?.set_log_show_timestamps(show_timestamps);
         Ok(())
     }
 
@@ -197,11 +182,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         show_previous: bool,
     ) -> anyhow::Result<()> {
         let view = self.get_view_by_id(view_id)?;
-        view.write_sync()?
-            .get_log_request_clearing_mut()
-            .log_params
-            .previous = show_previous;
-
+        view.write_sync()?.set_log_show_previous(show_previous);
         self.send_log_subscribe(view)
     }
 

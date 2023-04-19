@@ -19,7 +19,7 @@ use crate::ui::dispatch::send_helper_ext::DispatchContextSendHelperExt;
 use crate::ui::dispatcher::DispatchContext;
 use crate::ui::signals::{FromBackendSignal, ToBackendSignal};
 use crate::ui::ui_store::UiStore;
-use crate::ui::view_meta::{LogItem, ViewMeta};
+use crate::ui::view_meta::{LogItem, ViewMeta, ViewMetaLogExt};
 use crate::util::error::LogError;
 
 pub trait DispatchContextBackendExt {
