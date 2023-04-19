@@ -2,7 +2,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use cursive::reexports::log::{info, warn};
-use cursive::views::TextView;
+use cursive_cached_text_view::CachedTextView;
 use cursive_markup::html::RichRenderer;
 use cursive_markup::MarkupView;
 use cursive_table_view::TableView;
@@ -190,7 +190,7 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
 
         let name = view_meta.read_sync()?.get_unique_name();
 
-        self.call_on_name(&name, move |tv: &mut TextView| {
+        self.call_on_name(&name, move |tv: &mut CachedTextView| {
             let styled = store.lock_unwrap().highlight(&resource)?;
             tv.set_content(styled);
             Ok::<(), anyhow::Error>(())

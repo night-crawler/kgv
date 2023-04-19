@@ -1,5 +1,8 @@
 # KGV
 
+[![Rust](https://github.com/night-crawler/kgv/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/night-crawler/kgv/actions/workflows/rust.yml)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 `KGV` is Kubernetes Global View or an acronym for GVK. It's a Terminal UI for observing and manipulating Kubernetes resources.
 
 ## Features
@@ -82,12 +85,12 @@ RUST_BACKTRACE=1 cargo run -- --module-dirs ./default_config/modules --extractor
 
 - [ ] Resource multiselect (i.e., to delete multiple resources at once)
 - [ ] Resource kill options support
-- [ ] Faster Log view
+- [x] Faster Log view
 - [ ] Better shell selector (now it uses `sh` always)
 - [ ] Port Forwarding
 - [ ] Configurable hotkeys
 - [ ] rhai-based context extractors for rendering with support for multiple resources (when you need to solve N+1 problem for resource detail view and show some dependencies)
 - [ ] Log mirroring to a file
 - [ ] Prepare more detail and list views for more GVKs
-- [ ] Support for popular CRDs (helm, GitOps, etc)
+- [x] Support for popular CRDs (helm, GitOps, etc)
 - [ ] Solve a problem with panics handler breaking the terminal

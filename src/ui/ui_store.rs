@@ -6,8 +6,8 @@ use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::warn;
 use cursive::theme::Style;
 use cursive::utils::markup::StyledString;
-use cursive::views::TextView;
 use cursive::Cursive;
+use cursive_cached_text_view::CachedTextView;
 use itertools::Itertools;
 use kube::api::GroupVersionKind;
 
@@ -183,7 +183,7 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
 
                             sink.call_on_name(
                                 &log_view.get_unique_name(),
-                                move |tv: &mut TextView| {
+                                move |tv: &mut CachedTextView| {
                                     if should_clear {
                                         tv.set_content("");
                                     }
