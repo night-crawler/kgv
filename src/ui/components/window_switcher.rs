@@ -13,7 +13,7 @@ use crate::ui::view_meta::ViewMeta;
 use crate::util::ui::build_edit_view;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub fn build_window_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
+pub(crate) fn build_window_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
     let (view_meta_list, counter, to_ui_sender) = {
         let mut store = store.lock_unwrap();
         (

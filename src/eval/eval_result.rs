@@ -8,13 +8,13 @@ use crate::util::error::{EvalError, KgvError};
 use crate::util::ui::{ago, compute_age, duration_since};
 
 #[derive(Clone, Debug)]
-pub struct RhaiPseudoResource {
-    pub id: String,
-    pub resource: Dynamic,
+pub(crate) struct RhaiPseudoResource {
+    pub(crate) id: String,
+    pub(crate) resource: Dynamic,
 }
 
 #[derive(Clone, Debug, AsRefStr)]
-pub enum EvalResult {
+pub(crate) enum EvalResult {
     Error(String),
     AgoSince(chrono::DateTime<Utc>),
     String(String),
@@ -112,27 +112,27 @@ impl ToString for EvalResult {
 }
 
 #[export_module]
-pub mod eval_result_module {
+pub(crate) mod eval_result_module {
     use crate::eval::eval_result::EvalResult;
     use crate::util::error::EvalError;
 
     #[allow(non_snake_case)]
-    pub fn String(value: String) -> EvalResult {
+    pub(crate) fn String(value: String) -> EvalResult {
         EvalResult::String(value)
     }
 
     #[allow(non_snake_case)]
-    pub fn MaybeString(value: Result<String, EvalError>) -> EvalResult {
+    pub(crate) fn MaybeString(value: Result<String, EvalError>) -> EvalResult {
         EvalResult::MaybeString(value)
     }
 
     #[allow(non_snake_case)]
-    pub fn Ago(value: String) -> EvalResult {
+    pub(crate) fn Ago(value: String) -> EvalResult {
         EvalResult::Ago(value)
     }
 }
 
 #[allow(non_snake_case)]
-pub fn PseudoResource(id: String, resource: Dynamic) -> RhaiPseudoResource {
+pub(crate) fn PseudoResource(id: String, resource: Dynamic) -> RhaiPseudoResource {
     RhaiPseudoResource { id, resource }
 }

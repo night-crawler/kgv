@@ -2,7 +2,7 @@ use std::path::Path;
 
 use rhai::{Engine, EvalAltResult, AST};
 
-pub trait EngineExt {
+pub(crate) trait EngineExt {
     fn compile_file_with_imports(
         &self,
         file: &Path,

@@ -4,16 +4,15 @@ use std::sync::Arc;
 use cursive::reexports::log::{error, info};
 
 use crate::reexports::sync::Mutex;
-use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::util::panics::ResultExt;
 use crate::util::ui::ago_std;
 
-pub struct DispatchContext<'a, T, S> {
-    pub dispatcher: &'a Dispatcher<T, S>,
-    pub data: Arc<Mutex<T>>,
-    pub sender: kanal::Sender<Box<dyn std::any::Any>>,
-    pub receiver: kanal::Receiver<Box<dyn std::any::Any>>,
-    pub num_callbacks: Arc<AtomicUsize>,
+pub(crate) struct DispatchContext<'a, T, S> {
+    pub(crate) dispatcher: &'a Dispatcher<T, S>,
+    pub(crate) data: Arc<Mutex<T>>,
+    pub(crate) sender: kanal::Sender<Box<dyn std::any::Any>>,
+    pub(crate) receiver: kanal::Receiver<Box<dyn std::any::Any>>,
+    pub(crate) num_callbacks: Arc<AtomicUsize>,
 }
 
 impl<'a, T, S> Clone for DispatchContext<'a, T, S> {
@@ -28,14 +27,13 @@ impl<'a, T, S> Clone for DispatchContext<'a, T, S> {
     }
 }
 
-pub trait Dispatch<T, S> {
+pub(crate) trait Dispatch<T, S> {
     fn dispatch(self, context: DispatchContext<T, S>);
 }
 
-pub struct Dispatcher<T, S> {
+pub(crate) struct Dispatcher<T, S> {
     data: Arc<Mutex<T>>,
     signal_receiver: kanal::Receiver<S>,
-    signal_sender: kanal::Sender<S>,
 }
 
 impl<T, S> Dispatcher<T, S>
@@ -43,23 +41,14 @@ where
     S: Dispatch<T, S> + AsRef<str> + 'static,
     T: Send + Sync + 'static,
 {
-    pub fn new(
-        signal_sender: kanal::Sender<S>,
-        signal_receiver: kanal::Receiver<S>,
-        data: Arc<Mutex<T>>,
-    ) -> Self {
+    pub(crate) fn new(signal_receiver: kanal::Receiver<S>, data: Arc<Mutex<T>>) -> Self {
         Self {
             data,
             signal_receiver,
-            signal_sender,
         }
     }
 
-    pub fn send_async(&self, signal: S) {
-        self.signal_sender.send_unwrap(signal);
-    }
-
-    pub fn dispatch_sync(&self, signal: S) {
+    pub(crate) fn dispatch_sync(&self, signal: S) {
         let (sender, receiver) = kanal::bounded(16);
         let signal_name = signal.as_ref().to_string();
 
@@ -97,7 +86,7 @@ where
         }
     }
 
-    pub fn block(&self) {
+    pub(crate) fn block(&self) {
         for signal in self.signal_receiver.clone() {
             let now = std::time::Instant::now();
             let signal_name = signal.as_ref().to_string();
@@ -117,7 +106,7 @@ where
             .unwrap_or_log();
     }
 
-    pub fn spawn_n(self: Arc<Self>, n: usize, thread_prefix: &str) {
+    pub(crate) fn spawn_n(self: Arc<Self>, n: usize, thread_prefix: &str) {
         for thread_id in 0..n {
             self.clone().spawn(thread_id, thread_prefix);
         }

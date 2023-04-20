@@ -8,21 +8,15 @@ use rhai::EvalAltResult;
 use strum_macros::Display;
 
 #[derive(Clone, Debug, thiserror::Error)]
-pub enum EvalError {
+pub(crate) enum EvalError {
     #[error("DateTime parse error: {0}")]
     IoError(#[from] chrono::ParseError),
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum KgvError {
-    #[error("Compile Error for {0} {1}: {2} {3}")]
-    ContentCompileError(String, String, String, anyhow::Error),
-
+pub(crate) enum KgvError {
     #[error("Engine JSON parse error {0}: {1}")]
     EngineJsonParseError(String, EvalAltResult),
-
-    #[error("Duplicate GVK: {0}")]
-    DuplicateGvkError(String),
 
     #[error("Type conversion error: {0}")]
     TypeConversionError(String),
@@ -56,7 +50,7 @@ impl From<&'static str> for KgvError {
 }
 
 #[derive(Display, Debug, thiserror::Error)]
-pub enum LogError {
+pub(crate) enum LogError {
     Info(
         String,
         Option<anyhow::Error>,
@@ -82,7 +76,7 @@ pub enum LogError {
 impl LogError {
     #[inline]
     #[track_caller]
-    pub fn log_error<S>(str: S) -> anyhow::Result<()>
+    pub(crate) fn log_error<S>(str: S) -> anyhow::Result<()>
     where
         S: Into<String>,
     {
@@ -92,7 +86,7 @@ impl LogError {
 
     #[inline]
     #[track_caller]
-    pub fn log_warn<R, S>(str: S) -> anyhow::Result<R>
+    pub(crate) fn log_warn<R, S>(str: S) -> anyhow::Result<R>
     where
         S: Into<String>,
     {
@@ -102,7 +96,7 @@ impl LogError {
 
     #[inline]
     #[track_caller]
-    pub fn log_info<R, S>(str: S) -> anyhow::Result<R>
+    pub(crate) fn log_info<R, S>(str: S) -> anyhow::Result<R>
     where
         S: Into<String>,
     {
@@ -110,7 +104,7 @@ impl LogError {
         Err(Self::Info(str.into(), None, location).into())
     }
 
-    pub fn log(&self) {
+    pub(crate) fn log(&self) {
         let mut builder = log::Record::builder();
         let location = self.get_location();
         let level = self.get_level();
@@ -158,7 +152,7 @@ impl LogError {
     }
 }
 
-pub trait LogErrorResultExt<T, E> {
+pub(crate) trait LogErrorResultExt<T, E> {
     fn to_log_info<C>(self, cb: impl FnOnce(&E) -> C) -> Result<T, LogError>
     where
         C: Display + Send + Sync + 'static;
@@ -220,7 +214,7 @@ where
     }
 }
 
-pub trait LogErrorOptionExt<T> {
+pub(crate) trait LogErrorOptionExt<T> {
     fn to_log_info<C>(self, cb: impl FnOnce() -> C) -> Result<T, LogError>
     where
         C: Display + Send + Sync + 'static;

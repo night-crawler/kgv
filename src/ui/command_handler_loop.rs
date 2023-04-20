@@ -8,7 +8,7 @@ use crate::traits::ext::mutex::MutexExt;
 use crate::ui::backend::init_cursive_backend;
 use crate::ui::ui_store::UiStore;
 
-pub fn enter_command_handler_loop(
+pub(crate) fn enter_command_handler_loop(
     ui: &mut CursiveRunnable,
     store: Arc<Mutex<UiStore>>,
 ) -> anyhow::Result<()> {

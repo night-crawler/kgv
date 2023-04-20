@@ -4,11 +4,11 @@ use cursive_table_view::{TableView, TableViewItem};
 
 use crate::traits::ext::cursive::CursiveTableExt;
 
-pub trait TableViewExt<T> {
+pub(crate) trait TableViewExt<T> {
     fn add_or_update_resource(&mut self, resource: T);
 }
 
-pub trait TableCallBacks<T, H>
+pub(crate) trait TableCallBacks<T, H>
 where
     T: TableViewItem<H> + Clone + 'static,
     H: Eq + std::hash::Hash + Copy + 'static,

@@ -10,13 +10,13 @@ use kube::api::GroupVersionKind;
 use crate::util::k8s::gvk_sort_key;
 use crate::util::panics::{OptionExt, ResultExt};
 
-pub fn duration_since(iso_date: &str) -> Result<chrono::Duration, chrono::ParseError> {
+pub(crate) fn duration_since(iso_date: &str) -> Result<chrono::Duration, chrono::ParseError> {
     let ts = chrono::DateTime::parse_from_rfc3339(iso_date)?;
     let now = chrono::Utc::now();
     Ok(now.signed_duration_since(ts))
 }
 
-pub fn compute_age(iso_date: &str) -> String {
+pub(crate) fn compute_age(iso_date: &str) -> String {
     match duration_since(iso_date) {
         Ok(duration) => ago(duration),
         Err(err) => {
@@ -26,12 +26,12 @@ pub fn compute_age(iso_date: &str) -> String {
     }
 }
 
-pub fn ago_std(duration: std::time::Duration) -> String {
+pub(crate) fn ago_std(duration: std::time::Duration) -> String {
     let duration = chrono::Duration::from_std(duration).unwrap_or_log();
     ago(duration)
 }
 
-pub fn ago(duration: chrono::Duration) -> String {
+pub(crate) fn ago(duration: chrono::Duration) -> String {
     if duration.num_nanoseconds() < Some(1000) {
         format!("{}ns", duration.num_nanoseconds().unwrap())
     } else if duration.num_microseconds() < Some(1000) {
@@ -51,7 +51,7 @@ pub fn ago(duration: chrono::Duration) -> String {
     }
 }
 
-pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionKind>)> {
+pub(crate) fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionKind>)> {
     let mut misc = vec![];
     let mut map = BTreeMap::new();
 
@@ -111,7 +111,7 @@ pub fn group_gvks(gvks: Vec<GroupVersionKind>) -> Vec<(String, Vec<GroupVersionK
     grouped
 }
 
-pub fn build_edit_view<S1, S2, F>(name: S1, initial: S2, on_edit: F) -> NamedView<EditView>
+pub(crate) fn build_edit_view<S1, S2, F>(name: S1, initial: S2, on_edit: F) -> NamedView<EditView>
 where
     F: Fn(&mut Cursive, &str, usize) + 'static,
     S1: Into<String>,

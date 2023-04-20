@@ -6,13 +6,12 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::ResourceExt;
 
 #[derive(Debug)]
-pub enum InteractiveCommand {
+pub(crate) enum InteractiveCommand {
     Exec(Pod, String),
-    Logs(Pod, String),
 }
 
 impl InteractiveCommand {
-    pub fn run(&self) -> anyhow::Result<ExitStatus> {
+    pub(crate) fn run(&self) -> anyhow::Result<ExitStatus> {
         match self {
             InteractiveCommand::Exec(pod, container_name) => {
                 let pod_msg_name = format!(
@@ -39,9 +38,6 @@ impl InteractiveCommand {
                 info!("Prepared command: {:?}", command);
                 let exit_status = command.spawn()?.wait()?;
                 Ok(exit_status)
-            }
-            InteractiveCommand::Logs(_, _) => {
-                todo!()
             }
         }
     }

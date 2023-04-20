@@ -12,7 +12,7 @@ use cursive_table_view::{TableView, TableViewItem};
 
 use crate::util::panics::ResultExt;
 
-pub trait SivExt {
+pub(crate) trait SivExt {
     fn call_on_name<V, F, R>(&self, name: &str, callback: F)
     where
         V: View,
@@ -90,7 +90,7 @@ impl SivExt
     }
 }
 
-pub trait SivLogExt {
+pub(crate) trait SivLogExt {
     fn setup_logger(&mut self, logs_dir: Option<PathBuf>) -> anyhow::Result<()>;
 }
 
@@ -112,7 +112,7 @@ impl SivLogExt for Cursive {
     }
 }
 
-pub trait CursiveTableExt<T, H>
+pub(crate) trait CursiveTableExt<T, H>
 where
     T: TableViewItem<H> + Clone + 'static,
     H: Eq + std::hash::Hash + Copy + 'static,
@@ -139,7 +139,7 @@ where
     }
 }
 
-pub trait SivUtilExt {
+pub(crate) trait SivUtilExt {
     fn remove_views(&mut self, view_meta_list: Vec<Arc<RwLock<ViewMeta>>>);
 }
 

@@ -7,7 +7,7 @@ use kube::ResourceExt;
 
 use crate::model::pseudo_resource::PSEUDO_RESOURCE_JOIN_SEQ;
 
-pub trait GvkNameExt {
+pub(crate) trait GvkNameExt {
     fn full_name(&self) -> String;
     fn short_name(&self) -> String;
 }
@@ -25,19 +25,19 @@ impl GvkNameExt for GroupVersionKind {
     }
 }
 
-pub trait GvkStaticExt {
+pub(crate) trait GvkStaticExt {
     fn gvk_for_type() -> GroupVersionKind;
 }
 
-pub trait GvkExt {
+pub(crate) trait GvkExt {
     fn gvk(&self) -> GroupVersionKind;
 }
 
-pub trait PseudoResourceGvkExt {
+pub(crate) trait PseudoResourceGvkExt {
     fn get_pseudo_parent(&self) -> Option<GroupVersionKind>;
 }
 
-pub trait PseudoGvkBuilderExt {
+pub(crate) trait PseudoGvkBuilderExt {
     fn build_pseudo_gvk(&self, extractor_name: &str) -> GroupVersionKind;
 }
 

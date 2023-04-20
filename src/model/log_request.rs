@@ -1,9 +1,9 @@
 use kube::api::LogParams;
 
 #[derive(Debug, Clone)]
-pub struct LogRequest {
-    pub id: usize,
-    pub namespace: String,
-    pub pod_name: String,
-    pub log_params: LogParams,
+pub(crate) struct LogRequest {
+    pub(crate) id: usize,
+    pub(crate) namespace: String,
+    pub(crate) pod_name: String,
+    pub(crate) log_params: LogParams,
 }

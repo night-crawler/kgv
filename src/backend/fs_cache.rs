@@ -8,21 +8,21 @@ use kube::api::GroupVersionKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
-pub struct Cache {
+pub(crate) struct Cache {
     gvks: Option<Vec<GroupVersionKind>>,
     name: String,
     created_at: chrono::DateTime<Utc>,
     updated_at: chrono::DateTime<Utc>,
 }
 
-pub struct FsCache {
+pub(crate) struct FsCache {
     name: String,
     cache: Cache,
     cache_dir: Option<PathBuf>,
 }
 
 impl FsCache {
-    pub fn new(cache_dir: Option<PathBuf>, name: &str) -> Self {
+    pub(crate) fn new(cache_dir: Option<PathBuf>, name: &str) -> Self {
         let mut instance = Self {
             cache_dir,
             name: name.to_string(),
@@ -57,22 +57,22 @@ impl FsCache {
         Ok(file)
     }
 
-    pub fn set_gvks(&mut self, gvks: &[GroupVersionKind]) {
+    pub(crate) fn set_gvks(&mut self, gvks: &[GroupVersionKind]) {
         self.cache.gvks = Some(gvks.to_vec());
         self.update_cache_meta();
     }
 
-    pub fn get_gvks(&self) -> Option<Vec<GroupVersionKind>> {
+    pub(crate) fn get_gvks(&self) -> Option<Vec<GroupVersionKind>> {
         self.cache.gvks.clone()
     }
 
-    pub fn dump(&self) -> anyhow::Result<()> {
+    pub(crate) fn dump(&self) -> anyhow::Result<()> {
         let file = self.get_current_config_file()?;
         serde_yaml::to_writer(file, &self.cache)?;
         Ok(())
     }
 
-    pub fn load(&self) -> anyhow::Result<Cache> {
+    pub(crate) fn load(&self) -> anyhow::Result<Cache> {
         let file = self.get_current_config_file()?;
         let cache: Cache = serde_yaml::from_reader(file)?;
         Ok(cache)

@@ -9,16 +9,16 @@ impl Dispatch<UiStore, FromBackendSignal> for FromBackendSignal {
         let signal_name = self.as_ref().to_string();
 
         let result = match self {
-            FromBackendSignal::ResponseResourceUpdated(resource) => {
+            FromBackendSignal::ResourceUpdated(resource) => {
                 context.dispatch_response_resource_updated(resource)
             }
-            FromBackendSignal::ResponseDiscoveredGvks(gvks) => {
+            FromBackendSignal::DiscoveredGvks(gvks) => {
                 context.dispatch_response_discovered_gvks(gvks)
             }
-            FromBackendSignal::ResponseResourceDeleted(resource) => {
+            FromBackendSignal::ResourceDeleted(resource) => {
                 context.dispatch_response_resource_deleted(resource)
             }
-            FromBackendSignal::ResponseLogData {
+            FromBackendSignal::LogData {
                 seq_id,
                 view_id,
                 data,

@@ -22,7 +22,7 @@ use crate::ui::ui_store::UiStore;
 use crate::ui::view_meta::{LogItem, ViewMeta, ViewMetaLogExt};
 use crate::util::error::LogError;
 
-pub trait DispatchContextBackendExt {
+pub(crate) trait DispatchContextBackendExt {
     fn dispatch_response_discovered_gvks(self, gvks: Vec<GroupVersionKind>) -> anyhow::Result<()>;
     fn dispatch_response_resource_updated(self, resource: ResourceView) -> anyhow::Result<()>;
     fn dispatch_response_resource_deleted(self, resource: ResourceView) -> anyhow::Result<()>;

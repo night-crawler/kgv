@@ -15,13 +15,13 @@ use crate::util::panics::{OptionExt, ResultExt};
 use crate::util::ui::compute_age;
 use crate::util::watcher::LazyWatcher;
 
-pub struct DetailViewRenderer {
+pub(crate) struct DetailViewRenderer {
     engine_watcher: Arc<LazyWatcher<Engine>>,
     extractor_config_watcher: Arc<LazyWatcher<ExtractorConfig>>,
 }
 
 impl DetailViewRenderer {
-    pub fn new(
+    pub(crate) fn new(
         engine_watcher: &Arc<LazyWatcher<Engine>>,
         extractor_config_watcher: &Arc<LazyWatcher<ExtractorConfig>>,
     ) -> Self {
@@ -31,7 +31,7 @@ impl DetailViewRenderer {
         }
     }
 
-    pub fn render_html(&self, resource: &ResourceView) -> Result<String, LogError> {
+    pub(crate) fn render_html(&self, resource: &ResourceView) -> Result<String, LogError> {
         let gvk = resource.gvk();
         let gvk_full_name = gvk.full_name();
         let extractor_config = self.extractor_config_watcher.value();

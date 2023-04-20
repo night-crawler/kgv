@@ -29,42 +29,38 @@ use crate::ui::view_stack::ViewStack;
 use crate::util::panics::ResultExt;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
+pub(crate) type SinkSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
-pub struct UiStore {
-    pub counter: usize,
-    pub highlighter: Arc<crate::ui::highlighter::Highlighter>,
-    pub view_stack: ViewStack,
+pub(crate) struct UiStore {
+    pub(crate) counter: usize,
+    pub(crate) highlighter: Arc<crate::ui::highlighter::Highlighter>,
+    pub(crate) view_stack: ViewStack,
 
-    pub selected_gvk: GroupVersionKind,
-    pub inter_ui_sender: kanal::Sender<InterUiSignal>,
-    pub to_backend_sender: kanal::Sender<ToBackendSignal>,
-    pub sink: SinkSender,
+    pub(crate) selected_gvk: GroupVersionKind,
+    pub(crate) inter_ui_sender: kanal::Sender<InterUiSignal>,
+    pub(crate) to_backend_sender: kanal::Sender<ToBackendSignal>,
+    pub(crate) sink: SinkSender,
 
-    pub interactive_command: Option<InteractiveCommand>,
+    pub(crate) interactive_command: Option<InteractiveCommand>,
 
-    pub resource_manager: Arc<RwLock<ResourceManager>>,
+    pub(crate) resource_manager: Arc<RwLock<ResourceManager>>,
 
-    pub detail_view_renderer: DetailViewRenderer,
-    pub gvks: Vec<GroupVersionKind>,
+    pub(crate) detail_view_renderer: DetailViewRenderer,
+    pub(crate) gvks: Vec<GroupVersionKind>,
 }
 
 impl UiStore {
-    pub fn highlight(&self, resource: &ResourceView) -> anyhow::Result<StyledString> {
+    pub(crate) fn highlight(&self, resource: &ResourceView) -> anyhow::Result<StyledString> {
         let yaml = resource.to_yaml()?;
         self.highlighter.highlight(&yaml, "yaml")
     }
 
-    pub fn highlight_log(&self, log: &str) -> anyhow::Result<StyledString> {
-        self.highlighter.highlight(log, "sh")
-    }
-
-    pub fn inc_counter(&mut self) -> usize {
+    pub(crate) fn inc_counter(&mut self) -> usize {
         self.counter += 1;
         self.counter
     }
 
-    pub fn should_display_resource(
+    pub(crate) fn should_display_resource(
         &self,
         filter: &ListViewFilter,
         evaluated_resource: &EvaluatedResource,
@@ -76,7 +72,7 @@ impl UiStore {
             && evaluated_resource.resource.name().contains(&filter.name)
     }
 
-    pub fn get_filtered_resources(&self, view_meta: &ViewMeta) -> Vec<EvaluatedResource> {
+    pub(crate) fn get_filtered_resources(&self, view_meta: &ViewMeta) -> Vec<EvaluatedResource> {
         let filter = view_meta.get_filter();
         let gvk = view_meta.get_gvk();
         self.resource_manager
@@ -87,7 +83,7 @@ impl UiStore {
             .collect()
     }
 
-    pub fn get_filtered_windows(&self, text: &str) -> Vec<(String, Arc<RwLock<ViewMeta>>)> {
+    pub(crate) fn get_filtered_windows(&self, text: &str) -> Vec<(String, Arc<RwLock<ViewMeta>>)> {
         self.view_stack
             .stack
             .iter()
@@ -99,7 +95,7 @@ impl UiStore {
             .collect::<Vec<_>>()
     }
 
-    pub fn get_filtered_gvks(&self, text: &str) -> Vec<(String, GroupVersionKind)> {
+    pub(crate) fn get_filtered_gvks(&self, text: &str) -> Vec<(String, GroupVersionKind)> {
         self.gvks
             .iter()
             .map(|gvk| (gvk.full_name(), gvk.clone()))
@@ -109,7 +105,7 @@ impl UiStore {
     }
 }
 
-pub trait UiStoreDispatcherExt {
+pub(crate) trait UiStoreDispatcherExt {
     fn inc_counter(&self) -> usize;
     fn register_view(&self, view_meta: &ViewWithMeta<ViewMeta>);
     fn spawn_log_updater_thread(&self);

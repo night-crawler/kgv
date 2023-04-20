@@ -5,7 +5,7 @@ use cursive::{event, Cursive};
 use crate::traits::ext::kanal_sender::KanalSenderExt;
 use crate::ui::signals::InterUiSignal;
 
-pub fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<InterUiSignal>) {
+pub(crate) fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<InterUiSignal>) {
     ui.add_global_callback(event::Key::F10, |siv| siv.select_menubar());
 
     // I personally hate FnMut and this stuff here

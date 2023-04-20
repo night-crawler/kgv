@@ -19,7 +19,7 @@ use crate::ui::signals::{FromBackendSignal, ToBackendSignal};
 use crate::util::k8s::discover_gvk;
 use crate::util::panics::ResultExt;
 
-pub struct K8sBackend {
+pub(crate) struct K8sBackend {
     fs_cache: Arc<futures::lock::Mutex<FsCache>>,
     runtime: Runtime,
     client: Client,
@@ -33,7 +33,7 @@ pub struct K8sBackend {
 }
 
 impl K8sBackend {
-    pub fn new(
+    pub(crate) fn new(
         from_backend_sender: kanal::Sender<FromBackendSignal>,
         from_ui_receiver: kanal::Receiver<ToBackendSignal>,
         cache_dir: Option<PathBuf>,
@@ -95,7 +95,7 @@ impl K8sBackend {
             .build()
     }
 
-    pub fn spawn_discovery_task(&self) {
+    pub(crate) fn spawn_discovery_task(&self) {
         let sender = self.from_backend_sender.clone_async();
         let client = self.client.clone();
         let fs_cache = Arc::clone(&self.fs_cache);
@@ -103,7 +103,7 @@ impl K8sBackend {
             if let Some(stored_gvks) = fs_cache.lock().await.get_gvks() {
                 info!("Loaded {} GVKs from cache", stored_gvks.len());
                 sender
-                    .send(FromBackendSignal::ResponseDiscoveredGvks(stored_gvks))
+                    .send(FromBackendSignal::DiscoveredGvks(stored_gvks))
                     .await
                     .unwrap_or_log();
             }
@@ -120,7 +120,7 @@ impl K8sBackend {
                             error!("Failed to save cache: {}", err);
                         }
                         sender
-                            .send(FromBackendSignal::ResponseDiscoveredGvks(gvks))
+                            .send(FromBackendSignal::DiscoveredGvks(gvks))
                             .await
                             .unwrap_or_log();
                     }
@@ -133,7 +133,7 @@ impl K8sBackend {
         });
     }
 
-    pub fn spawn_watcher_exchange_task(&self) {
+    pub(crate) fn spawn_watcher_exchange_task(&self) {
         let resource_watch_receiver = self.resource_watcher_receiver.clone();
         let ui_signal_sender = self.from_backend_sender.clone_async();
 
@@ -142,7 +142,7 @@ impl K8sBackend {
 
             while let Some(resource_view) = stream.next().await {
                 ui_signal_sender
-                    .send(FromBackendSignal::ResponseResourceUpdated(resource_view))
+                    .send(FromBackendSignal::ResourceUpdated(resource_view))
                     .await
                     .unwrap_or_log();
             }
@@ -150,7 +150,7 @@ impl K8sBackend {
         });
     }
 
-    pub fn spawn_from_ui_receiver_task(&mut self) {
+    pub(crate) fn spawn_from_ui_receiver_task(&mut self) {
         let receiver = self.from_ui_receiver.clone_async();
         // let sender = self.to_ui_sender.clone_async();
         let registry = Arc::clone(&self.registry);
@@ -166,7 +166,6 @@ impl K8sBackend {
                     ToBackendSignal::RequestRegisterGvk(gvk) => {
                         register_any_gvk(reg.deref_mut(), gvk).await;
                     }
-                    ToBackendSignal::RequestDetails(_) => {}
                     ToBackendSignal::Remove(resource) => {
                         let name = resource.name();
                         if let Err(err) = remove_manager.remove(resource).await {

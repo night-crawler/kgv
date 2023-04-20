@@ -10,14 +10,14 @@ use crate::model::dynamic_object::DynamicObjectWrapper;
 use crate::model::resource::resource_view::ResourceView;
 use crate::model::traits::SerializeExt;
 
-pub const PSEUDO_RESOURCE_JOIN_SEQ: &str = "/";
+pub(crate) const PSEUDO_RESOURCE_JOIN_SEQ: &str = "/";
 
 #[derive(Debug, Clone)]
-pub struct PseudoResource {
-    pub id: String,
-    pub extractor_name: String,
-    pub resource: rhai::Dynamic,
-    pub source: ResourceView,
+pub(crate) struct PseudoResource {
+    pub(crate) id: String,
+    pub(crate) extractor_name: String,
+    pub(crate) resource: rhai::Dynamic,
+    pub(crate) source: ResourceView,
 }
 
 impl Default for PseudoResource {
@@ -32,51 +32,33 @@ impl Default for PseudoResource {
 }
 
 impl PseudoResource {
-    pub fn new(
-        id: String,
-        extractor_name: String,
-        resource: rhai::Dynamic,
-        source: ResourceView,
-    ) -> Self {
-        Self {
-            id,
-            extractor_name,
-            resource,
-            source,
-        }
-    }
-
-    pub fn uid(&self) -> Option<String> {
+    pub(crate) fn uid(&self) -> Option<String> {
         let uid = self.source.uid_or_name();
         let parts = [&uid, &self.extractor_name, &self.id];
         Some(parts.iter().join(PSEUDO_RESOURCE_JOIN_SEQ))
     }
 
-    pub fn name(&self) -> String {
+    pub(crate) fn name(&self) -> String {
         self.id.clone()
     }
 
-    pub fn namespace(&self) -> String {
+    pub(crate) fn namespace(&self) -> String {
         self.source.namespace()
     }
 
-    pub fn age(&self) -> chrono::Duration {
-        self.source.age()
-    }
-
-    pub fn gvk(&self) -> GroupVersionKind {
+    pub(crate) fn gvk(&self) -> GroupVersionKind {
         self.source.build_pseudo_gvk(&self.extractor_name)
     }
 
-    pub fn creation_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+    pub(crate) fn creation_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
         self.source.creation_timestamp()
     }
 
-    pub fn deletion_timestamp(&self) -> Option<&chrono::DateTime<chrono::Utc>> {
+    pub(crate) fn deletion_timestamp(&self) -> Option<&chrono::DateTime<chrono::Utc>> {
         self.source.deletion_timestamp()
     }
 
-    pub fn resource_version(&self) -> Option<String> {
+    pub(crate) fn resource_version(&self) -> Option<String> {
         self.source.resource_version()
     }
 }

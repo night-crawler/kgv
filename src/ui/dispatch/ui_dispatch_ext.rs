@@ -38,7 +38,7 @@ use crate::util::error::{LogError, LogErrorOptionExt, LogErrorResultExt};
 use crate::util::panics::ResultExt;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub trait DispatchContextUiExt {
+pub(crate) trait DispatchContextUiExt {
     fn dispatch_update_list_views_for_gvk(
         self,
         gvk: GroupVersionKind,

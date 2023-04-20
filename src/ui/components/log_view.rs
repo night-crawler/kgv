@@ -21,7 +21,7 @@ use crate::ui::view_meta::{LogFilter, ViewMeta};
 use crate::util::ui::build_edit_view;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub fn build_log_view(
+pub(crate) fn build_log_view(
     pod: &Pod,
     container: &Container,
     store: Arc<Mutex<UiStore>>,

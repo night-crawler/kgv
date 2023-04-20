@@ -1,7 +1,7 @@
 use chrono::Utc;
 use kube::Config;
 
-pub trait KubeConfigExt {
+pub(crate) trait KubeConfigExt {
     fn get_cluster_name(&self) -> String;
 }
 

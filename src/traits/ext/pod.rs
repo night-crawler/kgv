@@ -4,7 +4,7 @@ use k8s_openapi::api::core::v1::{Container, ContainerStatus, Pod};
 
 use crate::model::pod::pod_container_view::PodContainerView;
 
-pub trait PodExt {
+pub(crate) trait PodExt {
     fn get_pod_containers(&self) -> Option<Vec<PodContainerView>>;
     fn get_expected_exec_container(&self) -> Option<Container>;
     fn get_first_container(&self) -> Option<Container>;

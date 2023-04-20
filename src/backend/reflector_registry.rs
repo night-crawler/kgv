@@ -19,7 +19,7 @@ use crate::model::resource::resource_view::ResourceView;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::traits::ext::gvk::GvkStaticExt;
 
-pub struct ReflectorRegistry {
+pub(crate) struct ReflectorRegistry {
     sender: AsyncSender<ResourceView>,
     client: Client,
     handles_map: Arc<RwLock<HashMap<GroupVersionKind, JoinHandle<()>>>>,
@@ -50,7 +50,7 @@ where
 }
 
 impl ReflectorRegistry {
-    pub fn new(sender: AsyncSender<ResourceView>, client: &Client) -> Self {
+    pub(crate) fn new(sender: AsyncSender<ResourceView>, client: &Client) -> Self {
         Self {
             sender,
             client: client.clone(),
@@ -58,7 +58,7 @@ impl ReflectorRegistry {
         }
     }
 
-    pub async fn register<T>(&mut self)
+    pub(crate) async fn register<T>(&mut self)
     where
         T: Metadata<Ty = ObjectMeta>
             + 'static
@@ -108,7 +108,7 @@ impl ReflectorRegistry {
         );
     }
 
-    pub async fn register_gvk(&mut self, gvk: GroupVersionKind) -> anyhow::Result<()> {
+    pub(crate) async fn register_gvk(&mut self, gvk: GroupVersionKind) -> anyhow::Result<()> {
         if let Some(handle) = self.handles_map.read().await.get(&gvk) {
             if handle.is_finished() {
                 warn!("Handle for GVK {} is finished; recreating", gvk.full_name());

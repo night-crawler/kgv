@@ -11,7 +11,7 @@ use crate::traits::ext::rw_lock::RwLockExt;
 
 type Builder<T> = dyn FnMut(&[PathBuf]) -> T + Send + Sync;
 
-pub struct LazyWatcher<T> {
+pub(crate) struct LazyWatcher<T> {
     builder: Mutex<Box<Builder<T>>>,
     data: RwLock<Arc<T>>,
     flag: Arc<AtomicBool>,
@@ -21,7 +21,7 @@ pub struct LazyWatcher<T> {
 }
 
 impl<T: Send + Sync> LazyWatcher<T> {
-    pub fn new(
+    pub(crate) fn new(
         watch_paths: Vec<PathBuf>,
         mut builder: impl FnMut(&[PathBuf]) -> T + Send + Sync + 'static,
     ) -> Result<Self, notify::Error> {
@@ -53,7 +53,7 @@ impl<T: Send + Sync> LazyWatcher<T> {
         })
     }
 
-    pub fn value(&self) -> Arc<T> {
+    pub(crate) fn value(&self) -> Arc<T> {
         if self.flag.swap(false, Ordering::AcqRel) {
             self.version.fetch_add(1, Ordering::AcqRel);
             *self.data.write_unwrap() = Arc::new(self.build());
@@ -62,12 +62,8 @@ impl<T: Send + Sync> LazyWatcher<T> {
         self.data.read_unwrap().clone()
     }
 
-    pub fn build(&self) -> T {
+    pub(crate) fn build(&self) -> T {
         (self.builder.lock_unwrap())(&self.watch_paths)
-    }
-
-    pub fn version(&self) -> usize {
-        self.version.load(Ordering::Acquire)
     }
 }
 

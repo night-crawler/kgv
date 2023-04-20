@@ -15,7 +15,7 @@ use crate::util::panics::ResultExt;
 
 type SyncJoinHandleResult = JoinHandle<()>;
 
-pub struct LogManager {
+pub(crate) struct LogManager {
     client: Client,
     handles_map: Arc<RwLock<HashMap<usize, SyncJoinHandleResult>>>,
     requests_map: Arc<RwLock<HashMap<usize, Arc<LogRequest>>>>,
@@ -23,7 +23,7 @@ pub struct LogManager {
 }
 
 impl LogManager {
-    pub fn new(
+    pub(crate) fn new(
         client: &Client,
         from_backend_sender: kanal::AsyncSender<FromBackendSignal>,
     ) -> Self {
@@ -35,7 +35,7 @@ impl LogManager {
         }
     }
 
-    pub async fn subscribe(&self, request: LogRequest) -> anyhow::Result<()> {
+    pub(crate) async fn subscribe(&self, request: LogRequest) -> anyhow::Result<()> {
         let mut handles_map = self.handles_map.write().await;
         let mut requests_map = self.requests_map.write().await;
 
@@ -68,7 +68,7 @@ impl LogManager {
                         Ok(Some(bytes)) => {
                             let seq_id = counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             sender
-                                .send(FromBackendSignal::ResponseLogData {
+                                .send(FromBackendSignal::LogData {
                                     seq_id,
                                     view_id: request.id,
                                     data: bytes.to_vec(),
@@ -102,7 +102,7 @@ impl LogManager {
         Ok(())
     }
 
-    pub async fn unsubscribe(&self, view_id: usize) {
+    pub(crate) async fn unsubscribe(&self, view_id: usize) {
         let mut handles_map = self.handles_map.write().await;
         let mut requests_map = self.requests_map.write().await;
 

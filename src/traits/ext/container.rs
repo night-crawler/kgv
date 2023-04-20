@@ -1,7 +1,7 @@
 use k8s_openapi::api::core::v1::Container;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 
-pub trait ContainerExt {
+pub(crate) trait ContainerExt {
     fn memory_limit(&self) -> Option<&Quantity>;
     fn memory_request(&self) -> Option<&Quantity>;
     fn memory_rl(&self) -> String;

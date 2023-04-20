@@ -1,7 +1,7 @@
 use chrono::{Duration, Utc};
 use k8s_openapi::api::core::v1::ContainerState;
 
-pub trait ContainerStateExt {
+pub(crate) trait ContainerStateExt {
     fn get_state_name(&self) -> &str;
     fn get_age(&self) -> Option<Duration>;
 }

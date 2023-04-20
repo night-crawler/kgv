@@ -16,13 +16,13 @@ use crate::util::error::KgvError;
 use crate::util::panics::ResultExt;
 use crate::util::watcher::LazyWatcher;
 
-pub struct Evaluator {
+pub(crate) struct Evaluator {
     pool: ThreadPool,
     watcher: Arc<LazyWatcher<Engine>>,
 }
 
 impl Evaluator {
-    pub fn new(
+    pub(crate) fn new(
         num_threads: usize,
         watcher: &Arc<LazyWatcher<Engine>>,
     ) -> Result<Self, ThreadPoolBuildError> {
@@ -37,7 +37,7 @@ impl Evaluator {
         })
     }
 
-    pub fn evaluate_pseudo_resources(
+    pub(crate) fn evaluate_pseudo_resources(
         &self,
         resource: &ResourceView,
         extractors: &[PseudoResourceConf],
@@ -101,7 +101,7 @@ impl Evaluator {
         })
     }
 
-    pub fn evaluate_columns(
+    pub(crate) fn evaluate_columns(
         &self,
         resource: ResourceView,
         columns: &[Column],
@@ -148,7 +148,7 @@ impl Evaluator {
         Ok(array)
     }
 
-    pub fn evaluate_column(
+    pub(crate) fn evaluate_column(
         engine: &Engine,
         column: &Column,
         resource: &ResourceView,

@@ -11,7 +11,7 @@ use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::ui::view_meta::ViewMeta;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub fn build_detail_view(
+pub(crate) fn build_detail_view(
     store: Arc<Mutex<UiStore>>,
     resource: ResourceView,
     html: String,

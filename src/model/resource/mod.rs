@@ -1,2 +1,2 @@
-pub mod resource_view;
-pub mod table_view_item;
+pub(crate) mod resource_view;
+pub(crate) mod table_view_item;

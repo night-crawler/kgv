@@ -4,7 +4,7 @@ use crate::reexports::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::util;
 use crate::util::error::KgvError;
 
-pub trait RwLockExt<T> {
+pub(crate) trait RwLockExt<T> {
     fn read_unwrap(&self) -> RwLockReadGuard<'_, T>;
     fn write_unwrap(&self) -> RwLockWriteGuard<'_, T>;
 

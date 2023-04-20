@@ -1,5 +1,5 @@
-use base64::Engine;
 use base64::engine::general_purpose;
+use base64::Engine;
 use cursive::reexports::log::error;
 use itertools::Itertools;
 use k8s_openapi::serde_json;
@@ -9,11 +9,11 @@ fn is_printable(ch: char) -> bool {
     !matches!(ch, '\u{0000}'..='\u{001F}' | '\u{007F}' | '\u{0080}'..='\u{009F}')
 }
 
-pub fn join(array: Array, delimiter: &str) -> String {
+pub(crate) fn join(array: Array, delimiter: &str) -> String {
     array.iter().map(|item| item.to_string()).join(delimiter)
 }
 
-pub fn to_yaml(object: rhai::Dynamic) -> String {
+pub(crate) fn to_yaml(object: rhai::Dynamic) -> String {
     match serde_yaml::to_string(&object) {
         Ok(yaml) => yaml,
         Err(err) => {
@@ -24,7 +24,7 @@ pub fn to_yaml(object: rhai::Dynamic) -> String {
     }
 }
 
-pub fn decode_b64(data: &str) -> String {
+pub(crate) fn decode_b64(data: &str) -> String {
     static ENGINES: [general_purpose::GeneralPurpose; 4] = [
         general_purpose::STANDARD,
         general_purpose::STANDARD_NO_PAD,
@@ -45,7 +45,7 @@ pub fn decode_b64(data: &str) -> String {
     data.to_string()
 }
 
-pub fn pretty_any(raw_string: &str) -> String {
+pub(crate) fn pretty_any(raw_string: &str) -> String {
     // skip nasty transformations if they are not needed
     if raw_string.chars().all(|ch| ch.is_ascii_digit()) {
         return raw_string.to_string();
