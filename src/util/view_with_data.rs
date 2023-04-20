@@ -7,13 +7,13 @@ use cursive::{Printer, Rect, Vec2, View};
 
 use crate::reexports::sync::RwLock;
 
-pub struct ViewWithMeta<T> {
-    pub inner: Box<dyn View>,
-    pub meta: Arc<RwLock<T>>,
+pub(crate) struct ViewWithMeta<T> {
+    pub(crate) inner: Box<dyn View>,
+    pub(crate) meta: Arc<RwLock<T>>,
 }
 
 impl<T> ViewWithMeta<T> {
-    pub fn new<I: View>(inner: I, meta: T) -> Self {
+    pub(crate) fn new<I: View>(inner: I, meta: T) -> Self {
         Self {
             inner: Box::new(inner),
             meta: Arc::new(RwLock::new(meta)),

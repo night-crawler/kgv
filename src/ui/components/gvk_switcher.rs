@@ -14,7 +14,7 @@ use crate::ui::view_meta::ViewMeta;
 use crate::util::ui::build_edit_view;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub fn build_gvk_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
+pub(crate) fn build_gvk_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
     let (to_ui_sender, to_backend_sender, gvks, counter) = {
         let mut store = store.lock_unwrap();
         (
@@ -108,7 +108,7 @@ pub fn build_gvk_switcher(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> 
     }
 }
 
-pub fn build_gvk_show_chain(
+pub(crate) fn build_gvk_show_chain(
     to_backend_sender: kanal::Sender<ToBackendSignal>,
     gvk: &GroupVersionKind,
 ) -> InterUiSignal {

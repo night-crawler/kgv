@@ -2,13 +2,13 @@ use anyhow::{Context, Error};
 use cursive::theme::Style;
 use cursive::utils::markup::StyledString;
 
-pub struct Highlighter {
+pub(crate) struct Highlighter {
     theme: syntect::highlighting::Theme,
     syntax_set: syntect::parsing::SyntaxSet,
 }
 
 impl Highlighter {
-    pub fn new(theme_name: &str) -> anyhow::Result<Self> {
+    pub(crate) fn new(theme_name: &str) -> anyhow::Result<Self> {
         let theme = Self::get_theme(theme_name)?;
         let syntax_set = syntect::parsing::SyntaxSet::load_defaults_newlines();
 
@@ -23,7 +23,11 @@ impl Highlighter {
             .with_context(|| format!("Could not find specified theme {}", theme_name))
     }
 
-    pub fn highlight(&self, text: &str, syntax_extension: &str) -> anyhow::Result<StyledString> {
+    pub(crate) fn highlight(
+        &self,
+        text: &str,
+        syntax_extension: &str,
+    ) -> anyhow::Result<StyledString> {
         let syntax = self
             .syntax_set
             .find_syntax_by_extension(syntax_extension)
@@ -33,7 +37,7 @@ impl Highlighter {
         Ok(result)
     }
 
-    pub fn highlight_substring(
+    pub(crate) fn highlight_substring(
         &self,
         text: &str,
         needle: &str,

@@ -38,6 +38,7 @@ tracing-mutex = "0.2"
 better-panic = "0.3"
 base64 = { default-features = false, version = "0.21" }
 percent-encoding = { default-features = false, version = "2" }
+cursive-cached-text-view = "0.1.1"
 
 [dependencies.cursive]
 version = "0.20"

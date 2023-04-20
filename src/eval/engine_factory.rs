@@ -8,7 +8,7 @@ use crate::eval::eval_result::{EvalResult, PseudoResource, RhaiPseudoResource};
 use crate::eval::helpers::*;
 use crate::util::ui::compute_age;
 
-pub fn build_engine(paths: &[PathBuf]) -> Engine {
+pub(crate) fn build_engine(paths: &[PathBuf]) -> Engine {
     let mut engine = Engine::new();
     let collection_resolver = prepare_resolvers(paths);
     engine

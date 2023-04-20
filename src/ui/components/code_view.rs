@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use cursive::traits::*;
-use cursive::views::{Dialog, TextView};
+use cursive::views::Dialog;
+use cursive_cached_text_view::CachedTextView;
 
 use crate::model::resource::resource_view::ResourceView;
 use crate::reexports::sync::Mutex;
@@ -11,7 +12,7 @@ use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::ui::view_meta::ViewMeta;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub fn build_code_view(
+pub(crate) fn build_code_view(
     store: Arc<Mutex<UiStore>>,
     resource: ResourceView,
 ) -> anyhow::Result<ViewWithMeta<ViewMeta>> {
@@ -24,7 +25,7 @@ pub fn build_code_view(
         uid: resource.uid_or_name(),
     };
 
-    let tv = TextView::new(styled_string)
+    let tv = CachedTextView::new(styled_string, 5)
         .with_name(view_meta.get_unique_name())
         .full_screen()
         .scrollable();

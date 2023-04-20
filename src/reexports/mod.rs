@@ -1,2 +1,2 @@
-pub mod k8s;
-pub mod sync;
+pub(crate) mod k8s;
+pub(crate) mod sync;

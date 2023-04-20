@@ -2,7 +2,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use cursive::reexports::log::{info, warn};
-use cursive::views::TextView;
+use cursive_cached_text_view::CachedTextView;
 use cursive_markup::html::RichRenderer;
 use cursive_markup::MarkupView;
 use cursive_table_view::TableView;
@@ -19,10 +19,10 @@ use crate::ui::dispatch::send_helper_ext::DispatchContextSendHelperExt;
 use crate::ui::dispatcher::DispatchContext;
 use crate::ui::signals::{FromBackendSignal, ToBackendSignal};
 use crate::ui::ui_store::UiStore;
-use crate::ui::view_meta::{LogItem, ViewMeta};
+use crate::ui::view_meta::{LogItem, ViewMeta, ViewMetaLogExt};
 use crate::util::error::LogError;
 
-pub trait DispatchContextBackendExt {
+pub(crate) trait DispatchContextBackendExt {
     fn dispatch_response_discovered_gvks(self, gvks: Vec<GroupVersionKind>) -> anyhow::Result<()>;
     fn dispatch_response_resource_updated(self, resource: ResourceView) -> anyhow::Result<()>;
     fn dispatch_response_resource_deleted(self, resource: ResourceView) -> anyhow::Result<()>;
@@ -190,7 +190,7 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
 
         let name = view_meta.read_sync()?.get_unique_name();
 
-        self.call_on_name(&name, move |tv: &mut TextView| {
+        self.call_on_name(&name, move |tv: &mut CachedTextView| {
             let styled = store.lock_unwrap().highlight(&resource)?;
             tv.set_content(styled);
             Ok::<(), anyhow::Error>(())

@@ -17,7 +17,7 @@ use crate::traits::ext::gvk::{GvkExt, PseudoResourceGvkExt};
 use crate::util::ui::ago;
 use crate::util::watcher::LazyWatcher;
 
-pub struct ResourceManager {
+pub(crate) struct ResourceManager {
     resources_by_gvk: HashMap<GroupVersionKind, HashMap<String, EvaluatedResource>>,
     evaluator: Evaluator,
     config_watcher: Arc<LazyWatcher<ExtractorConfig>>,
@@ -26,7 +26,10 @@ pub struct ResourceManager {
 }
 
 impl ResourceManager {
-    pub fn new(evaluator: Evaluator, config_watcher: &Arc<LazyWatcher<ExtractorConfig>>) -> Self {
+    pub(crate) fn new(
+        evaluator: Evaluator,
+        config_watcher: &Arc<LazyWatcher<ExtractorConfig>>,
+    ) -> Self {
         Self {
             evaluator,
             tombstones: HashMap::default(),
@@ -62,7 +65,7 @@ impl ResourceManager {
         }
     }
 
-    pub fn replace(
+    pub(crate) fn replace(
         &mut self,
         resource: ResourceView,
     ) -> (EvaluatedResource, Vec<EvaluatedResource>) {
@@ -146,7 +149,7 @@ impl ResourceManager {
         (evaluated_resource, pseudo_resources)
     }
 
-    pub fn reevaluate_all_for_gvk(&mut self, gvk: &GroupVersionKind) {
+    pub(crate) fn reevaluate_all_for_gvk(&mut self, gvk: &GroupVersionKind) {
         if let Some(resource_map) = self.resources_by_gvk.remove(gvk) {
             for (_, resource) in resource_map.into_iter() {
                 self.replace(resource.resource);
@@ -154,7 +157,7 @@ impl ResourceManager {
         }
     }
 
-    pub fn get_columns(&self, gvk: &GroupVersionKind) -> Arc<Vec<Column>> {
+    pub(crate) fn get_columns(&self, gvk: &GroupVersionKind) -> Arc<Vec<Column>> {
         if let Some(columns) = self.config_watcher.value().columns_map.get(gvk) {
             return Arc::clone(columns);
         }
@@ -219,7 +222,7 @@ impl ResourceManager {
         result
     }
 
-    pub fn get_resources_iter(
+    pub(crate) fn get_resources_iter(
         &self,
         gvk: &GroupVersionKind,
     ) -> impl Iterator<Item = &EvaluatedResource> {
@@ -240,7 +243,7 @@ impl ResourceManager {
             })
     }
 
-    pub fn get_submit_handler_type(&self, gvk: &GroupVersionKind) -> Option<ActionType> {
+    pub(crate) fn get_submit_handler_type(&self, gvk: &GroupVersionKind) -> Option<ActionType> {
         self.config_watcher
             .value()
             .event_handler_types_map
@@ -254,7 +257,7 @@ impl ResourceManager {
             })
     }
 
-    pub fn get_resource_by_uid(&self, uid: &str) -> Option<EvaluatedResource> {
+    pub(crate) fn get_resource_by_uid(&self, uid: &str) -> Option<EvaluatedResource> {
         for map in self.resources_by_gvk.values() {
             if let Some(resource) = map.get(uid) {
                 return Some(resource.clone());

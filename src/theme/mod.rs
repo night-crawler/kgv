@@ -1,6 +1,6 @@
 use cursive::theme::{BorderStyle, Color, Palette, Theme};
 
-pub fn get_theme() -> Theme {
+pub(crate) fn get_theme() -> Theme {
     Theme {
         palette: {
             use cursive::theme::PaletteColor::*;

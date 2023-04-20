@@ -9,7 +9,7 @@ use crate::ui::dispatcher::DispatchContext;
 use crate::ui::ui_store::UiStore;
 use crate::util::panics::ResultExt;
 
-pub trait DispatchContextSendHelperExt {
+pub(crate) trait DispatchContextSendHelperExt {
     fn call_on_name<V, F, R>(&self, name: &str, callback: F)
     where
         V: View,

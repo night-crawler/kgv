@@ -4,7 +4,7 @@ use cursive::reexports::log::error;
 
 use crate::util::paths::KGV_HOME_DIR;
 
-pub trait OptionExt<T> {
+pub(crate) trait OptionExt<T> {
     fn unwrap_or_log(self) -> T;
 }
 
@@ -19,7 +19,7 @@ impl<T> OptionExt<T> for Option<T> {
     }
 }
 
-pub trait ResultExt<T, E> {
+pub(crate) trait ResultExt<T, E> {
     fn unwrap_or_log(self) -> T
     where
         E: std::fmt::Debug;

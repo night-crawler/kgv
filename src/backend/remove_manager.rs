@@ -12,13 +12,13 @@ use crate::traits::ext::gvk::GvkExt;
 use crate::traits::ext::gvk::GvkNameExt;
 use crate::ui::signals::FromBackendSignal;
 
-pub struct RemoveManager {
+pub(crate) struct RemoveManager {
     client: Client,
     from_backend_sender: kanal::AsyncSender<FromBackendSignal>,
 }
 
 impl RemoveManager {
-    pub fn new(
+    pub(crate) fn new(
         client: &Client,
         from_backend_sender: kanal::AsyncSender<FromBackendSignal>,
     ) -> Self {
@@ -28,7 +28,7 @@ impl RemoveManager {
         }
     }
 
-    pub async fn remove(&self, resource: ResourceView) -> anyhow::Result<()> {
+    pub(crate) async fn remove(&self, resource: ResourceView) -> anyhow::Result<()> {
         let gvk = resource.gvk();
         warn!(
             "Removing resource: {}, name: {}",
@@ -56,7 +56,7 @@ impl RemoveManager {
                 let wrapper = DynamicObjectWrapper(dynamic_object, gvk);
                 let deleted_resource = ResourceView::DynamicObject(wrapper.into());
                 self.from_backend_sender
-                    .send(FromBackendSignal::ResponseResourceDeleted(deleted_resource))
+                    .send(FromBackendSignal::ResourceDeleted(deleted_resource))
                     .await?;
             }
             Either::Right(status) => {

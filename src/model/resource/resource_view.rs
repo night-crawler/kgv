@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use chrono::Utc;
 use cursive::reexports::log::error;
 use itertools::Itertools;
 use kube::api::GroupVersionKind;
@@ -11,7 +10,7 @@ use crate::eval::eval_result::EvalResult;
 use crate::model::pseudo_resource::PSEUDO_RESOURCE_JOIN_SEQ;
 use crate::reexports::k8s::*;
 use crate::traits::ext::gvk::GvkExt;
-use crate::{extract_age, extract_phase, mk_resource_enum};
+use crate::{extract_phase, mk_resource_enum};
 
 mk_resource_enum!(
     ResourceView,
@@ -69,20 +68,20 @@ mk_resource_enum!(
 );
 
 #[derive(Debug, Clone)]
-pub struct EvaluatedResource {
-    pub values: Arc<Vec<EvalResult>>,
-    pub resource: ResourceView,
+pub(crate) struct EvaluatedResource {
+    pub(crate) values: Arc<Vec<EvalResult>>,
+    pub(crate) resource: ResourceView,
 }
 
 impl ResourceView {
-    pub fn uid_or_name(&self) -> String {
+    pub(crate) fn uid_or_name(&self) -> String {
         self.uid().unwrap_or_else(|| {
             error!("Received a resource without uid: {:?}", self);
             self.full_unique_name()
         })
     }
 
-    pub fn status(&self) -> String {
+    pub(crate) fn status(&self) -> String {
         match self {
             ResourceView::Namespace(r) => extract_phase!(r),
             ResourceView::Pod(r) => extract_phase!(r),
@@ -98,7 +97,7 @@ impl ResourceView {
         }
     }
 
-    pub fn build_pseudo_gvk(&self, extractor_name: &str) -> GroupVersionKind {
+    pub(crate) fn build_pseudo_gvk(&self, extractor_name: &str) -> GroupVersionKind {
         let mut gvk = self.gvk();
         let parts = [&gvk.kind, extractor_name, &self.name()];
         gvk.kind = parts.join(PSEUDO_RESOURCE_JOIN_SEQ);
@@ -107,7 +106,7 @@ impl ResourceView {
 }
 
 impl ResourceView {
-    pub fn full_unique_name(&self) -> String {
+    pub(crate) fn full_unique_name(&self) -> String {
         use crate::traits::ext::gvk::GvkNameExt;
 
         let gvk = self.gvk().full_name();

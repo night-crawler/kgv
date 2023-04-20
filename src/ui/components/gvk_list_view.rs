@@ -55,7 +55,7 @@ impl UiStoreComponentExt for Arc<Mutex<UiStore>> {
     }
 }
 
-pub fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
+pub(crate) fn build_gvk_list_view_layout(store: Arc<Mutex<UiStore>>) -> ViewWithMeta<ViewMeta> {
     let (to_ui_sender, selected_gvk, counter) = {
         let mut store = store.lock_unwrap();
         (

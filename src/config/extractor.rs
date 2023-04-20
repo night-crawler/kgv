@@ -16,27 +16,27 @@ use crate::util::paths::resolve_path;
 use crate::util::ui::ago;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum ActionType {
+pub(crate) enum ActionType {
     ShowDetailsTable(String),
     ShowDetailsTemplate,
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub enum EventHandlerType {
+pub(crate) enum EventHandlerType {
     Submit { action: ActionType },
     Delete { action: ActionType },
 }
 
 #[derive(Debug, Default)]
-pub struct ExtractorConfig {
-    pub columns_map: HashMap<GroupVersionKind, Arc<Vec<Column>>>,
-    pub detail_templates_map: HashMap<GroupVersionKind, Arc<DetailsTemplate>>,
-    pub pseudo_resources_map: HashMap<GroupVersionKind, Arc<Vec<PseudoResourceConf>>>,
-    pub event_handler_types_map: HashMap<GroupVersionKind, Arc<Vec<EventHandlerType>>>,
+pub(crate) struct ExtractorConfig {
+    pub(crate) columns_map: HashMap<GroupVersionKind, Arc<Vec<Column>>>,
+    pub(crate) detail_templates_map: HashMap<GroupVersionKind, Arc<DetailsTemplate>>,
+    pub(crate) pseudo_resources_map: HashMap<GroupVersionKind, Arc<Vec<PseudoResourceConf>>>,
+    pub(crate) event_handler_types_map: HashMap<GroupVersionKind, Arc<Vec<EventHandlerType>>>,
 }
 
 impl ExtractorConfig {
-    pub fn new(roots: &[PathBuf]) -> Self {
+    pub(crate) fn new(roots: &[PathBuf]) -> Self {
         let mut instance = Self::default();
         let now = std::time::Instant::now();
         let parsed_resources = parse_resource_dirs(roots);
@@ -153,7 +153,7 @@ impl ExtractorConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-pub enum EmbeddedExtractor {
+pub(crate) enum EmbeddedExtractor {
     Namespace,
     Name,
     Status,
@@ -168,9 +168,9 @@ enum EvalConfigProps {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-pub struct HbsHelper {
-    pub name: String,
-    pub path: PathBuf,
+pub(crate) struct HbsHelper {
+    pub(crate) name: String,
+    pub(crate) path: PathBuf,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -182,13 +182,13 @@ struct DetailsTemplateConfigProps {
 }
 
 #[derive(Debug)]
-pub struct DetailsTemplate {
-    pub template: PathBuf,
-    pub helpers: Vec<HbsHelper>,
+pub(crate) struct DetailsTemplate {
+    pub(crate) template: PathBuf,
+    pub(crate) helpers: Vec<HbsHelper>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-pub struct PseudoResourceExtractorConfigPros {
+pub(crate) struct PseudoResourceExtractorConfigPros {
     name: String,
     script_content: String,
 }
@@ -229,9 +229,9 @@ struct ColumnConfigProps {
 }
 
 #[derive(Debug, Clone)]
-pub struct PseudoResourceConf {
-    pub name: String,
-    pub ast: AST,
+pub(crate) struct PseudoResourceConf {
+    pub(crate) name: String,
+    pub(crate) ast: AST,
 }
 
 impl PseudoResourceConf {
@@ -248,7 +248,7 @@ impl PseudoResourceConf {
 }
 
 #[derive(Debug, Clone)]
-pub enum EvaluatorType {
+pub(crate) enum EvaluatorType {
     AST(AST),
     Embedded(EmbeddedExtractor),
 }
@@ -276,11 +276,11 @@ impl EvaluatorType {
 }
 
 #[derive(Debug, Clone)]
-pub struct Column {
-    pub name: String,
-    pub display_name: String,
-    pub width: usize,
-    pub evaluator_type: EvaluatorType,
+pub(crate) struct Column {
+    pub(crate) name: String,
+    pub(crate) display_name: String,
+    pub(crate) width: usize,
+    pub(crate) evaluator_type: EvaluatorType,
 }
 
 fn parse_resource_dirs(roots: &[PathBuf]) -> Vec<(PathBuf, ResourceConfigProps)> {

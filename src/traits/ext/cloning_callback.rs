@@ -1,4 +1,4 @@
-pub trait CloningCallbackExt {
+pub(crate) trait CloningCallbackExt {
     fn cloning<R>(&self, cb: impl Fn(Self) -> R) -> R
     where
         Self: Sized + Clone;

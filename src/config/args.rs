@@ -15,7 +15,7 @@ use crate::util::paths::SELF_NAME;
     long_about = r###"kgv
 "###
 )]
-pub struct Args {
+pub(crate) struct Args {
     /// A directory where kgv configs are located. If not exists and no other dirs are
     /// configured, the default column layout will be applied.
     #[arg(long, default_value_os_t = get_home_dir())]
@@ -84,24 +84,20 @@ fn get_home_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
-pub fn get_logs_dir(kgv_home_dir: &Path) -> PathBuf {
+pub(crate) fn get_logs_dir(kgv_home_dir: &Path) -> PathBuf {
     kgv_home_dir.join("logs")
 }
 
-pub fn get_cache_dir(kgv_home_dir: &Path) -> PathBuf {
+pub(crate) fn get_cache_dir(kgv_home_dir: &Path) -> PathBuf {
     kgv_home_dir.join("cache")
 }
 
-pub fn get_module_dirs(kgv_home_dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn get_module_dirs(kgv_home_dir: &Path) -> Vec<PathBuf> {
     vec![kgv_home_dir.join("modules")]
 }
 
-pub fn get_col_def_dirs(kgv_home_dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn get_col_def_dirs(kgv_home_dir: &Path) -> Vec<PathBuf> {
     vec![kgv_home_dir.join("views").join("list")]
-}
-
-pub fn get_detail_templates_dirs(kgv_home_dir: &Path) -> Vec<PathBuf> {
-    vec![kgv_home_dir.join("views").join("detail")]
 }
 
 impl TryFrom<Args> for KgvConfiguration {
@@ -117,25 +113,23 @@ impl TryFrom<Args> for KgvConfiguration {
         let extractor_dirs = value
             .extractor_dirs
             .unwrap_or_else(|| get_col_def_dirs(&home_dir));
-        let detail_template_dirs = value
-            .detail_template_dirs
-            .unwrap_or_else(|| get_detail_templates_dirs(&home_dir));
+        // let detail_template_dirs = value
+        //     .detail_template_dirs
+        //     .unwrap_or_else(|| get_detail_templates_dirs(&home_dir));
 
-        let home_dir = wrap_opt(home_dir, "home dir");
+        // let home_dir = wrap_opt(home_dir, "home dir");
         let logs_dir = wrap_opt(logs_dir, "logs dir");
         let cache_dir = wrap_opt(cache_dir, "cache dir");
 
         let module_dirs = create_dirs(module_dirs, "module dirs");
         let extractor_dirs = create_dirs(extractor_dirs, "extractor dirs");
-        let detail_template_dirs = create_dirs(detail_template_dirs, "detail template dirs");
+        // let detail_template_dirs = create_dirs(detail_template_dirs, "detail template dirs");
 
         Ok(Self {
-            home_dir,
             cache_dir,
             logs_dir,
             module_dirs,
             extractor_dirs,
-            detail_template_dirs,
             num_tokio_backend_threads: value.num_tokio_backend_threads,
             num_evaluator_threads: value.num_evaluator_threads,
             accept_invalid_certs: value.accept_invalid_certs,

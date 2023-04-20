@@ -19,7 +19,6 @@ impl Dispatch<UiStore, InterUiSignal> for InterUiSignal {
             InterUiSignal::ShowDetails(resource) => context.dispatch_show_details(resource),
             InterUiSignal::ShowGvk(gvk) => context.dispatch_show_gvk(gvk),
             InterUiSignal::CtrlSPressed => context.dispatch_ctrl_s(),
-            InterUiSignal::ExecuteCurrent => context.dispatch_shell_current(),
             InterUiSignal::CtrlYPressed => context.dispatch_show_yaml(),
             InterUiSignal::F5Pressed => context.dispatch_refresh(),
             InterUiSignal::EscPressed => context.dispatch_pop_view(),

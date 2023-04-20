@@ -4,7 +4,8 @@ use cursive::direction::Orientation;
 use cursive::reexports::log::error;
 use cursive::traits::{Nameable, Resizable, Scrollable};
 use cursive::view::ScrollStrategy;
-use cursive::views::{Checkbox, LinearLayout, Panel, TextView};
+use cursive::views::{Checkbox, LinearLayout, Panel};
+use cursive_cached_text_view::CachedTextView;
 use k8s_openapi::api::core::v1::{Container, Pod};
 use kube::api::LogParams;
 use kube::ResourceExt;
@@ -20,7 +21,7 @@ use crate::ui::view_meta::{LogFilter, ViewMeta};
 use crate::util::ui::build_edit_view;
 use crate::util::view_with_data::ViewWithMeta;
 
-pub fn build_log_view(
+pub(crate) fn build_log_view(
     pod: &Pod,
     container: &Container,
     store: Arc<Mutex<UiStore>>,
@@ -122,7 +123,7 @@ pub fn build_log_view(
     filter_layout.add_child(since_minutes_panel);
     filter_layout.add_child(filter_tail_lines_panel);
 
-    let tv = TextView::new("")
+    let tv = CachedTextView::new("", 5)
         // .no_wrap()
         .with_name(view_meta.get_unique_name())
         .full_screen()

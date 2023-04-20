@@ -30,15 +30,15 @@ use crate::ui::ui_store::{UiStore, UiStoreDispatcherExt};
 use crate::ui::view_stack::ViewStack;
 use crate::util::watcher::LazyWatcher;
 
-pub mod backend;
-pub mod config;
-pub mod eval;
-pub mod model;
-pub mod reexports;
-pub mod theme;
-pub mod traits;
-pub mod ui;
-pub mod util;
+pub(crate) mod backend;
+pub(crate) mod config;
+pub(crate) mod eval;
+pub(crate) mod model;
+pub(crate) mod reexports;
+pub(crate) mod theme;
+pub(crate) mod traits;
+pub(crate) mod ui;
+pub(crate) mod util;
 
 fn main() -> Result<()> {
     better_panic::install();
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
 
     register_hotkeys(&mut ui, inter_ui_sender.clone());
 
-    // send_init_signals(&to_backend_sender, &ui_to_ui_sender);
+    send_init_signals(&to_backend_sender, &inter_ui_sender);
 
     let extractor_config_watcher = LazyWatcher::new(kgv_configuration.extractor_dirs, |paths| {
         ExtractorConfig::new(paths)
@@ -107,20 +107,12 @@ fn main() -> Result<()> {
     }));
 
     {
-        let dispatcher = Arc::new(Dispatcher::new(
-            from_backend_sender,
-            from_backend_receiver,
-            store.clone(),
-        ));
+        let dispatcher = Arc::new(Dispatcher::new(from_backend_receiver, store.clone()));
         dispatcher.spawn_n(kgv_configuration.num_dispatcher_threads, "from-backend");
     }
 
     {
-        let dispatcher = Arc::new(Dispatcher::new(
-            inter_ui_sender,
-            inter_ui_receiver,
-            store.clone(),
-        ));
+        let dispatcher = Arc::new(Dispatcher::new(inter_ui_receiver, store.clone()));
         dispatcher.spawn_n(kgv_configuration.num_dispatcher_threads, "inter-ui");
     }
 
@@ -131,7 +123,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-pub fn send_init_signals(
+pub(crate) fn send_init_signals(
     to_backend_sender: &Sender<ToBackendSignal>,
     ui_to_ui_sender: &Sender<InterUiSignal>,
 ) {

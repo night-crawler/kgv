@@ -7,18 +7,7 @@ use crate::model::traits::SerializeExt;
 use crate::traits::ext::gvk::GvkExt;
 
 #[derive(Debug, Clone)]
-pub struct DynamicObjectWrapper(pub DynamicObject, pub GroupVersionKind);
-
-impl DynamicObjectWrapper {
-    pub fn set_deletion_timestamp(
-        &self,
-        ts: k8s_openapi::apimachinery::pkg::apis::meta::v1::Time,
-    ) -> Self {
-        let mut cloned = self.clone();
-        let _ = cloned.0.metadata.deletion_timestamp.insert(ts);
-        cloned
-    }
-}
+pub(crate) struct DynamicObjectWrapper(pub(crate) DynamicObject, pub(crate) GroupVersionKind);
 
 impl Default for DynamicObjectWrapper {
     fn default() -> Self {

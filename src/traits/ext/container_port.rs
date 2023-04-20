@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::ContainerPort;
 
-pub trait ContainerPortExt {
+pub(crate) trait ContainerPortExt {
     fn ports_host_repr(&self) -> String;
     fn name_port_protocol_repr(&self) -> String;
     fn repr(&self) -> String;

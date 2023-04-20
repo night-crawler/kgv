@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use cursive::reexports::log::error;
 
-pub fn scan_files(roots: &[PathBuf]) -> Vec<PathBuf> {
+pub(crate) fn scan_files(roots: &[PathBuf]) -> Vec<PathBuf> {
     let mut queue = VecDeque::from_iter(roots.iter().cloned());
     let mut files = vec![];
     while let Some(path) = queue.pop_front() {

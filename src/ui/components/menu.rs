@@ -12,7 +12,10 @@ use crate::ui::components::gvk_switcher::build_gvk_show_chain;
 use crate::ui::ui_store::UiStore;
 use crate::util::ui::group_gvks;
 
-pub fn build_menu(discovered_gvks: Vec<GroupVersionKind>, store: Arc<Mutex<UiStore>>) -> Menubar {
+pub(crate) fn build_menu(
+    discovered_gvks: Vec<GroupVersionKind>,
+    store: Arc<Mutex<UiStore>>,
+) -> Menubar {
     let (to_backend_sender, to_ui_sender) = {
         let store = store.lock_unwrap();
         (

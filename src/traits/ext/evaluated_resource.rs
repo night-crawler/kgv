@@ -1,6 +1,6 @@
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 
-pub trait EvaluatedResourceExt {
+pub(crate) trait EvaluatedResourceExt {
     fn is_pod(&self) -> bool;
 }
 

@@ -1,4 +1,4 @@
-pub trait BoolExt {
+pub(crate) trait BoolExt {
     fn as_on_off(&self) -> &str;
     fn as_yes_no(&self) -> &str;
 }

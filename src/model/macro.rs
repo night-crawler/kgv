@@ -8,7 +8,7 @@ macro_rules! mk_resource_enum {
     ) => {
 
         #[derive(Debug, Clone, strum_macros::IntoStaticStr)]
-        pub enum $name {
+        pub(crate) enum $name {
             $(
                 $opt_name(std::sync::Arc<$crate::reexports::k8s::$opt_name>),
             )+
@@ -19,7 +19,7 @@ macro_rules! mk_resource_enum {
 
         // resource_version
         impl $name {
-            pub fn resource_version(&self) -> Option<String> {
+            pub(crate) fn resource_version(&self) -> Option<String> {
                 use k8s_openapi::Metadata;
                 match self {
                     $(
@@ -33,7 +33,7 @@ macro_rules! mk_resource_enum {
 
         // deletion_timestamp
         impl $name {
-            pub fn deletion_timestamp(&self) -> Option<&chrono::DateTime<chrono::Utc>> {
+            pub(crate) fn deletion_timestamp(&self) -> Option<&chrono::DateTime<chrono::Utc>> {
                 use k8s_openapi::Metadata;
                 match self {
                     $(
@@ -47,7 +47,7 @@ macro_rules! mk_resource_enum {
 
         // uid()
         impl $name {
-            pub fn uid(&self) -> Option<String> {
+            pub(crate) fn uid(&self) -> Option<String> {
                 match self {
                     $(
                         Self::$opt_name(r) => r.uid(),
@@ -60,7 +60,7 @@ macro_rules! mk_resource_enum {
 
         // name()
         impl $name {
-            pub fn name(&self) -> String {
+            pub(crate) fn name(&self) -> String {
                 match self {
                     $(
                         Self::$opt_name(r) => r.name_any(),
@@ -73,7 +73,7 @@ macro_rules! mk_resource_enum {
 
         // namespace()
         impl $name {
-            pub fn namespace(&self) -> String {
+            pub(crate) fn namespace(&self) -> String {
                 match self {
                     $(
                         Self::$opt_name(r) => r.namespace().unwrap_or_default(),
@@ -86,17 +86,7 @@ macro_rules! mk_resource_enum {
 
         // age()
         impl $name {
-            pub fn age(&self) -> chrono::Duration {
-                match self {
-                    $(
-                        Self::$opt_name(r) => extract_age!(r),
-                    )+
-                    Self::DynamicObject(r) => extract_age!(r),
-                    Self::PseudoResource(r) => r.age(),
-                }
-            }
-
-            pub fn creation_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+            pub(crate) fn creation_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
                 match self {
                     $(
                         Self::$opt_name(r) => r.creation_timestamp().unwrap_or_else(|| {
@@ -142,7 +132,7 @@ macro_rules! mk_resource_enum {
             }
         )+
 
-        pub async fn register_any_gvk(registry: &mut $crate::backend::reflector_registry::ReflectorRegistry, gvk: kube::api::GroupVersionKind) {
+        pub(crate) async fn register_any_gvk(registry: &mut $crate::backend::reflector_registry::ReflectorRegistry, gvk: kube::api::GroupVersionKind) {
             use k8s_openapi::Resource;
             use $crate::util::panics::ResultExt;
             match gvk {

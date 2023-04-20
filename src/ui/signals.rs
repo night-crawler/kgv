@@ -7,34 +7,32 @@ use crate::ui::dispatcher::DispatchContext;
 use crate::ui::ui_store::UiStore;
 
 #[derive(Debug)]
-pub enum ToBackendSignal {
+pub(crate) enum ToBackendSignal {
     Remove(ResourceView),
     RequestRegisterGvk(GroupVersionKind),
     RequestLogsSubscribe(LogRequest),
     RequestLogsUnsubscribe(usize),
-
-    RequestDetails(ResourceView),
 }
 
-pub type ToUiChainDispatch = dyn FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal>
+pub(crate) type ToUiChainDispatch = dyn FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal>
     + Send
     + Sync
     + 'static;
 
 #[derive(AsRefStr)]
-pub enum FromBackendSignal {
-    ResponseLogData {
+pub(crate) enum FromBackendSignal {
+    LogData {
         view_id: usize,
         seq_id: usize,
         data: Vec<u8>,
     },
-    ResponseResourceUpdated(ResourceView),
-    ResponseResourceDeleted(ResourceView),
-    ResponseDiscoveredGvks(Vec<GroupVersionKind>),
+    ResourceUpdated(ResourceView),
+    ResourceDeleted(ResourceView),
+    DiscoveredGvks(Vec<GroupVersionKind>),
 }
 
 #[derive(AsRefStr)]
-pub enum InterUiSignal {
+pub(crate) enum InterUiSignal {
     LogsApplyHighlight(usize, String),
     LogsApplySinceMinutes(usize, usize),
     LogsApplyTailLines(usize, usize),
@@ -60,17 +58,16 @@ pub enum InterUiSignal {
     CtrlYPressed,
     CtrlSlashPressed,
     CtrlPPressed,
-    ExecuteCurrent,
     F5Pressed,
     EscPressed,
     ShowDebugLog,
 }
 
 impl InterUiSignal {
-    pub fn new_chain() -> Self {
+    pub(crate) fn new_chain() -> Self {
         InterUiSignal::Chain(vec![])
     }
-    pub fn chain(
+    pub(crate) fn chain(
         self,
         cb: impl FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal>
             + Send

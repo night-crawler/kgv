@@ -8,33 +8,33 @@ use crate::util::error::{LogError, LogErrorOptionExt, LogErrorResultExt};
 use crate::util::panics::OptionExt;
 
 #[derive(Debug, Default, Clone, Hash)]
-pub struct ListViewFilter {
-    pub namespace: String,
-    pub name: String,
+pub(crate) struct ListViewFilter {
+    pub(crate) namespace: String,
+    pub(crate) name: String,
 }
 
 impl ListViewFilter {
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.namespace.is_empty() && self.name.is_empty()
     }
 }
 
 #[derive(Debug, Default, Clone, Hash)]
-pub struct LogFilter {
-    pub value: String,
-    pub show_timestamps: bool,
+pub(crate) struct LogFilter {
+    pub(crate) value: String,
+    pub(crate) show_timestamps: bool,
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct LogItem {
-    pub seq_id: usize,
-    pub timestamp: chrono::DateTime<FixedOffset>,
-    pub value: String,
-    pub is_placeholder: bool,
+pub(crate) struct LogItem {
+    pub(crate) seq_id: usize,
+    pub(crate) timestamp: chrono::DateTime<FixedOffset>,
+    pub(crate) value: String,
+    pub(crate) is_placeholder: bool,
 }
 
 impl LogItem {
-    pub fn new(seq_id: usize, raw_log_data: Vec<u8>) -> Result<Self, LogError> {
+    pub(crate) fn new(seq_id: usize, raw_log_data: Vec<u8>) -> Result<Self, LogError> {
         let raw_log_string = String::from_utf8(raw_log_data)
             .to_log_error(|err| format!("Failed to parse string: {err}"))?;
         let (timestamp, log_string) = raw_log_string
@@ -53,7 +53,7 @@ impl LogItem {
 }
 
 #[derive(Debug, AsRefStr)]
-pub enum ViewMeta {
+pub(crate) enum ViewMeta {
     List {
         id: usize,
         gvk: GroupVersionKind,
@@ -91,7 +91,7 @@ pub enum ViewMeta {
 }
 
 impl ViewMeta {
-    pub fn title(&self) -> String {
+    pub(crate) fn title(&self) -> String {
         let title = format!("{: >4} {: >7}", self.get_id(), self.as_ref());
         let unique_part = match self {
             ViewMeta::List { gvk, filter, .. } => {
@@ -135,7 +135,7 @@ impl ViewMeta {
 
         format!("{title} - {unique_part}")
     }
-    pub fn get_unique_name(&self) -> String {
+    pub(crate) fn get_unique_name(&self) -> String {
         match self {
             ViewMeta::List { id, gvk, filter: _ } => {
                 format!("gvk-list-{id}-{}-table", gvk.full_name())
@@ -153,48 +153,44 @@ impl ViewMeta {
         }
     }
 
-    pub fn is_list(&self) -> bool {
+    pub(crate) fn is_list(&self) -> bool {
         matches!(self, ViewMeta::List { .. })
     }
 
-    pub fn get_uid(&self) -> Option<String> {
+    pub(crate) fn get_uid(&self) -> Option<String> {
         match self {
             ViewMeta::Details { uid, .. } | ViewMeta::Code { uid, .. } => Some(uid.to_string()),
             _ => None,
         }
     }
 
-    pub fn get_edit_name(&self, edit_type: &str) -> String {
+    pub(crate) fn get_edit_name(&self, edit_type: &str) -> String {
         format!("{}-edit-{edit_type}", self.get_unique_name())
     }
 
-    pub fn get_checkbox_name(&self, checkbox_type: &str) -> String {
+    pub(crate) fn get_checkbox_name(&self, checkbox_type: &str) -> String {
         format!("{}-checkbox-{checkbox_type}", self.get_unique_name())
     }
 
-    pub fn get_panel_name(&self) -> String {
+    pub(crate) fn get_panel_name(&self) -> String {
         format!("{}-panel", self.get_unique_name())
     }
 
-    pub fn get_scrollable_name(&self) -> String {
-        format!("{}-scrollable", self.get_unique_name())
-    }
-
-    pub fn set_namespace(&mut self, namespace: String) {
+    pub(crate) fn set_namespace(&mut self, namespace: String) {
         match self {
             ViewMeta::List { filter, .. } => filter.namespace = namespace,
             this => panic!("Setting namespace {namespace} on {:?}", this),
         }
     }
 
-    pub fn set_name(&mut self, name: String) {
+    pub(crate) fn set_name(&mut self, name: String) {
         match self {
             ViewMeta::List { filter, .. } => filter.name = name,
-            this => panic!("Setting namespace {name} on {:?}", this),
+            this => panic!("Setting name {name} on {:?}", this),
         }
     }
 
-    pub fn get_id(&self) -> usize {
+    pub(crate) fn get_id(&self) -> usize {
         match self {
             Self::List { id, .. }
             | Self::Details { id, .. }
@@ -206,14 +202,14 @@ impl ViewMeta {
         }
     }
 
-    pub fn get_filter(&self) -> &ListViewFilter {
+    pub(crate) fn get_filter(&self) -> &ListViewFilter {
         match self {
             ViewMeta::List { filter, .. } => filter,
             this => panic!("Trying to get filter on {:?}", this),
         }
     }
 
-    pub fn get_gvk(&self) -> &GroupVersionKind {
+    pub(crate) fn get_gvk(&self) -> &GroupVersionKind {
         match self {
             ViewMeta::List { gvk, .. }
             | ViewMeta::Code { gvk, .. }
@@ -221,15 +217,31 @@ impl ViewMeta {
             this => panic!("{:?} does not have GVK", this),
         }
     }
+}
 
-    pub fn get_log_filter(&self) -> &LogFilter {
+
+pub(crate) trait ViewMetaLogExt {
+    fn get_log_filter(&self) -> &LogFilter;
+    fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter;
+    fn get_log_request(&self) -> &LogRequest;
+    fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest;
+    fn push_log_item(&mut self, item: LogItem);
+    fn set_log_since_seconds(&mut self, num_minutes: usize);
+    fn set_log_tail_lines(&mut self, num_lines: usize);
+    fn set_log_show_previous(&mut self, show_previous: bool);
+    fn set_log_search_text(&mut self, text: String);
+    fn set_log_show_timestamps(&mut self, show: bool);
+}
+
+impl ViewMetaLogExt for ViewMeta {
+     fn get_log_filter(&self) -> &LogFilter {
         match self {
             ViewMeta::Logs { filter, .. } => filter,
             this => panic!("{:?} is not Logs", this),
         }
     }
 
-    pub fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter {
+     fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter {
         match self {
             ViewMeta::Logs {
                 filter, next_index, ..
@@ -241,14 +253,14 @@ impl ViewMeta {
         }
     }
 
-    pub fn get_log_request(&self) -> &LogRequest {
+     fn get_log_request(&self) -> &LogRequest {
         match self {
             ViewMeta::Logs { request, .. } => request,
             this => panic!("{:?} is not Logs", this),
         }
     }
 
-    pub fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest {
+     fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest {
         match self {
             ViewMeta::Logs {
                 request,
@@ -264,7 +276,7 @@ impl ViewMeta {
         }
     }
 
-    pub fn push_log_item(&mut self, item: LogItem) {
+     fn push_log_item(&mut self, item: LogItem) {
         match self {
             ViewMeta::Logs { log_items, .. } => {
                 let seq_id = item.seq_id;
@@ -276,5 +288,42 @@ impl ViewMeta {
             }
             this => panic!("{:?} is not Logs", this),
         }
+    }
+
+    fn set_log_since_seconds(&mut self, num_minutes: usize) {
+        let num_seconds = Some((num_minutes + 60) as i64);
+        if self.get_log_request().log_params.since_seconds == num_seconds {
+            return;
+        }
+        self.get_log_request_clearing_mut().log_params.since_seconds = num_seconds;
+    }
+
+    fn set_log_tail_lines(&mut self, num_lines: usize) {
+        let num_lines = Some(num_lines as i64);
+        if self.get_log_request().log_params.tail_lines == num_lines {
+            return;
+        }
+        self.get_log_request_clearing_mut().log_params.tail_lines = num_lines;
+    }
+
+    fn set_log_show_previous(&mut self, show_previous: bool) {
+        if self.get_log_request().log_params.previous == show_previous {
+            return;
+        }
+        self.get_log_request_clearing_mut().log_params.previous = show_previous;
+    }
+
+    fn set_log_search_text(&mut self, text: String) {
+        if self.get_log_filter().value == text {
+            return;
+        }
+        self.get_log_filter_clearing_mut().value = text;
+    }
+
+    fn set_log_show_timestamps(&mut self, show: bool) {
+        if self.get_log_filter().show_timestamps == show {
+            return;
+        }
+        self.get_log_filter_clearing_mut().show_timestamps = show;
     }
 }

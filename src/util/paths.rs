@@ -3,11 +3,11 @@ use std::path::{Path, PathBuf};
 use cursive::reexports::log::warn;
 use lazy_static::lazy_static;
 
-pub const SELF_NAME: &str = ".kgv";
+pub(crate) const SELF_NAME: &str = ".kgv";
 
 lazy_static! {
-    pub static ref HOME_DIR: PathBuf = home::home_dir().unwrap();
-    pub static ref KGV_HOME_DIR: PathBuf = HOME_DIR.join(SELF_NAME);
+    pub(crate) static ref HOME_DIR: PathBuf = home::home_dir().unwrap();
+    pub(crate) static ref KGV_HOME_DIR: PathBuf = HOME_DIR.join(SELF_NAME);
 }
 
 fn resolve_path_internal(origin: &Path, rel_path: &Path) -> PathBuf {
@@ -22,7 +22,7 @@ fn resolve_path_internal(origin: &Path, rel_path: &Path) -> PathBuf {
     }
 }
 
-pub fn resolve_path(origin: &Path, rel_path: &Path) -> PathBuf {
+pub(crate) fn resolve_path(origin: &Path, rel_path: &Path) -> PathBuf {
     let path = resolve_path_internal(origin, rel_path);
     match path.canonicalize() {
         Ok(path) => path,

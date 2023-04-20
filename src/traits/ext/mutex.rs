@@ -4,7 +4,7 @@ use crate::reexports::sync::{Mutex, MutexGuard};
 use crate::util::error::KgvError;
 use crate::util::panics::ResultExt;
 
-pub trait MutexExt<T> {
+pub(crate) trait MutexExt<T> {
     fn lock_unwrap(&self) -> MutexGuard<'_, T>;
     fn lock_sync(&self) -> Result<MutexGuard<'_, T>, KgvError>;
 
