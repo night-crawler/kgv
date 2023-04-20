@@ -11,6 +11,7 @@ use tokio::runtime::Runtime;
 
 use crate::backend::fs_cache::FsCache;
 use crate::backend::log_manager::LogManager;
+use crate::backend::port_forwarder::PortForwarder;
 use crate::backend::reflector_registry::ReflectorRegistry;
 use crate::backend::remove_manager::RemoveManager;
 use crate::model::resource::resource_view::{register_any_gvk, ResourceView};
@@ -27,6 +28,7 @@ pub(crate) struct K8sBackend {
     registry: Arc<futures::lock::Mutex<ReflectorRegistry>>,
     log_manager: Arc<LogManager>,
     remove_manager: Arc<RemoveManager>,
+    port_forwarder: Arc<PortForwarder>,
 
     from_backend_sender: kanal::Sender<FromBackendSignal>,
     from_ui_receiver: kanal::Receiver<ToBackendSignal>,
@@ -57,6 +59,7 @@ impl K8sBackend {
 
         let remove_manager = RemoveManager::new(&client, from_backend_sender.clone_async());
         let log_manager = LogManager::new(&client, from_backend_sender.clone_async());
+        let port_forwarder = PortForwarder::new(&client, from_backend_sender.clone_async());
 
         let instance = Self {
             fs_cache: Arc::new(futures::lock::Mutex::new(fs_cache)),
@@ -68,6 +71,7 @@ impl K8sBackend {
             from_ui_receiver,
             log_manager: Arc::new(log_manager),
             remove_manager: Arc::new(remove_manager),
+            port_forwarder: Arc::new(port_forwarder),
         };
 
         Ok(instance)
@@ -156,6 +160,7 @@ impl K8sBackend {
         let registry = Arc::clone(&self.registry);
         let remove_manager = Arc::clone(&self.remove_manager);
         let log_manager = Arc::clone(&self.log_manager);
+        let port_forwarder = Arc::clone(&self.port_forwarder);
 
         self.runtime.spawn(async move {
             let mut stream = receiver.stream();
@@ -163,7 +168,7 @@ impl K8sBackend {
             while let Some(signal) = stream.next().await {
                 let mut reg = registry.lock().await;
                 match signal {
-                    ToBackendSignal::RequestRegisterGvk(gvk) => {
+                    ToBackendSignal::RegisterGvk(gvk) => {
                         register_any_gvk(reg.deref_mut(), gvk).await;
                     }
                     ToBackendSignal::Remove(resource) => {
@@ -172,13 +177,18 @@ impl K8sBackend {
                             error!("Failed to remove resource {name}: {err}");
                         }
                     }
-                    ToBackendSignal::RequestLogsSubscribe(request) => {
+                    ToBackendSignal::LogsSubscribe(request) => {
                         if let Err(err) = log_manager.subscribe(request).await {
                             error!("Failed to subscribe to logs: {err}");
                         }
                     }
-                    ToBackendSignal::RequestLogsUnsubscribe(view_id) => {
+                    ToBackendSignal::LogsUnsubscribe(view_id) => {
                         log_manager.unsubscribe(view_id).await;
+                    }
+                    ToBackendSignal::PortForward(port_forward_request) => {
+                        if let Err(err) = port_forwarder.forward(port_forward_request).await {
+                            error!("Failed to forward port: {err}");
+                        }
                     }
                 }
             }

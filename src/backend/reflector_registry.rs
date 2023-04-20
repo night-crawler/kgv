@@ -7,8 +7,8 @@ use futures::{StreamExt, TryStreamExt};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, Time};
 use k8s_openapi::Metadata;
 use kanal::AsyncSender;
-use kube::api::{DynamicObject, GroupVersionKind, ListParams};
-use kube::runtime::watcher::Event;
+use kube::api::{DynamicObject, GroupVersionKind};
+use kube::runtime::watcher::{Config, Event};
 use kube::runtime::{watcher, WatchStreamExt};
 use kube::{discovery, Api, Client, Resource, ResourceExt};
 use tokio::sync::RwLock;
@@ -81,7 +81,7 @@ impl ReflectorRegistry {
         }
 
         let api: Api<T> = Api::all(self.client.clone());
-        let params = ListParams::default().timeout(1);
+        let params = Config::default().timeout(1);
 
         let mut stream = watcher(api, params)
             .map_ok(move |event| fix_deletion_timestamp(&gvk, event))
@@ -121,7 +121,7 @@ impl ReflectorRegistry {
         let (ar, _caps) = discovery::pinned_kind(&self.client, &gvk).await?;
         let api = Api::<DynamicObject>::all_with(self.client.clone(), &ar);
 
-        let params = ListParams::default();
+        let params = Config::default();
 
         let event_gvk = gvk.clone();
         let mut stream = watcher(api, params)

@@ -27,6 +27,7 @@ use crate::ui::components::detail_view::build_detail_view;
 use crate::ui::components::gvk_list_view::build_gvk_list_view_layout;
 use crate::ui::components::gvk_switcher::build_gvk_switcher;
 use crate::ui::components::log_view::build_log_view;
+use crate::ui::components::port_forward_view::build_port_forward_view;
 use crate::ui::components::window_switcher::build_window_switcher;
 use crate::ui::dispatch::send_helper_ext::DispatchContextSendHelperExt;
 use crate::ui::dispatcher::DispatchContext;
@@ -58,6 +59,7 @@ pub(crate) trait DispatchContextUiExt {
         view_id: usize,
         show_timestamps: bool,
     ) -> anyhow::Result<()>;
+    fn dispatch_port_forward(self) -> anyhow::Result<()>;
     fn dispatch_logs_apply_previous(
         self,
         view_id: usize,
@@ -173,6 +175,22 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
     ) -> anyhow::Result<()> {
         let view = self.get_view_by_id(view_id)?;
         view.write_sync()?.set_log_show_timestamps(show_timestamps);
+        Ok(())
+    }
+
+    fn dispatch_port_forward(self) -> anyhow::Result<()> {
+        let pod = match self.get_selected_resource()?.resource {
+            ResourceView::Pod(pod) => pod,
+            _ => return Err(anyhow::anyhow!("Selected resource is not a pod")),
+        };
+        let store = Arc::clone(&self.data);
+        self.send_wait(move |siv| {
+            let view = build_port_forward_view(&pod,  Arc::clone(&store))?;
+            store.register_view(&view);
+            siv.add_layer(view);
+            Ok::<_, anyhow::Error>(())
+        })?;
+
         Ok(())
     }
 
@@ -493,7 +511,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         self.data.locking(|store| {
             store
                 .to_backend_sender
-                .send(ToBackendSignal::RequestLogsSubscribe(log_request))?;
+                .send(ToBackendSignal::LogsSubscribe(log_request))?;
             Ok(())
         })
     }
@@ -611,7 +629,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         self.data
             .lock_sync()?
             .to_backend_sender
-            .send(ToBackendSignal::RequestLogsSubscribe(log_request))?;
+            .send(ToBackendSignal::LogsSubscribe(log_request))?;
         Ok(())
     }
 }

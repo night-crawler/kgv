@@ -125,7 +125,7 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
             view.push_log_item(log_item);
         } else {
             warn!("Log view not found: {}", view_id);
-            to_backend_sender.send(ToBackendSignal::RequestLogsUnsubscribe(view_id))?;
+            to_backend_sender.send(ToBackendSignal::LogsUnsubscribe(view_id))?;
         }
 
         Ok(())

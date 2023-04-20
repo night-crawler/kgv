@@ -51,6 +51,10 @@ pub(crate) fn register_hotkeys(ui: &mut Cursive, ui_to_ui_sender: kanal::Sender<
             event::Event::CtrlChar('l'),
             Arc::new(|| InterUiSignal::CtrlLPressed),
         ),
+        (
+            event::Event::CtrlChar('f'),
+            Arc::new(|| InterUiSignal::CtrlFPressed),
+        ),
     ];
 
     hotkeys.into_iter().for_each(|(event, signal)| {
