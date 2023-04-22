@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::reexports::sync::RwLock;
-use crate::traits::ext::kanal_sender::KanalSenderExt;
-use crate::traits::ext::rw_lock::RwLockExt;
-use crate::ui::view_meta::ViewMeta;
 use anyhow::Context;
 use cursive::reexports::log::{error, warn};
 use cursive::{Cursive, View};
 use cursive_table_view::{TableView, TableViewItem};
 
+use crate::reexports::sync::RwLock;
+use crate::traits::ext::kanal_sender::KanalSenderExt;
+use crate::traits::ext::rw_lock::RwLockExt;
+use crate::ui::view_meta::ViewMeta;
 use crate::util::panics::ResultExt;
 
 pub(crate) trait SivExt {

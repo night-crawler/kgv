@@ -23,6 +23,9 @@ impl Dispatch<UiStore, FromBackendSignal> for FromBackendSignal {
                 view_id,
                 data,
             } => context.dispatch_response_log_data(view_id, data, seq_id),
+            FromBackendSignal::PortForwardingStarted(pf_request) => {
+                context.dispatch_port_forwarding_started(pf_request)
+            }
         };
 
         log_signal_result(result, &signal_name);

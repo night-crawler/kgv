@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use crate::model::port_forward_request::PortForwardRequest;
 use cursive::reexports::log::{info, warn};
 use cursive_cached_text_view::CachedTextView;
 use cursive_markup::html::RichRenderer;
@@ -47,6 +48,10 @@ pub(crate) trait DispatchContextBackendExt {
         &self,
         evaluated_resource: EvaluatedResource,
         view: Arc<RwLock<ViewMeta>>,
+    ) -> anyhow::Result<()>;
+    fn dispatch_port_forwarding_started(
+        self,
+        port_forwarding: Arc<PortForwardRequest>,
     ) -> anyhow::Result<()>;
 }
 
@@ -125,7 +130,7 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
             view.push_log_item(log_item);
         } else {
             warn!("Log view not found: {}", view_id);
-            to_backend_sender.send(ToBackendSignal::RequestLogsUnsubscribe(view_id))?;
+            to_backend_sender.send(ToBackendSignal::LogsUnsubscribe(view_id))?;
         }
 
         Ok(())
@@ -246,6 +251,14 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
             },
         );
 
+        Ok(())
+    }
+
+    fn dispatch_port_forwarding_started(
+        self,
+        port_forwarding: Arc<PortForwardRequest>,
+    ) -> anyhow::Result<()> {
+        self.data.lock_unwrap().pf_requests.push(port_forwarding);
         Ok(())
     }
 }

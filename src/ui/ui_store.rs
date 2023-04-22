@@ -3,11 +3,12 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 use std::time::Duration;
 
-use cursive::Cursive;
+use crate::model::port_forward_request::PortForwardRequest;
 use cursive::reexports::crossbeam_channel::Sender;
 use cursive::reexports::log::warn;
 use cursive::theme::Style;
 use cursive::utils::markup::StyledString;
+use cursive::Cursive;
 use cursive_cached_text_view::CachedTextView;
 use itertools::Itertools;
 use k8s_openapi::serde_json;
@@ -47,6 +48,7 @@ pub(crate) struct UiStore {
 
     pub(crate) detail_view_renderer: DetailViewRenderer,
     pub(crate) gvks: Vec<GroupVersionKind>,
+    pub(crate) pf_requests: Vec<Arc<PortForwardRequest>>,
 }
 
 impl UiStore {
@@ -163,8 +165,10 @@ impl UiStoreDispatcherExt for Arc<Mutex<UiStore>> {
                                     ));
                                 }
 
-                                let prettified_line = if let Ok(Ok(mut line)) = serde_json::from_str::<serde_json::Value>(&log_item.value)
-                                    .map(|value| serde_json::to_string_pretty(&value)) {
+                                let prettified_line = if let Ok(Ok(mut line)) =
+                                    serde_json::from_str::<serde_json::Value>(&log_item.value)
+                                        .map(|value| serde_json::to_string_pretty(&value))
+                                {
                                     line.push('\n');
                                     Cow::Owned(line)
                                 } else {

@@ -1,7 +1,9 @@
 use kube::api::GroupVersionKind;
+use std::sync::Arc;
 use strum_macros::AsRefStr;
 
 use crate::model::log_request::LogRequest;
+use crate::model::port_forward_request::PortForwardRequest;
 use crate::model::resource::resource_view::ResourceView;
 use crate::ui::dispatcher::DispatchContext;
 use crate::ui::ui_store::UiStore;
@@ -9,9 +11,11 @@ use crate::ui::ui_store::UiStore;
 #[derive(Debug)]
 pub(crate) enum ToBackendSignal {
     Remove(ResourceView),
-    RequestRegisterGvk(GroupVersionKind),
-    RequestLogsSubscribe(LogRequest),
-    RequestLogsUnsubscribe(usize),
+    RegisterGvk(GroupVersionKind),
+    LogsSubscribe(LogRequest),
+    LogsUnsubscribe(usize),
+    PortForward(Arc<PortForwardRequest>),
+    StopForwarding(Arc<PortForwardRequest>),
 }
 
 pub(crate) type ToUiChainDispatch = dyn FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal>
@@ -29,6 +33,7 @@ pub(crate) enum FromBackendSignal {
     ResourceUpdated(ResourceView),
     ResourceDeleted(ResourceView),
     DiscoveredGvks(Vec<GroupVersionKind>),
+    PortForwardingStarted(Arc<PortForwardRequest>),
 }
 
 #[derive(AsRefStr)]
@@ -53,6 +58,8 @@ pub(crate) enum InterUiSignal {
 
     CtrlKPressed,
     CtrlLPressed,
+    CtrlFPressed,
+    CtrlGPressed,
     CtrlSPressed,
     AltPlusPressed,
     CtrlYPressed,

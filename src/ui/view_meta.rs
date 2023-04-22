@@ -219,7 +219,6 @@ impl ViewMeta {
     }
 }
 
-
 pub(crate) trait ViewMetaLogExt {
     fn get_log_filter(&self) -> &LogFilter;
     fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter;
@@ -234,14 +233,14 @@ pub(crate) trait ViewMetaLogExt {
 }
 
 impl ViewMetaLogExt for ViewMeta {
-     fn get_log_filter(&self) -> &LogFilter {
+    fn get_log_filter(&self) -> &LogFilter {
         match self {
             ViewMeta::Logs { filter, .. } => filter,
             this => panic!("{:?} is not Logs", this),
         }
     }
 
-     fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter {
+    fn get_log_filter_clearing_mut(&mut self) -> &mut LogFilter {
         match self {
             ViewMeta::Logs {
                 filter, next_index, ..
@@ -253,14 +252,14 @@ impl ViewMetaLogExt for ViewMeta {
         }
     }
 
-     fn get_log_request(&self) -> &LogRequest {
+    fn get_log_request(&self) -> &LogRequest {
         match self {
             ViewMeta::Logs { request, .. } => request,
             this => panic!("{:?} is not Logs", this),
         }
     }
 
-     fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest {
+    fn get_log_request_clearing_mut(&mut self) -> &mut LogRequest {
         match self {
             ViewMeta::Logs {
                 request,
@@ -276,7 +275,7 @@ impl ViewMetaLogExt for ViewMeta {
         }
     }
 
-     fn push_log_item(&mut self, item: LogItem) {
+    fn push_log_item(&mut self, item: LogItem) {
         match self {
             ViewMeta::Logs { log_items, .. } => {
                 let seq_id = item.seq_id;
