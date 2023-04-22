@@ -104,6 +104,7 @@ fn main() -> Result<()> {
         gvks: vec![],
         resource_manager: Arc::new(RwLock::new(resource_manager)),
         detail_view_renderer,
+        pf_requests: vec![],
     }));
 
     {

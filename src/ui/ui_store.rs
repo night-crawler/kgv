@@ -12,6 +12,7 @@ use cursive_cached_text_view::CachedTextView;
 use itertools::Itertools;
 use k8s_openapi::serde_json;
 use kube::api::GroupVersionKind;
+use crate::model::port_forward_request::PortForwardRequest;
 
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::model::traits::SerializeExt;
@@ -47,6 +48,7 @@ pub(crate) struct UiStore {
 
     pub(crate) detail_view_renderer: DetailViewRenderer,
     pub(crate) gvks: Vec<GroupVersionKind>,
+    pub(crate) pf_requests: Vec<Arc<PortForwardRequest>>,
 }
 
 impl UiStore {

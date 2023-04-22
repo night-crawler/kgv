@@ -5,4 +5,5 @@ pub(crate) mod gvk_switcher;
 pub(crate) mod log_view;
 pub(crate) mod menu;
 pub(crate) mod window_switcher;
-pub(crate) mod port_forward_view;
+pub(crate) mod port_forwarding_dialog_view;
+pub(crate) mod port_forwarding_view;

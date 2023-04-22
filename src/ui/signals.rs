@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use kube::api::GroupVersionKind;
 use strum_macros::AsRefStr;
 
@@ -13,7 +14,8 @@ pub(crate) enum ToBackendSignal {
     RegisterGvk(GroupVersionKind),
     LogsSubscribe(LogRequest),
     LogsUnsubscribe(usize),
-    PortForward(PortForwardRequest)
+    PortForward(Arc<PortForwardRequest>),
+    StopForwarding(Arc<PortForwardRequest>),
 }
 
 pub(crate) type ToUiChainDispatch = dyn FnOnce(DispatchContext<UiStore, InterUiSignal>) -> Option<InterUiSignal>
@@ -31,6 +33,7 @@ pub(crate) enum FromBackendSignal {
     ResourceUpdated(ResourceView),
     ResourceDeleted(ResourceView),
     DiscoveredGvks(Vec<GroupVersionKind>),
+    PortForwardingStarted(Arc<PortForwardRequest>)
 }
 
 #[derive(AsRefStr)]
@@ -56,6 +59,7 @@ pub(crate) enum InterUiSignal {
     CtrlKPressed,
     CtrlLPressed,
     CtrlFPressed,
+    CtrlGPressed,
     CtrlSPressed,
     AltPlusPressed,
     CtrlYPressed,

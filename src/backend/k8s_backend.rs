@@ -166,9 +166,9 @@ impl K8sBackend {
             let mut stream = receiver.stream();
 
             while let Some(signal) = stream.next().await {
-                let mut reg = registry.lock().await;
                 match signal {
                     ToBackendSignal::RegisterGvk(gvk) => {
+                        let mut reg = registry.lock().await;
                         register_any_gvk(reg.deref_mut(), gvk).await;
                     }
                     ToBackendSignal::Remove(resource) => {
@@ -185,10 +185,13 @@ impl K8sBackend {
                     ToBackendSignal::LogsUnsubscribe(view_id) => {
                         log_manager.unsubscribe(view_id).await;
                     }
-                    ToBackendSignal::PortForward(port_forward_request) => {
-                        if let Err(err) = port_forwarder.forward(port_forward_request).await {
+                    ToBackendSignal::PortForward(pf_request) => {
+                        if let Err(err) = port_forwarder.forward(pf_request).await {
                             error!("Failed to forward port: {err}");
                         }
+                    }
+                    ToBackendSignal::StopForwarding(pf_request) => {
+                        port_forwarder.stop(pf_request).await;
                     }
                 }
             }
