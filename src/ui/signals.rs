@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use kube::api::GroupVersionKind;
+use std::sync::Arc;
 use strum_macros::AsRefStr;
 
 use crate::model::log_request::LogRequest;
@@ -33,7 +33,7 @@ pub(crate) enum FromBackendSignal {
     ResourceUpdated(ResourceView),
     ResourceDeleted(ResourceView),
     DiscoveredGvks(Vec<GroupVersionKind>),
-    PortForwardingStarted(Arc<PortForwardRequest>)
+    PortForwardingStarted(Arc<PortForwardRequest>),
 }
 
 #[derive(AsRefStr)]

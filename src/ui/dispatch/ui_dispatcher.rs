@@ -59,9 +59,7 @@ impl Dispatch<UiStore, InterUiSignal> for InterUiSignal {
                 context.dispatch_logs_apply_previous(view_id, show_previous)
             }
             InterUiSignal::CtrlFPressed => context.dispatch_show_port_forwarding_dialog(),
-            InterUiSignal::CtrlGPressed => {
-                context.dispatch_show_port_forwarding_view()
-            }
+            InterUiSignal::CtrlGPressed => context.dispatch_show_port_forwarding_view(),
         };
 
         log_signal_result(result, &signal_name);

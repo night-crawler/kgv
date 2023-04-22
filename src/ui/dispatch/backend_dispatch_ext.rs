@@ -1,13 +1,13 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use crate::model::port_forward_request::PortForwardRequest;
 use cursive::reexports::log::{info, warn};
 use cursive_cached_text_view::CachedTextView;
 use cursive_markup::html::RichRenderer;
 use cursive_markup::MarkupView;
 use cursive_table_view::TableView;
 use kube::api::GroupVersionKind;
-use crate::model::port_forward_request::PortForwardRequest;
 
 use crate::model::resource::resource_view::{EvaluatedResource, ResourceView};
 use crate::reexports::sync::RwLock;
@@ -49,7 +49,10 @@ pub(crate) trait DispatchContextBackendExt {
         evaluated_resource: EvaluatedResource,
         view: Arc<RwLock<ViewMeta>>,
     ) -> anyhow::Result<()>;
-    fn dispatch_port_forwarding_started(self, port_forwarding: Arc<PortForwardRequest>) -> anyhow::Result<()>;
+    fn dispatch_port_forwarding_started(
+        self,
+        port_forwarding: Arc<PortForwardRequest>,
+    ) -> anyhow::Result<()>;
 }
 
 impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendSignal> {
@@ -251,7 +254,10 @@ impl<'a> DispatchContextBackendExt for DispatchContext<'a, UiStore, FromBackendS
         Ok(())
     }
 
-    fn dispatch_port_forwarding_started(self, port_forwarding: Arc<PortForwardRequest>) -> anyhow::Result<()> {
+    fn dispatch_port_forwarding_started(
+        self,
+        port_forwarding: Arc<PortForwardRequest>,
+    ) -> anyhow::Result<()> {
         self.data.lock_unwrap().pf_requests.push(port_forwarding);
         Ok(())
     }

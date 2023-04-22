@@ -194,7 +194,7 @@ impl<'a> DispatchContextUiExt for DispatchContext<'a, UiStore, InterUiSignal> {
         let (pod, container) = self.get_active_container()?;
         let store = Arc::clone(&self.data);
         self.send_wait(move |siv| {
-            let view = build_port_forwarding_dialog_view(&pod, &container,Arc::clone(&store))?;
+            let view = build_port_forwarding_dialog_view(&pod, &container, Arc::clone(&store))?;
             store.register_view(&view);
             siv.add_layer(view);
             Ok::<_, anyhow::Error>(())
