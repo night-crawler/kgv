@@ -21,6 +21,21 @@ resources.
    switch between them. Switching is instant.
 8. Custom user dirs support. Specify your modules and templates dirs with CMD arguments.
 
+## Screenshots
+
+<div>
+<img src="https://user-images.githubusercontent.com/1235203/229350812-c026d3ec-b90b-4b90-85b2-ea8fb91b7f30.png" width="48%" alt="Table View: Pods" />
+<img src="https://user-images.githubusercontent.com/1235203/229350859-c73aacb7-bd94-4188-bb5e-2728fb02e02a.png" width="48%" alt="Table View: Pod Containers" />
+<img src="https://user-images.githubusercontent.com/1235203/229351196-a56c36b2-0cb2-4ab0-9f58-04bf49375687.png" width="48%" alt="Handlebars HTML Detail View" />
+<img src="https://user-images.githubusercontent.com/1235203/229350893-72da2ac5-d723-49b8-8034-4c175d62348e.png" width="48%" alt="YAML View" />
+<img src="https://user-images.githubusercontent.com/1235203/229350909-4dcfe45d-c822-4afc-bc52-70173958875e.png" width="48%" alt="Window Switcher View" />
+<img src="https://user-images.githubusercontent.com/1235203/229350941-c635eb76-f40f-46b8-a28c-cf8005b8f9f1.png" width="48%" alt="GVK Switcher View" />
+<img src="https://user-images.githubusercontent.com/1235203/229350970-85d2fae1-3b23-413b-91fd-027fb76222af.png" width="48%" alt="Logs View" />
+<img src="https://user-images.githubusercontent.com/1235203/229350996-ca319ac7-f06b-4685-92e1-4fb06d1fc961.png" width="48%" alt="Menu" />
+<img src="https://user-images.githubusercontent.com/1235203/233785084-7f37e1db-bb14-4e63-9ce2-fb98917a56f8.png" width="48%" alt="Port Forwarding Dialog" />
+<img src="https://user-images.githubusercontent.com/1235203/233785230-38c42c40-2aa5-4ff8-99d7-52aa1884cb2b.png" width="48%" alt="Port Forwarding View" />
+</div>
+
 ### Minor features
 
 - Rhai debugs are transferred to the main debug window
@@ -39,23 +54,8 @@ resources.
 - `Ctrl+/`: Show a list of registered GVKs
 - `Ctrl+k`: Delete current selected resource
 - `Ctrl+l`: Show logs for the selected resource
-
-## Screenshots
-
-###  
-
-<div>
-<img src="https://user-images.githubusercontent.com/1235203/229350812-c026d3ec-b90b-4b90-85b2-ea8fb91b7f30.png" width="48%" alt="Table View: Pods" />
-<img src="https://user-images.githubusercontent.com/1235203/229350859-c73aacb7-bd94-4188-bb5e-2728fb02e02a.png" width="48%" alt="Table View: Pod Containers" />
-<img src="https://user-images.githubusercontent.com/1235203/229351196-a56c36b2-0cb2-4ab0-9f58-04bf49375687.png" width="48%" alt="Handlebars HTML Detail View" />
-<img src="https://user-images.githubusercontent.com/1235203/229350893-72da2ac5-d723-49b8-8034-4c175d62348e.png" width="48%" alt="YAML View" />
-<img src="https://user-images.githubusercontent.com/1235203/229350909-4dcfe45d-c822-4afc-bc52-70173958875e.png" width="48%" alt="Window Switcher View" />
-<img src="https://user-images.githubusercontent.com/1235203/229350941-c635eb76-f40f-46b8-a28c-cf8005b8f9f1.png" width="48%" alt="GVK Switcher View" />
-<img src="https://user-images.githubusercontent.com/1235203/229350970-85d2fae1-3b23-413b-91fd-027fb76222af.png" width="48%" alt="Logs View" />
-<img src="https://user-images.githubusercontent.com/1235203/229350996-ca319ac7-f06b-4685-92e1-4fb06d1fc961.png" width="48%" alt="Menu" />
-<img src="https://user-images.githubusercontent.com/1235203/233785084-7f37e1db-bb14-4e63-9ce2-fb98917a56f8.png" width="48%" alt="Port Forwarding Dialog" />
-<img src="https://user-images.githubusercontent.com/1235203/233785230-38c42c40-2aa5-4ff8-99d7-52aa1884cb2b.png" width="48%" alt="Port Forwarding View" />
-</div>
+- `Ctrl+f`: Show Port Forwarding dialog for the selected pod
+- `Ctrl+g`: Show active Port Forwards
 
 ## Run
 
